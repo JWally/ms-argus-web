@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="favicon.ico">
+	<title>Argus - Fingerprint Test</title>
+	<style>
+		body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #eee; }
+		pre { background: #16213e; padding: 15px; border-radius: 5px; overflow: auto; max-height: 70vh; }
+		.status { padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+		.running { background: #0f3460; }
+		.complete { background: #1a5f2a; }
+		.error { background: #5f1a1a; }
+		.hashes { background: #16213e; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
+		.hashes h3 { margin: 0 0 10px 0; color: #7ec8e3; }
+		.hash-row { display: flex; margin: 5px 0; }
+		.hash-label { color: #888; width: 140px; flex-shrink: 0; }
+		.hash-value { color: #4ade80; word-break: break-all; }
+		.hash-value.fuzzy { color: #fbbf24; }
+	</style>
+</head>
+<body>
+	<h1>Argus Fingerprint Test</h1>
+	<div id="status" class="status running">Collecting fingerprint...</div>
+	<div id="hashes" class="hashes" style="display: none;">
+		<h3>Fingerprint Hashes</h3>
+		<div class="hash-row"><span class="hash-label">Stable:</span><span id="hash-stable" class="hash-value"></span></div>
+		<div class="hash-row"><span class="hash-label">Loose:</span><span id="hash-loose" class="hash-value"></span></div>
+		<div class="hash-row"><span class="hash-label">Fuzzy:</span><span id="hash-fuzzy" class="hash-value fuzzy"></span></div>
+		<div class="hash-row"><span class="hash-label">Device+Timezone:</span><span id="hash-device" class="hash-value"></span></div>
+	</div>
+	<pre id="output">Loading...</pre>
+
+	<script type="module">
+		import { collectFingerprint } from '/dist/argus.esm.js';
+
+		const statusEl = document.getElementById('status');
+		const hashesEl = document.getElementById('hashes');
+		const outputEl = document.getElementById('output');
+
+		async function run() {
+			try {
+				const start = performance.now();
+				const result = await collectFingerprint();
+				const duration = (performance.now() - start).toFixed(0);
+
+				// Expose to window for Playwright
+				window.FingerprintResult = result;
+
+				statusEl.textContent = `Fingerprint collected in ${duration}ms`;
+				statusEl.className = 'status complete';
+
+				// Display hashes at the top
+				if (result.hashes) {
+					document.getElementById('hash-stable').textContent = result.hashes.stable || 'N/A';
+					document.getElementById('hash-loose').textContent = result.hashes.loose || 'N/A';
+					document.getElementById('hash-fuzzy').textContent = result.hashes.fuzzy || 'N/A';
+					document.getElementById('hash-device').textContent = result.hashes.deviceOfTimezone || 'N/A';
+					hashesEl.style.display = 'block';
+				}
+
+				outputEl.textContent = JSON.stringify(result, null, 2);
+			} catch (err) {
+				statusEl.textContent = `Error: ${err.message}`;
+				statusEl.className = 'status error';
+				outputEl.textContent = err.stack;
+				console.error(err);
+			}
+		}
+
+		run();
+	</script>
+</body>
+</html>

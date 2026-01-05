@@ -1,0 +1,23 @@
+node_modules
+.breakpoints
+package-lock.json
+public/creep.js
+public/creep.js.map
+public/creepworker.js
+public/style.prefix.css
+notes.md
+# Build output
+dist/
+
+# Baseline fingerprint (local testing)
+baseline.json
+coverage/
+
+# WASM build artifacts
+wasm/core-pkg/
+wasm/simd-pkg/
+rust/wasm-fingerprint/target/
+rust/wasm-fingerprint/Cargo.lock
+
+# Helper Script Ignores
+*.sick
