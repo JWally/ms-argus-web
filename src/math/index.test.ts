@@ -10,9 +10,28 @@ describe('math constants', () => {
   describe('MATH_FUNCTIONS_TO_CHECK', () => {
     it('contains standard math functions', () => {
       const expectedFunctions = [
-        'acos', 'acosh', 'asin', 'asinh', 'atan', 'atanh', 'atan2',
-        'cbrt', 'cos', 'cosh', 'expm1', 'exp', 'hypot', 'log', 'log1p',
-        'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'pow'
+        'acos',
+        'acosh',
+        'asin',
+        'asinh',
+        'atan',
+        'atanh',
+        'atan2',
+        'cbrt',
+        'cos',
+        'cosh',
+        'expm1',
+        'exp',
+        'hypot',
+        'log',
+        'log1p',
+        'log10',
+        'sin',
+        'sinh',
+        'sqrt',
+        'tan',
+        'tanh',
+        'pow',
       ];
       expect(MATH_FUNCTIONS_TO_CHECK).toEqual(expectedFunctions);
     });
@@ -32,7 +51,8 @@ describe('math constants', () => {
     it('has test case structure [fn, args, displayName, chrome, firefox, tor, safari]', () => {
       for (const testCase of MATH_TEST_CASES) {
         expect(testCase.length).toBe(7);
-        const [fn, args, displayName, chrome, firefox, torBrowser, safari] = testCase;
+        const [fn, args, displayName, chrome, firefox, torBrowser, safari] =
+          testCase;
 
         // fn should be string
         expect(typeof fn).toBe('string');
@@ -58,7 +78,7 @@ describe('math constants', () => {
     });
 
     it('covers all major function categories', () => {
-      const functionNames = MATH_TEST_CASES.map(tc => tc[0]);
+      const functionNames = MATH_TEST_CASES.map((tc) => tc[0]);
       const uniqueFunctions = new Set(functionNames);
 
       // Should test multiple different functions
@@ -85,20 +105,24 @@ describe('math constants', () => {
     });
 
     it('includes edge case tests with large numbers', () => {
-      const testNames = MATH_TEST_CASES.map(tc => tc[2]);
+      const testNames = MATH_TEST_CASES.map((tc) => tc[2]);
 
       // Should have tests with 1e308 (near max float)
-      const hasLargeNumber = testNames.some(name => name.includes('1e308') || name.includes('1e300'));
+      const hasLargeNumber = testNames.some(
+        (name) => name.includes('1e308') || name.includes('1e300'),
+      );
       expect(hasLargeNumber).toBe(true);
     });
 
     it('includes Math constant tests', () => {
-      const testNames = MATH_TEST_CASES.map(tc => tc[2]);
+      const testNames = MATH_TEST_CASES.map((tc) => tc[2]);
 
       // Should test with Math constants
-      const hasMathPI = testNames.some(name => name.includes('Math.PI'));
-      const hasMathE = testNames.some(name => name.includes('Math.E'));
-      const hasMathSQRT2 = testNames.some(name => name.includes('Math.SQRT2') || name.includes('Math.SQRT1_2'));
+      const hasMathPI = testNames.some((name) => name.includes('Math.PI'));
+      const hasMathE = testNames.some((name) => name.includes('Math.E'));
+      const hasMathSQRT2 = testNames.some(
+        (name) => name.includes('Math.SQRT2') || name.includes('Math.SQRT1_2'),
+      );
 
       expect(hasMathPI).toBe(true);
       expect(hasMathE).toBe(true);
@@ -164,7 +188,9 @@ describe('math fingerprinting patterns', () => {
   describe('math equality checking pattern', () => {
     it('same function called twice should return same result', () => {
       for (const fn of MATH_FUNCTIONS_TO_CHECK) {
-        const mathFn = Math[fn as keyof typeof Math] as (...args: number[]) => number;
+        const mathFn = Math[fn as keyof typeof Math] as (
+          ...args: number[]
+        ) => number;
 
         // Use appropriate test values based on function
         let args: number[];
@@ -178,7 +204,10 @@ describe('math fingerprinting patterns', () => {
         const result2 = mathFn(...args);
 
         // Results should be identical (including NaN === NaN handling)
-        const matching = Number.isNaN(result1) && Number.isNaN(result2) ? true : result1 === result2;
+        const matching =
+          Number.isNaN(result1) && Number.isNaN(result2)
+            ? true
+            : result1 === result2;
         expect(matching).toBe(true);
       }
     });
@@ -192,7 +221,9 @@ describe('math fingerprinting patterns', () => {
         const [fn, args, , chrome] = testCase;
 
         if (fn !== 'polyfill' && Array.isArray(args)) {
-          const mathFn = Math[fn as keyof typeof Math] as (...args: number[]) => number;
+          const mathFn = Math[fn as keyof typeof Math] as (
+            ...args: number[]
+          ) => number;
           const result = mathFn(...args);
 
           // Result should be finite or NaN (not undefined)
@@ -200,7 +231,11 @@ describe('math fingerprinting patterns', () => {
 
           // If Chrome value is not NaN, it should be a valid number
           if (!Number.isNaN(chrome)) {
-            expect(Number.isFinite(chrome) || chrome === Infinity || chrome === -Infinity).toBe(true);
+            expect(
+              Number.isFinite(chrome) ||
+                chrome === Infinity ||
+                chrome === -Infinity,
+            ).toBe(true);
           }
         }
       }

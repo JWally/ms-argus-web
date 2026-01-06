@@ -55,7 +55,8 @@ describe('inconsistencies module', () => {
       expect(result.inconsistencies.length).toBeGreaterThan(0);
 
       const platformInc = result.inconsistencies.find(
-        (i) => i.category === 'platform' && i.description.includes('User agent OS'),
+        (i) =>
+          i.category === 'platform' && i.description.includes('User agent OS'),
       );
       expect(platformInc).toBeDefined();
       expect(platformInc?.severity).toBe('critical');
@@ -75,11 +76,11 @@ describe('inconsistencies module', () => {
 
       const result = analyzeInconsistencies(fingerprint);
 
-      const memInc = result.inconsistencies.find(
-        (i) => i.description.includes('Device memory differs'),
+      const memInc = result.inconsistencies.find((i) =>
+        i.description.includes('Device memory differs'),
       );
-      const coresInc = result.inconsistencies.find(
-        (i) => i.description.includes('Hardware concurrency differs'),
+      const coresInc = result.inconsistencies.find((i) =>
+        i.description.includes('Hardware concurrency differs'),
       );
 
       expect(memInc).toBeDefined();
@@ -98,8 +99,8 @@ describe('inconsistencies module', () => {
 
       const result = analyzeInconsistencies(fingerprint);
 
-      const langInc = result.inconsistencies.find(
-        (i) => i.description.includes('not first in navigator.languages'),
+      const langInc = result.inconsistencies.find((i) =>
+        i.description.includes('not first in navigator.languages'),
       );
       expect(langInc).toBeDefined();
     });
@@ -120,8 +121,8 @@ describe('inconsistencies module', () => {
 
       const result = analyzeInconsistencies(fingerprint);
 
-      const gpuInc = result.inconsistencies.find(
-        (i) => i.description.includes('WebGL renderer differs'),
+      const gpuInc = result.inconsistencies.find((i) =>
+        i.description.includes('WebGL renderer differs'),
       );
       expect(gpuInc).toBeDefined();
       expect(gpuInc?.severity).toBe('critical');
@@ -157,8 +158,8 @@ describe('inconsistencies module', () => {
 
       const result = analyzeInconsistencies(fingerprint);
 
-      const memInc = result.inconsistencies.find(
-        (i) => i.description.includes('not a standard value'),
+      const memInc = result.inconsistencies.find((i) =>
+        i.description.includes('not a standard value'),
       );
       expect(memInc).toBeDefined();
       expect(memInc?.severity).toBe('medium');
@@ -183,7 +184,9 @@ describe('inconsistencies module', () => {
       };
 
       const result = analyzeInconsistencies(fingerprint);
-      const critical = result.inconsistencies.filter((i) => i.severity === 'critical');
+      const critical = result.inconsistencies.filter(
+        (i) => i.severity === 'critical',
+      );
       expect(critical.length).toBeGreaterThan(0);
     });
 
@@ -369,7 +372,9 @@ describe('UA-CH cross-validation', () => {
     };
 
     const result = analyzeInconsistencies(fingerprint);
-    const uachInc = result.inconsistencies.filter((i) => i.category === 'ua-ch');
+    const uachInc = result.inconsistencies.filter(
+      (i) => i.category === 'ua-ch',
+    );
     expect(uachInc.length).toBe(0);
   });
 

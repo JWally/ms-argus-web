@@ -136,7 +136,9 @@ if (typeof ServiceWorkerGlobalScope !== 'undefined' && self instanceof ServiceWo
  * ServiceWorker does NOT support Blob URLs (requires file URL on same origin).
  */
 function createWorkerBlobUrl(): string {
-  const blob = new Blob([INLINE_WORKER_SCRIPT], { type: 'application/javascript' });
+  const blob = new Blob([INLINE_WORKER_SCRIPT], {
+    type: 'application/javascript',
+  });
   return URL.createObjectURL(blob);
 }
 
@@ -579,14 +581,19 @@ export default async function getBestWorkerScope() {
     };
 
     const hasConstructor = (x: unknown, name: string): boolean =>
-      x != null && (x as { __proto__: { constructor: { name: string } } }).__proto__.constructor.name === name;
+      x != null &&
+      (x as { __proto__: { constructor: { name: string } } }).__proto__
+        .constructor.name === name;
 
     // Create Blob URL for inline worker script
     const blobUrl = createWorkerBlobUrl();
 
     const getDedicatedWorker = (): Promise<WorkerScopeData | null> =>
       new Promise((resolve) => {
-        const giveUpOnWorker = setTimeout(() => resolve(null), WORKER_TIMEOUT_MS);
+        const giveUpOnWorker = setTimeout(
+          () => resolve(null),
+          WORKER_TIMEOUT_MS,
+        );
 
         const dedicatedWorker = ask(() => new Worker(blobUrl));
         if (!hasConstructor(dedicatedWorker, 'Worker')) {
@@ -609,7 +616,10 @@ export default async function getBestWorkerScope() {
 
     const getSharedWorker = (): Promise<WorkerScopeData | null> =>
       new Promise((resolve) => {
-        const giveUpOnWorker = setTimeout(() => resolve(null), WORKER_TIMEOUT_MS);
+        const giveUpOnWorker = setTimeout(
+          () => resolve(null),
+          WORKER_TIMEOUT_MS,
+        );
 
         const sharedWorker = ask(() => new SharedWorker(blobUrl));
         if (!hasConstructor(sharedWorker, 'SharedWorker')) {
@@ -908,12 +918,8 @@ const COMPARISON_FIELDS = [
  * @returns Comparison result with differences and consistency status
  */
 function compareWorkerResults(results: WorkerResult[]): WorkerComparison {
-  const succeeded = results
-    .filter((r) => r.data !== null)
-    .map((r) => r.type);
-  const failed = results
-    .filter((r) => r.data === null)
-    .map((r) => r.type);
+  const succeeded = results.filter((r) => r.data !== null).map((r) => r.type);
+  const failed = results.filter((r) => r.data === null).map((r) => r.type);
 
   // Need at least 2 successful workers to compare
   if (succeeded.length < 2) {
@@ -929,7 +935,10 @@ function compareWorkerResults(results: WorkerResult[]): WorkerComparison {
   const successfulResults = results.filter((r) => r.data !== null);
 
   for (const field of COMPARISON_FIELDS) {
-    const values: Record<WorkerType, unknown> = {} as Record<WorkerType, unknown>;
+    const values: Record<WorkerType, unknown> = {} as Record<
+      WorkerType,
+      unknown
+    >;
     let hasValue = false;
     let firstValue: unknown = undefined;
     let hasDifference = false;
@@ -1008,7 +1017,9 @@ export async function getAllWorkerScopes(
   };
 
   const hasConstructor = (x: unknown, name: string): boolean =>
-    x != null && (x as { __proto__: { constructor: { name: string } } }).__proto__.constructor.name === name;
+    x != null &&
+    (x as { __proto__: { constructor: { name: string } } }).__proto__
+      .constructor.name === name;
 
   /**
    * Spawns a DedicatedWorker and collects its fingerprint data.

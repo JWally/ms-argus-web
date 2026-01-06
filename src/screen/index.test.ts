@@ -48,7 +48,8 @@ describe('screen detection patterns', () => {
         availHeight: number,
       ) => {
         const isLarge = screenWidth > TASKBAR_DETECTION_THRESHOLD;
-        const isFullMatch = screenWidth === availWidth && screenHeight === availHeight;
+        const isFullMatch =
+          screenWidth === availWidth && screenHeight === availHeight;
         return isLarge && isFullMatch;
       };
 

@@ -96,14 +96,20 @@ describe('resistance detection patterns', () => {
 
     it('can detect constant trailing digits', () => {
       // Simulated rounded timestamps (what Firefox resistFingerprinting produces)
-      const roundedSamples = ['1704000000000', '1704000000000', '1704000000000'];
+      const roundedSamples = [
+        '1704000000000',
+        '1704000000000',
+        '1704000000000',
+      ];
       const normalSamples = ['1704000000123', '1704000000456', '1704000000789'];
 
       const roundedLastChars = roundedSamples.map((s) => s.slice(-1));
       const normalLastChars = normalSamples.map((s) => s.slice(-1));
 
       // Rounded should have all same last digits
-      expect(roundedLastChars.every((c) => c === roundedLastChars[0])).toBe(true);
+      expect(roundedLastChars.every((c) => c === roundedLastChars[0])).toBe(
+        true,
+      );
 
       // Normal should have varying last digits
       const uniqueNormal = new Set(normalLastChars);

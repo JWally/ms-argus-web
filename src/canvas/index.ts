@@ -971,7 +971,8 @@ export default async function getCanvas2d(): Promise<
 
     // Collect emoji TextMetrics and extended font metrics
     await queueEvent(timer);
-    const { emojiSet, textMetricsSystemSum, textMetricsExtended } = collectEmojiMetrics(context);
+    const { emojiSet, textMetricsSystemSum, textMetricsExtended } =
+      collectEmojiMetrics(context);
 
     // Generate paint-only fingerprint (no text)
     // This isolates GPU rendering from font rendering

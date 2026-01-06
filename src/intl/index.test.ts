@@ -125,7 +125,9 @@ describe('intl API patterns', () => {
 
   describe('DisplayNames', () => {
     it('returns display name for language codes', () => {
-      const displayNames = new Intl.DisplayNames(undefined, { type: 'language' });
+      const displayNames = new Intl.DisplayNames(undefined, {
+        type: 'language',
+      });
       const result = displayNames.of('en-US');
 
       expect(typeof result).toBe('string');
@@ -238,8 +240,12 @@ describe('intl API patterns', () => {
     });
 
     it('produces locale-specific relative time', () => {
-      const usFormatter = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
-      const frFormatter = new Intl.RelativeTimeFormat('fr-FR', { numeric: 'auto' });
+      const usFormatter = new Intl.RelativeTimeFormat('en-US', {
+        numeric: 'auto',
+      });
+      const frFormatter = new Intl.RelativeTimeFormat('fr-FR', {
+        numeric: 'auto',
+      });
 
       const usResult = usFormatter.format(1, 'year');
       const frResult = frFormatter.format(1, 'year');

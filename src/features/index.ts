@@ -101,9 +101,7 @@ function getJSCoreFeatures(win: Window & typeof globalThis): string[] {
       if (!obj) continue;
 
       // Get static properties (e.g., Array.from, Object.keys)
-      const staticKeys = Object.keys(
-        Object.getOwnPropertyDescriptors(obj),
-      );
+      const staticKeys = Object.keys(Object.getOwnPropertyDescriptors(obj));
 
       // Get prototype properties (e.g., Array.prototype.map)
       const protoKeys = Object.keys(

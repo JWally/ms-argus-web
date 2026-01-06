@@ -86,7 +86,8 @@ describe('worker types', () => {
           proto: { 'Navigator.platform': ['prototype has been modified'] },
           os: 'Linux platform and Windows user agent do not match',
           engine: 'V8 JS runtime and SpiderMonkey user agent do not match',
-          version: 'userAgentData version 120 and user agent version 119 do not match',
+          version:
+            'userAgentData version 120 and user agent version 119 do not match',
           platformVersion: 'platform version is fake',
         },
         locale: 'en-US',
@@ -101,7 +102,8 @@ describe('worker types', () => {
         language: 'en-US',
         languages: 'en-US,en,fr',
         platform: 'Win32',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         webglRenderer: 'ANGLE (NVIDIA GeForce RTX 3080)',
         webglVendor: 'Google Inc. (NVIDIA)',
         userAgentData: {

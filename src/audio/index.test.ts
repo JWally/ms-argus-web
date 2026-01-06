@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  AUDIO_CONFIG,
-  AUDIO_TRAP,
-} from './constants';
+import { AUDIO_CONFIG, AUDIO_TRAP } from './constants';
 
 describe('audio constants', () => {
   describe('AUDIO_CONFIG', () => {
@@ -17,7 +14,9 @@ describe('audio constants', () => {
     it('has sample range start and end', () => {
       expect(AUDIO_CONFIG.SAMPLE_RANGE_START).toBe(4500);
       expect(AUDIO_CONFIG.SAMPLE_RANGE_END).toBe(4600);
-      expect(AUDIO_CONFIG.SAMPLE_RANGE_END).toBeGreaterThan(AUDIO_CONFIG.SAMPLE_RANGE_START);
+      expect(AUDIO_CONFIG.SAMPLE_RANGE_END).toBeGreaterThan(
+        AUDIO_CONFIG.SAMPLE_RANGE_START,
+      );
     });
 
     it('has OSCILLATOR_FREQUENCY', () => {
@@ -30,8 +29,12 @@ describe('audio constants', () => {
     });
 
     it('sample range is within buffer length', () => {
-      expect(AUDIO_CONFIG.SAMPLE_RANGE_START).toBeLessThan(AUDIO_CONFIG.BUFFER_LENGTH);
-      expect(AUDIO_CONFIG.SAMPLE_RANGE_END).toBeLessThanOrEqual(AUDIO_CONFIG.BUFFER_LENGTH);
+      expect(AUDIO_CONFIG.SAMPLE_RANGE_START).toBeLessThan(
+        AUDIO_CONFIG.BUFFER_LENGTH,
+      );
+      expect(AUDIO_CONFIG.SAMPLE_RANGE_END).toBeLessThanOrEqual(
+        AUDIO_CONFIG.BUFFER_LENGTH,
+      );
     });
   });
 

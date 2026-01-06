@@ -54,8 +54,7 @@ describe('webrtc constants', () => {
 
 // Test IP categorization patterns directly
 describe('IP categorization patterns', () => {
-  const PRIVATE_IP_PATTERN =
-    /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/;
+  const PRIVATE_IP_PATTERN = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/;
   const IPV6_PATTERN = /^[a-f0-9:]+$/i;
   const MDNS_PATTERN = /\.local$/i;
 

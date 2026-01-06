@@ -210,11 +210,15 @@ describe('fonts constants', () => {
 
   describe('MACOS_VERSION_MAP', () => {
     it('maps full set to Ventura', () => {
-      expect(MACOS_VERSION_MAP['10.10,10.11,10.12,10.13-10.14,10.15-11,10.9,12,13']).toBe('Ventura');
+      expect(
+        MACOS_VERSION_MAP['10.10,10.11,10.12,10.13-10.14,10.15-11,10.9,12,13'],
+      ).toBe('Ventura');
     });
 
     it('maps without 13 to Monterey', () => {
-      expect(MACOS_VERSION_MAP['10.10,10.11,10.12,10.13-10.14,10.15-11,10.9,12']).toBe('Monterey');
+      expect(
+        MACOS_VERSION_MAP['10.10,10.11,10.12,10.13-10.14,10.15-11,10.9,12'],
+      ).toBe('Monterey');
     });
 
     it('maps just 10.9 to Mavericks', () => {
@@ -246,7 +250,16 @@ describe('font OS detection patterns', () => {
       };
 
       expect(
-        detectMacOSVersion(['10.9', '10.10', '10.11', '10.12', '10.13-10.14', '10.15-11', '12', '13']),
+        detectMacOSVersion([
+          '10.9',
+          '10.10',
+          '10.11',
+          '10.12',
+          '10.13-10.14',
+          '10.15-11',
+          '12',
+          '13',
+        ]),
       ).toBe('Ventura');
       expect(detectMacOSVersion(['10.9'])).toBe('Mavericks');
     });
@@ -255,9 +268,12 @@ describe('font OS detection patterns', () => {
   describe('OS platform detection', () => {
     it('can detect OS from indicator fonts', () => {
       const detectOS = (fonts: string[]) => {
-        if (fonts.some((f) => WINDOWS_INDICATOR_FONTS.includes(f))) return 'Windows';
-        if (fonts.some((f) => APPLE_INDICATOR_FONTS.includes(f))) return 'Apple';
-        if (fonts.some((f) => LINUX_INDICATOR_FONTS.includes(f))) return 'Linux';
+        if (fonts.some((f) => WINDOWS_INDICATOR_FONTS.includes(f)))
+          return 'Windows';
+        if (fonts.some((f) => APPLE_INDICATOR_FONTS.includes(f)))
+          return 'Apple';
+        if (fonts.some((f) => LINUX_INDICATOR_FONTS.includes(f)))
+          return 'Linux';
         return 'Unknown';
       };
 

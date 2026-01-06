@@ -35,16 +35,9 @@
 import { attempt, caniuse, captureError } from '../errors';
 import { documentLie, lieProps } from '../lies';
 import { sendToTrash } from '../trash';
-import {
-  createTimer,
-  logTestResult,
-  queueEvent,
-} from '../utils/helpers';
+import { createTimer, logTestResult, queueEvent } from '../utils/helpers';
 
-import {
-  AUDIO_CONFIG,
-  AUDIO_TRAP,
-} from './constants';
+import { AUDIO_CONFIG, AUDIO_TRAP } from './constants';
 import type {
   AudioFingerprint,
   AudioNodeValues,
@@ -397,7 +390,8 @@ export default async function getOfflineAudioContext(): Promise<
     // Ensure OfflineAudioContext is available
     try {
       // @ts-expect-error webkitOfflineAudioContext fallback
-      window.OfflineAudioContext =        OfflineAudioContext || webkitOfflineAudioContext;
+      window.OfflineAudioContext =
+        OfflineAudioContext || webkitOfflineAudioContext;
     } catch {
       // Not available
     }

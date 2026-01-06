@@ -79,7 +79,9 @@ describe('headless constants', () => {
       expect(GECKO_FONT_PLATFORMS['Segoe UI']).toBe(Platform.WINDOWS);
       expect(GECKO_FONT_PLATFORMS['Tahoma']).toBe(Platform.WINDOWS);
       expect(GECKO_FONT_PLATFORMS['Yu Gothic UI']).toBe(Platform.WINDOWS);
-      expect(GECKO_FONT_PLATFORMS['Microsoft JhengHei UI']).toBe(Platform.WINDOWS);
+      expect(GECKO_FONT_PLATFORMS['Microsoft JhengHei UI']).toBe(
+        Platform.WINDOWS,
+      );
       expect(GECKO_FONT_PLATFORMS['Microsoft YaHei UI']).toBe(Platform.WINDOWS);
       expect(GECKO_FONT_PLATFORMS['Meiryo UI']).toBe(Platform.WINDOWS);
     });
@@ -126,12 +128,14 @@ describe('headless constants', () => {
     });
 
     it('detects HeadlessChrome', () => {
-      const ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0.0.0 Safari/537.36';
+      const ua =
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0.0.0 Safari/537.36';
       expect(HEADLESS_UA_PATTERNS.some((p) => p.test(ua))).toBe(true);
     });
 
     it('detects PhantomJS', () => {
-      const ua = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/534.34 (KHTML, like Gecko) PhantomJS/1.9.8 Safari/534.34';
+      const ua =
+        'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/534.34 (KHTML, like Gecko) PhantomJS/1.9.8 Safari/534.34';
       expect(HEADLESS_UA_PATTERNS.some((p) => p.test(ua))).toBe(true);
     });
 
@@ -146,7 +150,8 @@ describe('headless constants', () => {
     });
 
     it('does not match normal Chrome UA', () => {
-      const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      const ua =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       expect(HEADLESS_UA_PATTERNS.some((p) => p.test(ua))).toBe(false);
     });
   });
@@ -157,7 +162,9 @@ describe('headless constants', () => {
     });
 
     it('represents pure red', () => {
-      const match = HEADLESS_ACTIVE_TEXT_COLOR.match(/rgb\((\d+), (\d+), (\d+)\)/);
+      const match = HEADLESS_ACTIVE_TEXT_COLOR.match(
+        /rgb\((\d+), (\d+), (\d+)\)/,
+      );
       expect(match).not.toBeNull();
       expect(parseInt(match![1])).toBe(255);
       expect(parseInt(match![2])).toBe(0);
@@ -201,7 +208,9 @@ describe('headless constants', () => {
     });
 
     it('has V89 CSS feature', () => {
-      expect(CHROME_VERSION_FEATURES.V89_CSS).toBe('border-end-end-radius: initial');
+      expect(CHROME_VERSION_FEATURES.V89_CSS).toBe(
+        'border-end-end-radius: initial',
+      );
     });
 
     it('has V95 feature', () => {

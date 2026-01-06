@@ -35,31 +35,55 @@ describe('lies constants', () => {
   describe('STACK_TRACE_PATTERNS', () => {
     it('has AT_FUNCTION regex', () => {
       expect(STACK_TRACE_PATTERNS.AT_FUNCTION).toBeInstanceOf(RegExp);
-      expect(STACK_TRACE_PATTERNS.AT_FUNCTION.test('at Function.toString (native)')).toBe(true);
-      expect(STACK_TRACE_PATTERNS.AT_FUNCTION.test('at Object.toString')).toBe(false);
+      expect(
+        STACK_TRACE_PATTERNS.AT_FUNCTION.test('at Function.toString (native)'),
+      ).toBe(true);
+      expect(STACK_TRACE_PATTERNS.AT_FUNCTION.test('at Object.toString')).toBe(
+        false,
+      );
     });
 
     it('has AT_OBJECT regex', () => {
       expect(STACK_TRACE_PATTERNS.AT_OBJECT).toBeInstanceOf(RegExp);
-      expect(STACK_TRACE_PATTERNS.AT_OBJECT.test('at Object.toString (native)')).toBe(true);
-      expect(STACK_TRACE_PATTERNS.AT_OBJECT.test('at Function.toString')).toBe(false);
+      expect(
+        STACK_TRACE_PATTERNS.AT_OBJECT.test('at Object.toString (native)'),
+      ).toBe(true);
+      expect(STACK_TRACE_PATTERNS.AT_OBJECT.test('at Function.toString')).toBe(
+        false,
+      );
     });
 
     it('has FUNCTION_INSTANCE regex', () => {
       expect(STACK_TRACE_PATTERNS.FUNCTION_INSTANCE).toBeInstanceOf(RegExp);
-      expect(STACK_TRACE_PATTERNS.FUNCTION_INSTANCE.test('at Function.[Symbol.hasInstance]')).toBe(true);
-      expect(STACK_TRACE_PATTERNS.FUNCTION_INSTANCE.test('at [Symbol.hasInstance]')).toBe(true);
+      expect(
+        STACK_TRACE_PATTERNS.FUNCTION_INSTANCE.test(
+          'at Function.[Symbol.hasInstance]',
+        ),
+      ).toBe(true);
+      expect(
+        STACK_TRACE_PATTERNS.FUNCTION_INSTANCE.test('at [Symbol.hasInstance]'),
+      ).toBe(true);
     });
 
     it('has PROXY_INSTANCE regex', () => {
       expect(STACK_TRACE_PATTERNS.PROXY_INSTANCE).toBeInstanceOf(RegExp);
-      expect(STACK_TRACE_PATTERNS.PROXY_INSTANCE.test('at Proxy.[Symbol.hasInstance]')).toBe(true);
-      expect(STACK_TRACE_PATTERNS.PROXY_INSTANCE.test('at [Symbol.hasInstance]')).toBe(true);
+      expect(
+        STACK_TRACE_PATTERNS.PROXY_INSTANCE.test(
+          'at Proxy.[Symbol.hasInstance]',
+        ),
+      ).toBe(true);
+      expect(
+        STACK_TRACE_PATTERNS.PROXY_INSTANCE.test('at [Symbol.hasInstance]'),
+      ).toBe(true);
     });
 
     it('has STRICT_MODE regex', () => {
       expect(STACK_TRACE_PATTERNS.STRICT_MODE).toBeInstanceOf(RegExp);
-      expect(STACK_TRACE_PATTERNS.STRICT_MODE.test("'caller' and 'arguments' are restricted in strict mode")).toBe(true);
+      expect(
+        STACK_TRACE_PATTERNS.STRICT_MODE.test(
+          "'caller' and 'arguments' are restricted in strict mode",
+        ),
+      ).toBe(true);
     });
   });
 
@@ -71,7 +95,9 @@ describe('lies constants', () => {
 
     it('returns object with getter format', () => {
       const formats = getKnownToStringFormats('deviceMemory');
-      expect(formats['function get deviceMemory() { [native code] }']).toBe(true);
+      expect(formats['function get deviceMemory() { [native code] }']).toBe(
+        true,
+      );
     });
 
     it('returns object with Safari/WebKit format (newlines)', () => {
@@ -160,7 +186,9 @@ describe('lies constants', () => {
     });
 
     it('Navigator target includes critical properties', () => {
-      const navigatorTarget = API_SEARCH_TARGETS.find((t) => t.api === 'Navigator');
+      const navigatorTarget = API_SEARCH_TARGETS.find(
+        (t) => t.api === 'Navigator',
+      );
       expect(navigatorTarget).toBeDefined();
       expect(navigatorTarget!.target).toContain('userAgent');
       expect(navigatorTarget!.target).toContain('platform');
@@ -183,7 +211,17 @@ describe('lies constants', () => {
       const mathTarget = API_SEARCH_TARGETS.find((t) => t.api === 'Math');
       expect(mathTarget).toBeDefined();
       // Note: asin is not included, only asinh (hyperbolic variant)
-      const trigFunctions = ['sin', 'cos', 'tan', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'asinh'];
+      const trigFunctions = [
+        'sin',
+        'cos',
+        'tan',
+        'acos',
+        'atan',
+        'sinh',
+        'cosh',
+        'tanh',
+        'asinh',
+      ];
       for (const fn of trigFunctions) {
         expect(mathTarget!.target).toContain(fn);
       }
@@ -336,7 +374,13 @@ describe('lies detection patterns', () => {
 
   describe('error type validation', () => {
     it('validates standard JavaScript errors', () => {
-      const standardErrors = [Error, TypeError, RangeError, ReferenceError, SyntaxError];
+      const standardErrors = [
+        Error,
+        TypeError,
+        RangeError,
+        ReferenceError,
+        SyntaxError,
+      ];
       for (const ErrorType of standardErrors) {
         const error = new ErrorType('test');
         expect(VALID_ERROR_TYPES[error.name]).toBe(true);

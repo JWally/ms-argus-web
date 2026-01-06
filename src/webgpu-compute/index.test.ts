@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import type { WebGpuComputeFingerprint, TimingStats, TimingRatios } from './types';
+import type {
+  WebGpuComputeFingerprint,
+  TimingStats,
+  TimingRatios,
+} from './types';
 
 describe('webgpu-compute types', () => {
   describe('TimingStats', () => {
@@ -95,7 +99,8 @@ describe('webgpu-compute shader patterns', () => {
     it('computes variance correctly', () => {
       const timings = [1.0, 2.0, 3.0, 4.0, 5.0];
       const mean = 3.0;
-      const variance = timings.reduce((acc, t) => acc + (t - mean) ** 2, 0) / timings.length;
+      const variance =
+        timings.reduce((acc, t) => acc + (t - mean) ** 2, 0) / timings.length;
       expect(variance).toBe(2.0);
     });
 
@@ -118,7 +123,7 @@ describe('webgpu-compute shader patterns', () => {
 
   describe('result hashing', () => {
     it('XOR combines results', () => {
-      const results = [0x12345678, 0xABCDEF00, 0x11111111];
+      const results = [0x12345678, 0xabcdef00, 0x11111111];
       let xorResult = 0;
       for (const r of results) {
         xorResult ^= r;

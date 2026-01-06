@@ -10,9 +10,21 @@ describe('timezone constants', () => {
 
     it('contains major continent regions', () => {
       // Check for presence of various regions
-      const regions = ['Africa', 'America', 'Antarctica', 'Asia', 'Atlantic', 'Australia', 'Europe', 'Indian', 'Pacific'];
+      const regions = [
+        'Africa',
+        'America',
+        'Antarctica',
+        'Asia',
+        'Atlantic',
+        'Australia',
+        'Europe',
+        'Indian',
+        'Pacific',
+      ];
       for (const region of regions) {
-        const hasRegion = TIMEZONE_CITIES.some(tz => tz.startsWith(region + '/'));
+        const hasRegion = TIMEZONE_CITIES.some((tz) =>
+          tz.startsWith(region + '/'),
+        );
         expect(hasRegion, `Should have ${region} region`).toBe(true);
       }
     });
@@ -42,7 +54,8 @@ describe('timezone constants', () => {
 
     it('has valid IANA timezone format', () => {
       // All entries should be valid IANA format: Region/City or special like UTC/GMT/Etc/*
-      const validPattern = /^(UTC|GMT|Etc\/|Africa\/|America\/|Antarctica\/|Arctic\/|Asia\/|Atlantic\/|Australia\/|Europe\/|Indian\/|Pacific\/)/;
+      const validPattern =
+        /^(UTC|GMT|Etc\/|Africa\/|America\/|Antarctica\/|Arctic\/|Asia\/|Atlantic\/|Australia\/|Europe\/|Indian\/|Pacific\/)/;
       for (const tz of TIMEZONE_CITIES) {
         expect(tz).toMatch(validPattern);
       }
@@ -87,7 +100,8 @@ describe('timezone formatting patterns', () => {
   describe('IANA to human-readable conversion', () => {
     it('converts underscore to space', () => {
       // Pattern used in formatLocation
-      const format = (location: string) => location.replace(/_/g, ' ').split('/').join(', ');
+      const format = (location: string) =>
+        location.replace(/_/g, ' ').split('/').join(', ');
 
       expect(format('America/Los_Angeles')).toBe('America, Los Angeles');
       expect(format('America/New_York')).toBe('America, New York');
@@ -95,17 +109,23 @@ describe('timezone formatting patterns', () => {
     });
 
     it('handles simple zones', () => {
-      const format = (location: string) => location.replace(/_/g, ' ').split('/').join(', ');
+      const format = (location: string) =>
+        location.replace(/_/g, ' ').split('/').join(', ');
 
       expect(format('UTC')).toBe('UTC');
       expect(format('GMT')).toBe('GMT');
     });
 
     it('handles nested zones', () => {
-      const format = (location: string) => location.replace(/_/g, ' ').split('/').join(', ');
+      const format = (location: string) =>
+        location.replace(/_/g, ' ').split('/').join(', ');
 
-      expect(format('America/Argentina/Buenos_Aires')).toBe('America, Argentina, Buenos Aires');
-      expect(format('America/Indiana/Indianapolis')).toBe('America, Indiana, Indianapolis');
+      expect(format('America/Argentina/Buenos_Aires')).toBe(
+        'America, Argentina, Buenos Aires',
+      );
+      expect(format('America/Indiana/Indianapolis')).toBe(
+        'America, Indiana, Indianapolis',
+      );
     });
   });
 
@@ -117,8 +137,14 @@ describe('timezone formatting patterns', () => {
         return dateStr.replace(notWithinParentheses, '');
       };
 
-      expect(extract('Sat Jan 01 2022 00:00:00 GMT-0800 (Pacific Standard Time)')).toBe('Pacific Standard Time');
-      expect(extract('Sun Jan 02 2022 00:00:00 GMT+0100 (Central European Standard Time)')).toBe('Central European Standard Time');
+      expect(
+        extract('Sat Jan 01 2022 00:00:00 GMT-0800 (Pacific Standard Time)'),
+      ).toBe('Pacific Standard Time');
+      expect(
+        extract(
+          'Sun Jan 02 2022 00:00:00 GMT+0100 (Central European Standard Time)',
+        ),
+      ).toBe('Central European Standard Time');
     });
   });
 });
@@ -129,7 +155,7 @@ describe('timezone offset patterns', () => {
     it('valid UTC offsets are -12 to +14 hours', () => {
       // UTC-12 to UTC+14 covers all timezones
       const minOffset = -12 * 60; // -720 minutes
-      const maxOffset = 14 * 60;  // +840 minutes
+      const maxOffset = 14 * 60; // +840 minutes
 
       // Sample offsets
       const validOffsets = [0, -480, 480, -720, 840, 330]; // PST, HKT, UTC-12, UTC+14, India
@@ -143,7 +169,9 @@ describe('timezone offset patterns', () => {
   describe('offset calculation via date parsing', () => {
     it('difference between local and UTC parsing reveals offset', () => {
       // This is the pattern used in getTimezoneOffset()
-      const [year, month, day] = JSON.stringify(new Date()).slice(1, 11).split('-');
+      const [year, month, day] = JSON.stringify(new Date())
+        .slice(1, 11)
+        .split('-');
 
       expect(year).toMatch(/^\d{4}$/);
       expect(month).toMatch(/^\d{2}$/);

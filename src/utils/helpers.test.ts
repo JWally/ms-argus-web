@@ -42,9 +42,7 @@ describe('helpers module', () => {
   describe('getOS()', () => {
     it('detects Windows', () => {
       expect(
-        getOS(
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        ),
+        getOS('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
       ).toBe('Windows');
       expect(getOS('Mozilla/5.0 (Windows NT 6.1)')).toBe('Windows');
     });
@@ -67,16 +65,14 @@ describe('helpers module', () => {
 
     it('detects Android', () => {
       expect(
-        getOS(
-          'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36',
-        ),
+        getOS('Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36'),
       ).toBe('Android');
     });
 
     it('detects Linux', () => {
-      expect(
-        getOS('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'),
-      ).toBe('Linux');
+      expect(getOS('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')).toBe(
+        'Linux',
+      );
     });
 
     it('detects Chrome OS', () => {
@@ -413,8 +409,8 @@ describe('helpers module', () => {
 
     it('returns empty object for all blocked params', () => {
       const params = {
-        'UNMASKED_RENDERER_WEBGL': 'blocked',
-        'UNMASKED_VENDOR_WEBGL': 'blocked',
+        UNMASKED_RENDERER_WEBGL: 'blocked',
+        UNMASKED_VENDOR_WEBGL: 'blocked',
       };
 
       const result = getBraveUnprotectedParameters(params);
@@ -686,20 +682,21 @@ describe('helpers module', () => {
       expect(win10Result).toContain('Windows 10');
 
       const win81Result = getUserAgentPlatform({
-        userAgent: 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36',
+        userAgent:
+          'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36',
       });
       expect(win81Result).toContain('8.1');
 
       const win7Result = getUserAgentPlatform({
-        userAgent: 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36',
+        userAgent:
+          'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36',
       });
       expect(win7Result).toContain('7');
     });
 
     it('detects 64-bit Windows', () => {
       const result = getUserAgentPlatform({
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36',
       });
       expect(result).toContain('64-bit');
     });
@@ -727,8 +724,7 @@ describe('helpers module', () => {
 
     it('handles unrecognized OS in parenthesis', () => {
       const result = getUserAgentPlatform({
-        userAgent:
-          'Mozilla/5.0 (UnknownOS; SomeDevice) AppleWebKit/537.36',
+        userAgent: 'Mozilla/5.0 (UnknownOS; SomeDevice) AppleWebKit/537.36',
       });
       // Should return joined identifiers
       expect(typeof result).toBe('string');

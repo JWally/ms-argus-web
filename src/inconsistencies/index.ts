@@ -76,7 +76,8 @@ function getOSFromUserAgent(ua: string): string {
   if (!ua) return 'unknown';
   const uaLower = ua.toLowerCase();
   if (uaLower.includes('windows')) return 'windows';
-  if (uaLower.includes('mac os') || uaLower.includes('macintosh')) return 'macos';
+  if (uaLower.includes('mac os') || uaLower.includes('macintosh'))
+    return 'macos';
   if (uaLower.includes('iphone') || uaLower.includes('ipad')) return 'ios';
   if (uaLower.includes('android')) return 'android';
   if (uaLower.includes('linux')) return 'linux';
@@ -93,7 +94,8 @@ function getOSFromPlatform(platform: string): string {
   if (platLower.includes('win')) return 'windows';
   if (platLower.includes('mac')) return 'macos';
   if (platLower.includes('iphone') || platLower.includes('ipad')) return 'ios';
-  if (platLower.includes('linux') && !platLower.includes('android')) return 'linux';
+  if (platLower.includes('linux') && !platLower.includes('android'))
+    return 'linux';
   if (platLower.includes('android')) return 'android';
   return 'unknown';
 }
@@ -105,11 +107,20 @@ function osCompatible(os1: string, os2: string): boolean {
   if (os1 === 'unknown' || os2 === 'unknown') return true;
   if (os1 === os2) return true;
   // iOS and macOS are related (Apple ecosystem)
-  if ((os1 === 'ios' && os2 === 'macos') || (os1 === 'macos' && os2 === 'ios')) return true;
+  if ((os1 === 'ios' && os2 === 'macos') || (os1 === 'macos' && os2 === 'ios'))
+    return true;
   // Android runs on Linux kernel - navigator.platform reports "Linux" on Android
-  if ((os1 === 'android' && os2 === 'linux') || (os1 === 'linux' && os2 === 'android')) return true;
+  if (
+    (os1 === 'android' && os2 === 'linux') ||
+    (os1 === 'linux' && os2 === 'android')
+  )
+    return true;
   // ChromeOS is Linux-based
-  if ((os1 === 'chromeos' && os2 === 'linux') || (os1 === 'linux' && os2 === 'chromeos')) return true;
+  if (
+    (os1 === 'chromeos' && os2 === 'linux') ||
+    (os1 === 'linux' && os2 === 'chromeos')
+  )
+    return true;
   return false;
 }
 
@@ -120,15 +131,29 @@ function checkPlatformConsistency(
   signals: PlatformSignals,
   inconsistencies: Inconsistency[],
 ): void {
-  const { navigatorPlatform, userAgent, userAgentPlatform, workerPlatform, fontOS } = signals;
+  const {
+    navigatorPlatform,
+    userAgent,
+    userAgentPlatform,
+    workerPlatform,
+    fontOS,
+  } = signals;
 
   const uaOS = userAgent ? getOSFromUserAgent(userAgent) : 'unknown';
-  const platOS = navigatorPlatform ? getOSFromPlatform(navigatorPlatform) : 'unknown';
+  const platOS = navigatorPlatform
+    ? getOSFromPlatform(navigatorPlatform)
+    : 'unknown';
   const uaDataOS = userAgentPlatform?.toLowerCase() || 'unknown';
-  const workerOS = workerPlatform ? getOSFromPlatform(workerPlatform) : 'unknown';
+  const workerOS = workerPlatform
+    ? getOSFromPlatform(workerPlatform)
+    : 'unknown';
 
   // Check UA vs navigator.platform
-  if (uaOS !== 'unknown' && platOS !== 'unknown' && !osCompatible(uaOS, platOS)) {
+  if (
+    uaOS !== 'unknown' &&
+    platOS !== 'unknown' &&
+    !osCompatible(uaOS, platOS)
+  ) {
     inconsistencies.push({
       category: 'platform',
       description: 'User agent OS does not match navigator.platform',
@@ -150,7 +175,11 @@ function checkPlatformConsistency(
   }
 
   // Check fonts vs reported OS
-  if (fontOS && uaOS !== 'unknown' && !osCompatible(fontOS.toLowerCase(), uaOS)) {
+  if (
+    fontOS &&
+    uaOS !== 'unknown' &&
+    !osCompatible(fontOS.toLowerCase(), uaOS)
+  ) {
     inconsistencies.push({
       category: 'fonts',
       description: 'Detected fonts do not match reported OS',
@@ -161,7 +190,11 @@ function checkPlatformConsistency(
   }
 
   // Check userAgentData platform
-  if (uaDataOS !== 'unknown' && uaOS !== 'unknown' && !osCompatible(uaDataOS, uaOS)) {
+  if (
+    uaDataOS !== 'unknown' &&
+    uaOS !== 'unknown' &&
+    !osCompatible(uaDataOS, uaOS)
+  ) {
     inconsistencies.push({
       category: 'platform',
       description: 'userAgentData.platform does not match User-Agent',
@@ -187,8 +220,15 @@ function checkScreenConsistency(
   },
   inconsistencies: Inconsistency[],
 ): void {
-  const { width, height, availWidth, availHeight, cssWidth, cssHeight, matchMediaValid } =
-    screenData;
+  const {
+    width,
+    height,
+    availWidth,
+    availHeight,
+    cssWidth,
+    cssHeight,
+    matchMediaValid,
+  } = screenData;
 
   // Screen API vs CSS media queries
   if (cssWidth && cssHeight && width && height) {
@@ -247,7 +287,11 @@ function checkHardwareConsistency(
   const { deviceMemory: mainMem, hardwareConcurrency: mainCores } = mainThread;
   const { deviceMemory: workerMem, hardwareConcurrency: workerCores } = worker;
 
-  if (mainMem !== undefined && workerMem !== undefined && mainMem !== workerMem) {
+  if (
+    mainMem !== undefined &&
+    workerMem !== undefined &&
+    mainMem !== workerMem
+  ) {
     inconsistencies.push({
       category: 'hardware',
       description: 'Device memory differs between main thread and worker',
@@ -257,10 +301,15 @@ function checkHardwareConsistency(
     });
   }
 
-  if (mainCores !== undefined && workerCores !== undefined && mainCores !== workerCores) {
+  if (
+    mainCores !== undefined &&
+    workerCores !== undefined &&
+    mainCores !== workerCores
+  ) {
     inconsistencies.push({
       category: 'hardware',
-      description: 'Hardware concurrency differs between main thread and worker',
+      description:
+        'Hardware concurrency differs between main thread and worker',
       expected: `Main: ${mainCores} cores`,
       actual: `Worker: ${workerCores} cores`,
       severity: 'high',
@@ -305,10 +354,15 @@ function checkTimezoneConsistency(
   },
   inconsistencies: Inconsistency[],
 ): void {
-  const { offset, offsetComputed, location, workerOffset, workerLocation } = timezoneData;
+  const { offset, offsetComputed, location, workerOffset, workerLocation } =
+    timezoneData;
 
   // Offset computation mismatch (cross-validation of two methods)
-  if (offset !== undefined && offsetComputed !== undefined && offset !== offsetComputed) {
+  if (
+    offset !== undefined &&
+    offsetComputed !== undefined &&
+    offset !== offsetComputed
+  ) {
     inconsistencies.push({
       category: 'timezone',
       description: 'Timezone offset computed differently by two methods',
@@ -320,8 +374,12 @@ function checkTimezoneConsistency(
 
   // Main thread vs worker timezone - only check offset, location format may vary
   // Worker offset of 0 when main has real offset could be a detection bug, not spoofing
-  if (offset !== undefined && workerOffset !== undefined &&
-      offset !== workerOffset && workerOffset !== 0) {
+  if (
+    offset !== undefined &&
+    workerOffset !== undefined &&
+    offset !== workerOffset &&
+    workerOffset !== 0
+  ) {
     inconsistencies.push({
       category: 'timezone',
       description: 'Timezone offset differs between main thread and worker',
@@ -334,7 +392,11 @@ function checkTimezoneConsistency(
   // Compare normalized timezone locations (main vs worker)
   const normLocation = normalizeTimezoneLocation(location || '');
   const normWorkerLocation = normalizeTimezoneLocation(workerLocation || '');
-  if (normLocation && normWorkerLocation && normLocation !== normWorkerLocation) {
+  if (
+    normLocation &&
+    normWorkerLocation &&
+    normLocation !== normWorkerLocation
+  ) {
     inconsistencies.push({
       category: 'timezone',
       description: 'Timezone location differs between main thread and worker',
@@ -372,8 +434,13 @@ function checkLanguageConsistency(
   },
   inconsistencies: Inconsistency[],
 ): void {
-  const { navigatorLanguage, navigatorLanguages, workerLanguage, workerLanguages, intlLocale } =
-    languageData;
+  const {
+    navigatorLanguage,
+    navigatorLanguages,
+    workerLanguage,
+    workerLanguages,
+    intlLocale,
+  } = languageData;
 
   // navigator.language should be first in navigator.languages
   if (navigatorLanguage && navigatorLanguages?.length) {
@@ -442,7 +509,11 @@ function checkGPUConsistency(
   } = gpuData;
 
   // Main thread vs worker WebGL
-  if (webglRenderer && workerWebglRenderer && webglRenderer !== workerWebglRenderer) {
+  if (
+    webglRenderer &&
+    workerWebglRenderer &&
+    webglRenderer !== workerWebglRenderer
+  ) {
     inconsistencies.push({
       category: 'gpu',
       description: 'WebGL renderer differs between main thread and worker',
@@ -523,8 +594,14 @@ function checkUACHConsistency(
   inconsistencies: Inconsistency[],
 ): void {
   const { architecture, bitness, mobile, model, platform } = uachData;
-  const { navigatorPlatform, webglRenderer, maxTouchPoints, screenWidth, screenHeight, userAgent } =
-    otherSignals;
+  const {
+    navigatorPlatform,
+    webglRenderer,
+    maxTouchPoints,
+    screenWidth,
+    screenHeight,
+    userAgent,
+  } = otherSignals;
 
   // Architecture vs WebGL renderer
   if (architecture && webglRenderer) {
@@ -533,7 +610,8 @@ function checkUACHConsistency(
 
     // Check for architecture mismatches
     const isArmArch = archLower.includes('arm') || archLower === 'aarch64';
-    const isX86Arch = archLower.includes('x86') || archLower === 'x64' || archLower === 'amd64';
+    const isX86Arch =
+      archLower.includes('x86') || archLower === 'x64' || archLower === 'amd64';
 
     // WebGL renderer patterns that indicate architecture
     const rendererIndicatesArm =
@@ -551,12 +629,14 @@ function checkUACHConsistency(
       rendererLower.includes('amd');
 
     // Apple Silicon Macs can have either arm or x86 (via Rosetta)
-    const isAppleSilicon = rendererLower.includes('apple m') || rendererLower.includes('apple gpu');
+    const isAppleSilicon =
+      rendererLower.includes('apple m') || rendererLower.includes('apple gpu');
 
     if (isArmArch && rendererIndicatesX86 && !isAppleSilicon) {
       inconsistencies.push({
         category: 'ua-ch',
-        description: 'UA-CH architecture (ARM) conflicts with WebGL renderer (x86)',
+        description:
+          'UA-CH architecture (ARM) conflicts with WebGL renderer (x86)',
         expected: `Architecture: ${architecture}`,
         actual: `WebGL renderer: ${webglRenderer}`,
         severity: 'high',
@@ -566,7 +646,8 @@ function checkUACHConsistency(
     if (isX86Arch && rendererIndicatesArm && !isAppleSilicon) {
       inconsistencies.push({
         category: 'ua-ch',
-        description: 'UA-CH architecture (x86) conflicts with WebGL renderer (ARM)',
+        description:
+          'UA-CH architecture (x86) conflicts with WebGL renderer (ARM)',
         expected: `Architecture: ${architecture}`,
         actual: `WebGL renderer: ${webglRenderer}`,
         severity: 'high',
@@ -591,7 +672,8 @@ function checkUACHConsistency(
     if (bitness === '32' && platformExplicitly64) {
       inconsistencies.push({
         category: 'ua-ch',
-        description: 'UA-CH bitness (32) conflicts with navigator.platform (64-bit)',
+        description:
+          'UA-CH bitness (32) conflicts with navigator.platform (64-bit)',
         expected: `Bitness: ${bitness}`,
         actual: `Platform: ${navigatorPlatform}`,
         severity: 'medium',
@@ -604,16 +686,20 @@ function checkUACHConsistency(
   // Mobile flag vs touch and screen
   if (mobile !== undefined) {
     const hasTouch = maxTouchPoints !== undefined && maxTouchPoints > 0;
-    const hasSmallScreen = screenWidth !== undefined && screenHeight !== undefined &&
+    const hasSmallScreen =
+      screenWidth !== undefined &&
+      screenHeight !== undefined &&
       Math.min(screenWidth, screenHeight) < 768;
-    const hasMobileUA = userAgent?.toLowerCase().includes('mobile') ||
+    const hasMobileUA =
+      userAgent?.toLowerCase().includes('mobile') ||
       userAgent?.toLowerCase().includes('android');
 
     // UA-CH says mobile but no touch support and large screen
     if (mobile && !hasTouch && !hasSmallScreen && !hasMobileUA) {
       inconsistencies.push({
         category: 'ua-ch',
-        description: 'UA-CH mobile flag is true but device lacks mobile characteristics',
+        description:
+          'UA-CH mobile flag is true but device lacks mobile characteristics',
         expected: 'Mobile device with touch support',
         actual: `maxTouchPoints: ${maxTouchPoints}, screen: ${screenWidth}x${screenHeight}`,
         severity: 'high',
@@ -625,7 +711,8 @@ function checkUACHConsistency(
     if (!mobile && hasMobileUA) {
       inconsistencies.push({
         category: 'ua-ch',
-        description: 'UA-CH mobile flag is false but User-Agent indicates mobile',
+        description:
+          'UA-CH mobile flag is false but User-Agent indicates mobile',
         expected: 'Desktop device',
         actual: 'User-Agent contains mobile identifier',
         severity: 'medium',
@@ -661,7 +748,9 @@ function checkUACHConsistency(
 
     const expectedPatterns = platformMappings[platformLower];
     if (expectedPatterns) {
-      const matches = expectedPatterns.some((pattern) => navPlatLower.includes(pattern));
+      const matches = expectedPatterns.some((pattern) =>
+        navPlatLower.includes(pattern),
+      );
       if (!matches) {
         inconsistencies.push({
           category: 'ua-ch',
@@ -732,19 +821,30 @@ function calculateRiskScore(inconsistencies: Inconsistency[]): number {
  * @param fingerprint - The loose fingerprint object from collectFingerprint
  * @returns Analysis result with detected inconsistencies
  */
-export function analyzeInconsistencies(fingerprint: Record<string, unknown>): InconsistencyResult {
+export function analyzeInconsistencies(
+  fingerprint: Record<string, unknown>,
+): InconsistencyResult {
   const inconsistencies: Inconsistency[] = [];
 
   // Extract signals from fingerprint
   const navigator = (fingerprint.navigator || {}) as Record<string, unknown>;
-  const workerScope = (fingerprint.workerScope || {}) as Record<string, unknown>;
+  const workerScope = (fingerprint.workerScope || {}) as Record<
+    string,
+    unknown
+  >;
   const screen = (fingerprint.screen || {}) as Record<string, unknown>;
   const cssMedia = (fingerprint.cssMedia || {}) as Record<string, unknown>;
   const timezone = (fingerprint.timezone || {}) as Record<string, unknown>;
   const intl = (fingerprint.intl || {}) as Record<string, unknown>;
   const fonts = (fingerprint.fonts || {}) as Record<string, unknown>;
-  const canvasWebgl = (fingerprint.canvasWebgl || {}) as Record<string, unknown>;
-  const audio = (fingerprint.offlineAudioContext || {}) as Record<string, unknown>;
+  const canvasWebgl = (fingerprint.canvasWebgl || {}) as Record<
+    string,
+    unknown
+  >;
+  const audio = (fingerprint.offlineAudioContext || {}) as Record<
+    string,
+    unknown
+  >;
   const webgpu = (navigator.webgpu || {}) as Record<string, unknown>;
   const adapterInfo = (webgpu.adapterInfo || []) as string[];
 
@@ -753,8 +853,9 @@ export function analyzeInconsistencies(fingerprint: Record<string, unknown>): In
     {
       navigatorPlatform: navigator.platform as string | undefined,
       userAgent: navigator.userAgent as string | undefined,
-      userAgentPlatform: ((navigator.userAgentData || {}) as Record<string, unknown>)
-        .platform as string | undefined,
+      userAgentPlatform: (
+        (navigator.userAgentData || {}) as Record<string, unknown>
+      ).platform as string | undefined,
       workerPlatform: workerScope.platform as string | undefined,
       fontOS: fonts.platformVersion as string | undefined,
     },
@@ -783,7 +884,9 @@ export function analyzeInconsistencies(fingerprint: Record<string, unknown>): In
     },
     {
       deviceMemory: workerScope.deviceMemory as number | undefined,
-      hardwareConcurrency: workerScope.hardwareConcurrency as number | undefined,
+      hardwareConcurrency: workerScope.hardwareConcurrency as
+        | number
+        | undefined,
     },
     inconsistencies,
   );
@@ -807,7 +910,7 @@ export function analyzeInconsistencies(fingerprint: Record<string, unknown>): In
       navigatorLanguage: navigator.language as string | undefined,
       navigatorLanguages: navigator.languages as string[] | undefined,
       workerLanguage: workerScope.language as string | undefined,
-      workerLanguages: workerScope.languages as string | undefined
+      workerLanguages: (workerScope.languages as string | undefined)
         ? (workerScope.languages as string).split(',')
         : undefined,
       intlLocale: intl.locale as string | undefined,
@@ -830,8 +933,14 @@ export function analyzeInconsistencies(fingerprint: Record<string, unknown>): In
   );
 
   // Check UA-CH consistency
-  const userAgentData = (navigator.userAgentData || {}) as Record<string, unknown>;
-  const highEntropyValues = (userAgentData.highEntropyValues || {}) as Record<string, unknown>;
+  const userAgentData = (navigator.userAgentData || {}) as Record<
+    string,
+    unknown
+  >;
+  const highEntropyValues = (userAgentData.highEntropyValues || {}) as Record<
+    string,
+    unknown
+  >;
   checkUACHConsistency(
     {
       architecture: highEntropyValues.architecture as string | undefined,

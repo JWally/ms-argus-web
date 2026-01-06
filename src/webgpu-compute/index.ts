@@ -201,7 +201,12 @@ async function runContentionTest(
   // Collect timing samples
   const timings: number[] = [];
   for (let i = 0; i < TIMING_SAMPLES; i++) {
-    const time = await runTimedCompute(device, pipeline, bindGroup, NUM_WORKGROUPS);
+    const time = await runTimedCompute(
+      device,
+      pipeline,
+      bindGroup,
+      NUM_WORKGROUPS,
+    );
     timings.push(time);
   }
 
@@ -255,7 +260,12 @@ async function runArithmeticTest(
 
   const timings: number[] = [];
   for (let i = 0; i < TIMING_SAMPLES; i++) {
-    const time = await runTimedCompute(device, pipeline, bindGroup, NUM_WORKGROUPS);
+    const time = await runTimedCompute(
+      device,
+      pipeline,
+      bindGroup,
+      NUM_WORKGROUPS,
+    );
     timings.push(time);
   }
 
@@ -324,7 +334,12 @@ async function runMemoryTest(
 
   const timings: number[] = [];
   for (let i = 0; i < TIMING_SAMPLES; i++) {
-    const time = await runTimedCompute(device, pipeline, bindGroup, NUM_WORKGROUPS);
+    const time = await runTimedCompute(
+      device,
+      pipeline,
+      bindGroup,
+      NUM_WORKGROUPS,
+    );
     timings.push(time);
   }
 
@@ -416,11 +431,12 @@ export default async function getWebGpuCompute(): Promise<
     }
 
     // Run tests
-    const [contentionResult, arithmeticResult, memoryResult] = await Promise.all([
-      runContentionTest(device),
-      runArithmeticTest(device),
-      runMemoryTest(device),
-    ]);
+    const [contentionResult, arithmeticResult, memoryResult] =
+      await Promise.all([
+        runContentionTest(device),
+        runArithmeticTest(device),
+        runMemoryTest(device),
+      ]);
 
     // Compute timing statistics
     const contentionStats = computeTimingStats(contentionResult.timings);

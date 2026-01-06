@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { captureError, attempt, caniuse, timer, errorsCaptured, getCapturedErrors } from './index';
+import {
+  captureError,
+  attempt,
+  caniuse,
+  timer,
+  errorsCaptured,
+  getCapturedErrors,
+} from './index';
 
 describe('errors module', () => {
   beforeEach(() => {

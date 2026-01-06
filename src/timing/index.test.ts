@@ -70,7 +70,9 @@ describe('timing module', () => {
       const result = await getTimingFingerprint();
 
       expect(result?.end.perfNow).toBeGreaterThan(result?.start.perfNow ?? 0);
-      expect(result?.end.dateNow).toBeGreaterThanOrEqual(result?.start.dateNow ?? 0);
+      expect(result?.end.dateNow).toBeGreaterThanOrEqual(
+        result?.start.dateNow ?? 0,
+      );
     });
 
     it('elapsed times are positive', async () => {

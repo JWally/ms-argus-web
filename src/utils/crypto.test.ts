@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { hashMini, hashify, cipher, instanceId, getBotHash, getFuzzyHash } from './crypto';
+import {
+  hashMini,
+  hashify,
+  cipher,
+  instanceId,
+  getBotHash,
+  getFuzzyHash,
+} from './crypto';
 
 describe('crypto utils', () => {
   describe('hashMini()', () => {

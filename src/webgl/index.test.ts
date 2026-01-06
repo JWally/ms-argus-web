@@ -185,9 +185,7 @@ describe('webgl pattern usage', () => {
 
   describe('version param filtering', () => {
     it('can filter out version-dependent params', () => {
-      const nonVersionParams = WEBGL_PARAMS.filter(
-        (p) => !VERSION_PARAMS[p],
-      );
+      const nonVersionParams = WEBGL_PARAMS.filter((p) => !VERSION_PARAMS[p]);
 
       expect(nonVersionParams).not.toContain('VERSION');
       expect(nonVersionParams).not.toContain('SHADING_LANGUAGE_VERSION');

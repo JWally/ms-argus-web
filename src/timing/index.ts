@@ -177,12 +177,15 @@ async function getHighPrecisionTime(): Promise<number | null> {
  * 2. Over multiple visits, server builds drift profile
  * 3. Drift profile is unique to device's crystal oscillator
  */
-export default async function getTimingFingerprint(): Promise<TimingFingerprint | undefined> {
+export default async function getTimingFingerprint(): Promise<
+  TimingFingerprint | undefined
+> {
   try {
     const timer = createTimer();
     timer.start();
 
-    const highPrecision = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+    const highPrecision =
+      typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
 
     // Take start sample
     const start = takeSample();
