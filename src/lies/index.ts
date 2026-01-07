@@ -241,11 +241,12 @@ function getBehemothIframe(win: Window): Window | null {
 }
 
 /**
- * Creates a phantom iframe for isolated API testing.
+ * Creates a phantom iframe for isolated API testing using closed Shadow DOM.
  *
- * The "phantom" is an invisible iframe used to access browser APIs
- * in an isolated context. Extensions that modify the main window's
- * APIs may not modify iframe APIs, allowing detection.
+ * The "phantom" is an invisible iframe hidden inside a closed shadow root,
+ * making it much harder for extensions/bots to detect or interfere with.
+ * Extensions that modify the main window's APIs may not modify iframe APIs,
+ * allowing detection.
  *
  * @returns Object with iframe window reference and parent div for cleanup
  */
@@ -255,19 +256,57 @@ function getPhantomIframe(): PhantomIframe {
   }
 
   try {
-    const numberOfIframes = self.length;
-    const frag = new DocumentFragment();
-    const div = document.createElement('div');
-    const id = getRandomValues();
-    div.setAttribute('id', id);
-    frag.appendChild(div);
-    div.innerHTML = `<div style="${GHOST_STYLES}"><iframe></iframe></div>`;
-    document.body.appendChild(frag);
-    const iframeWindow = self[numberOfIframes];
-    const phantomWindow = getBehemothIframe(iframeWindow as Window);
+    // Create a host element for the Shadow DOM
+    const shadowHost = document.createElement('div');
+    shadowHost.id = getRandomValues();
+
+    // Hide the container from layout and user interaction
+    Object.assign(shadowHost.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '0',
+      height: '0',
+      opacity: '0',
+      pointerEvents: 'none',
+      zIndex: '-1',
+    });
+
+    // Attach shadow root in "closed" mode - prevents external script access
+    const shadowRoot = shadowHost.attachShadow({ mode: 'closed' });
+
+    // Create iframe container
+    const iframeContainer = document.createElement('div');
+    Object.assign(iframeContainer.style, {
+      width: '1px',
+      height: '1px',
+    });
+
+    // Create the actual iframe for an isolated Window context
+    const iframe = document.createElement('iframe');
+    Object.assign(iframe.style, {
+      width: '100%',
+      height: '100%',
+      border: 'none',
+    });
+
+    // Append iframe to container, container to shadow DOM
+    iframeContainer.appendChild(iframe);
+    shadowRoot.appendChild(iframeContainer);
+
+    // Attach the host to the document
+    document.documentElement.appendChild(shadowHost);
+
+    // Get the iframe's window and optionally nest further with Behemoth
+    const iframeWindow = iframe.contentWindow;
+    const phantomWindow = iframeWindow
+      ? getBehemothIframe(iframeWindow)
+      : null;
+
     return {
-      iframeWindow: (phantomWindow || self) as Window & typeof globalThis,
-      div,
+      iframeWindow: (phantomWindow || iframeWindow || self) as Window &
+        typeof globalThis,
+      div: shadowHost,
     };
   } catch (error) {
     captureError(error, 'client blocked phantom iframe');
@@ -1003,6 +1042,32 @@ function getPrototypeLies(
   searchLies(() => WebGL2RenderingContext, {
     target: ['bufferData', 'getParameter', 'readPixels'],
   });
+
+  // CSS Style/Rule APIs - detect stylesheet manipulation tampering
+  searchLies(() => CSSStyleSheet, {
+    target: ['cssRules', 'insertRule', 'deleteRule'],
+  });
+  searchLies(() => CSSRule, {
+    target: ['style', 'cssText'],
+  });
+
+  // WebRTC APIs - critical for IP leak detection tampering
+  searchLies(() => RTCPeerConnection, {
+    ignore: ['peerIdentity'], // Throws in Firefox
+  });
+
+  // Plugin/MimeType APIs - often spoofed by bots
+  searchLies(() => Plugin);
+  searchLies(() => PluginArray);
+  searchLies(() => MimeTypeArray);
+
+  // Worker APIs - automation tools often modify these
+  searchLies(() => ServiceWorker);
+  searchLies(() => SharedWorker);
+  searchLies(() => Worker);
+
+  // History API - navigation spoofing detection
+  searchLies(() => History);
 
   // Return results
   const props = lieDetector.getProps();
