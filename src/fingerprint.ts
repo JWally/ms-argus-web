@@ -38,6 +38,7 @@ import getWasmFingerprint from './wasm'
 import getWebGpuCompute from './webgpu-compute'
 import getTimingFingerprint from './timing'
 import { analyzeInconsistencies } from './inconsistencies'
+import detectProxy from './proxy'
 
 // Types for the fingerprint result
 export interface FingerprintMeta {
@@ -53,6 +54,9 @@ export interface BotSignals {
 	hasLies: boolean
 	lieCount: number
 	stealthSignals: Record<string, boolean>
+	likelyResidentialProxy: boolean
+	/** True if detected JS engine doesn't match User-Agent claim (e.g., Firefox claiming to be Chrome) */
+	engineMismatch: boolean
 }
 
 export interface FingerprintHashes {
@@ -117,6 +121,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		wasmComputed,
 		webgpuComputeComputed,
 		timingComputed,
+		proxyComputed,
 	] = await Promise.all([
 		getBestWorkerScope(),
 		getVoices(),
@@ -141,6 +146,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		getWasmFingerprint({ fast: true }), // Use fast mode to avoid blocking too long
 		getWebGpuCompute(),
 		getTimingFingerprint(),
+		detectProxy(),
 	]).catch((error) => {
 		console.error('Fingerprint collection error:', error.message)
 		return []
@@ -239,6 +245,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		wasmHash,
 		webgpuComputeHash,
 		timingHash,
+		proxyHash,
 		deviceOfTimezoneHash,
 	] = await Promise.all([
 		hashify(windowFeaturesComputed),
@@ -291,6 +298,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		hashify(wasmComputed),
 		hashify(webgpuComputeComputed),
 		hashify(timingComputed),
+		hashify(proxyComputed),
 		hashify(
 			(() => {
 				const {
@@ -452,6 +460,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		wasm: !wasmComputed ? undefined : { ...wasmComputed, $hash: wasmHash },
 		webgpuCompute: !webgpuComputeComputed ? undefined : { ...webgpuComputeComputed, $hash: webgpuComputeHash },
 		timing: !timingComputed ? undefined : { ...timingComputed, $hash: timingHash },
+		proxy: !proxyComputed ? undefined : { ...proxyComputed, $hash: proxyHash },
 	}
 
 	// Build the stable fingerprint (filtered/hardened for production)
@@ -678,6 +687,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		hasLies: !!(liesComputed && liesComputed.totalLies > 0),
 		lieCount: totalLies || 0,
 		stealthSignals: stealth || {},
+		likelyResidentialProxy: proxyComputed?.likelyResidentialProxy || false,
+		engineMismatch: consoleErrorsComputed?.engineMismatch || false,
 	}
 
 	const timeEnd = startTime()

@@ -21,6 +21,13 @@ const instanceId =
 // https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
 const hashify = (x, algorithm = 'SHA-256') => {
   const json = `${JSON.stringify(x)}`;
+
+  // Fallback for non-secure contexts (HTTP) where crypto.subtle is unavailable
+  if (!crypto.subtle) {
+    // Use hashMini as fallback - less secure but functional for testing
+    return Promise.resolve(hashMini(x).padEnd(64, '0'));
+  }
+
   const jsonBuffer = new TextEncoder().encode(json);
   return crypto.subtle.digest(algorithm, jsonBuffer).then((hashBuffer) => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -32,6 +39,13 @@ const hashify = (x, algorithm = 'SHA-256') => {
 };
 
 async function cipher(data: any): Promise<string[]> {
+  // Fallback for non-secure contexts (HTTP) where crypto.subtle is unavailable
+  if (!crypto.subtle) {
+    // Return dummy values - cipher isn't used in core fingerprinting
+    const fallback = btoa(JSON.stringify(data));
+    return [fallback, 'no-iv', 'no-key'];
+  }
+
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await crypto.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
