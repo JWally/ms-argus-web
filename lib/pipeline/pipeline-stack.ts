@@ -60,6 +60,7 @@ export class PipelineStack extends Stack {
           buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
           environmentVariables: {
             NODE_VERSION: { value: "22" },
+            CODESTAR_CONNECTION_ARN: { value: CODESTAR_CONNECTION_ARN },
           },
         },
         commands: [
