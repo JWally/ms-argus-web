@@ -50,3 +50,12 @@ export {
 
 // Default export for convenience
 export { collectFingerprint as default } from './fingerprint'
+
+// Crypto ID - persistent ECDSA key pair for device identity
+export {
+	getCryptoId,
+	signWithCryptoId,
+	resetCryptoIdMemo,
+	clearStoredKeys,
+	type CryptoKeys,
+} from './utils/get-crypto-id'
