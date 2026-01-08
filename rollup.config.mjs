@@ -102,6 +102,67 @@ function stripInlineData() {
 }
 
 export default [
+  // ============================================================================
+  // LOADER BUILDS - Lightweight entry point with iframe isolation
+  // ============================================================================
+  // Loader ESM build
+  {
+    input: 'src/loader.ts',
+    output: {
+      file: 'dist/argus-loader.esm.js',
+      format: 'es',
+      sourcemap: true,
+    },
+    plugins: [
+      wasmBase64Plugin(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        noEmitOnError: false,
+        outDir: 'dist',
+      }),
+    ],
+  },
+  // Loader IIFE build for direct <script> tag usage
+  {
+    input: 'src/loader.ts',
+    output: {
+      file: 'dist/argus-loader.iife.js',
+      format: 'iife',
+      name: 'ArgusLoader',
+      sourcemap: true,
+    },
+    plugins: [
+      wasmBase64Plugin(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        noEmitOnError: false,
+        outDir: 'dist',
+      }),
+    ],
+  },
+  // Loader IIFE minified for production CDN
+  {
+    input: 'src/loader.ts',
+    output: {
+      file: 'dist/argus-loader.iife.min.js',
+      format: 'iife',
+      name: 'ArgusLoader',
+      sourcemap: true,
+    },
+    plugins: [
+      wasmBase64Plugin(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        noEmitOnError: false,
+        outDir: 'dist',
+      }),
+      terser(terserOptions),
+    ],
+  },
+
+  // ============================================================================
+  // CORE LIBRARY BUILDS - Full fingerprinting library
+  // ============================================================================
   // ESM build for modern bundlers
   {
     input: 'src/index.ts',
