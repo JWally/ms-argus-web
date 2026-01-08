@@ -33,7 +33,11 @@
     "baseline:compare": "node scripts/compare-fingerprint.js",
     "update:features": "npx tsx scripts/update-features-mdn.ts",
     "update:features:local": "npx tsx scripts/update-features.ts",
-    "update:timezones": "npx tsx scripts/update-timezones.ts"
+    "update:timezones": "npx tsx scripts/update-timezones.ts",
+    "cdk": "cdk",
+    "cdk:synth": "cdk synth",
+    "cdk:deploy": "cdk deploy",
+    "cdk:diff": "cdk diff"
   },
   "repository": {
     "type": "git",
@@ -45,7 +49,12 @@
     "url": "https://github.com/abrahamjuliot/CreepJS/issues"
   },
   "homepage": "https://github.com/abrahamjuliot/CreepJS#readme",
+  "dependencies": {
+    "aws-cdk-lib": "^2.189.1",
+    "constructs": "^10.4.2"
+  },
   "devDependencies": {
+    "aws-cdk": "^2.189.1",
     "@aws-sdk/client-s3": "^3.964.0",
     "@playwright/test": "^1.57.0",
     "@rollup/plugin-replace": "^6.0.3",

@@ -8,6 +8,7 @@ public/style.prefix.css
 notes.md
 # Build output
 dist/
+cdk.out/
 
 # Baseline fingerprint (local testing)
 baseline.json
