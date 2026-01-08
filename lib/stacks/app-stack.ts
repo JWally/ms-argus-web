@@ -34,7 +34,10 @@ export class TheStack extends cdk.Stack {
      *  Static-site construct (S3 + CloudFront)
      * -------------------------------------------------- */
     const constructName = `${stage}-argus-web-static-${siteDomain}`;
-    const customDomain = `${stage}.${siteDomain}`;
+    const stageLower = stage.toLowerCase();
+    const customDomain = stageLower === 'prod'
+      ? `static.${siteDomain}`
+      : `static-${stageLower}.${siteDomain}`;
     const site = new StaticSiteConstruct(this, constructName, {
       customDomain,
       rootDomain: siteDomain,
