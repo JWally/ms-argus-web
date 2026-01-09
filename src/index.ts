@@ -115,3 +115,50 @@ export {
 	clearCustomStunServers,
 	getStunServers,
 } from './webrtc/constants'
+
+// ============================================================================
+// Unified load() function for lite loader compatibility
+// ============================================================================
+
+import { collectFingerprint as _collectFingerprint } from './fingerprint'
+import { collectSigintData as _collectSigintData, getStunServerUri as _getStunServerUri, type SigintConfig } from './utils/sigint'
+import { setCustomStunServers as _setCustomStunServers } from './webrtc/constants'
+
+export interface LoadOptions {
+	enableSigint?: boolean
+	sigint?: Partial<SigintConfig>
+}
+
+export interface LoadResult {
+	fingerprint: Awaited<ReturnType<typeof _collectFingerprint>>
+	sigint?: Awaited<ReturnType<typeof _collectSigintData>>
+	timing: { start: number; end: number; duration: number }
+}
+
+/**
+ * Unified load function - collects fingerprint and optionally sigint data.
+ * Used by the lite loader to run fingerprinting inside an iframe.
+ */
+export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
+	const start = performance.now()
+
+	// Configure STUN servers if sigint is enabled
+	if (opts.enableSigint && opts.sigint?.baseDomain) {
+		const stunUri = _getStunServerUri(opts.sigint as SigintConfig)
+		_setCustomStunServers([stunUri])
+	}
+
+	// Run fingerprint and sigint in parallel
+	const [fingerprint, sigint] = await Promise.all([
+		_collectFingerprint(),
+		opts.enableSigint ? _collectSigintData(opts.sigint || {}) : Promise.resolve(undefined),
+	])
+
+	const end = performance.now()
+
+	return {
+		fingerprint,
+		sigint,
+		timing: { start, end, duration: end - start },
+	}
+}

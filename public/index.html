@@ -248,8 +248,8 @@
   </div>
 
   <script type="module">
-    import { load } from './argus-loader.esm.js';
-    import { getEvercookieId } from './argus.esm.js';
+    // Use the unified load() function directly - same as what lite loader calls
+    import { load, getEvercookieId } from './argus.esm.js';
 
     // Store last collection result for download
     let lastResult = null;

@@ -103,7 +103,44 @@ function stripInlineData() {
 
 export default [
   // ============================================================================
-  // LOADER BUILDS - Lightweight entry point with iframe isolation
+  // LOADER LITE - Tiny loader that dynamically loads the fingerprinting script
+  // ============================================================================
+  {
+    input: 'src/loader-lite.ts',
+    output: {
+      file: 'dist/argus-loader-lite.iife.js',
+      format: 'iife',
+      name: 'ArgusLoader',
+      sourcemap: true,
+    },
+    plugins: [
+      typescript({
+        tsconfig: './tsconfig.json',
+        noEmitOnError: false,
+        outDir: 'dist',
+      }),
+    ],
+  },
+  {
+    input: 'src/loader-lite.ts',
+    output: {
+      file: 'dist/argus-loader-lite.iife.min.js',
+      format: 'iife',
+      name: 'ArgusLoader',
+      sourcemap: true,
+    },
+    plugins: [
+      typescript({
+        tsconfig: './tsconfig.json',
+        noEmitOnError: false,
+        outDir: 'dist',
+      }),
+      terser(terserOptions),
+    ],
+  },
+
+  // ============================================================================
+  // LOADER BUILDS - Heavyweight loader (bundles fingerprinting code)
   // ============================================================================
   // Loader ESM build
   {
