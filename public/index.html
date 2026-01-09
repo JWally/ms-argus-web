@@ -16,11 +16,7 @@
       --warning: #eab308;
       --error: #ef4444;
     }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
       background: var(--bg);
@@ -29,191 +25,96 @@
       padding: 2rem;
       min-height: 100vh;
     }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      color: var(--accent);
-    }
-    .subtitle {
-      color: var(--text-dim);
-      font-size: 0.875rem;
-      margin-bottom: 2rem;
-    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--accent); }
+    .subtitle { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 2rem; }
+
+    /* Config Bar */
     .config-bar {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 1.5rem;
-      padding: 1rem;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+      padding: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
     }
-    .config-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-    .config-group label {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-    }
+    .config-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .config-group label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; }
     .config-group input, .config-group select {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.5rem;
-      border-radius: 4px;
-      font-family: inherit;
-      font-size: 0.875rem;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 0.5rem; border-radius: 4px; font-family: inherit; font-size: 0.875rem;
     }
-    .config-group input:focus, .config-group select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
+    .config-group input:focus, .config-group select:focus { outline: none; border-color: var(--accent); }
     button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 0.875rem;
-      cursor: pointer;
-      transition: opacity 0.2s;
+      background: var(--accent); color: white; border: none; padding: 0.75rem 1.5rem;
+      border-radius: 6px; font-family: inherit; font-size: 0.875rem; cursor: pointer;
     }
-    button:hover {
-      opacity: 0.9;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      font-size: 0.875rem;
-    }
-    .status.running {
-      background: rgba(59, 130, 246, 0.1);
-      color: var(--accent);
-    }
-    .status.success {
-      background: rgba(34, 197, 94, 0.1);
-      color: var(--success);
-    }
-    .status.error {
-      background: rgba(239, 68, 68, 0.1);
-      color: var(--error);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.875rem; }
+    .status.running { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+    .status.success { background: rgba(34, 197, 94, 0.1); color: var(--success); }
+    .status.error { background: rgba(239, 68, 68, 0.1); color: var(--error); }
+
+    /* Summary Cards Grid */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+
+    /* Module Grid */
+    .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+
+    /* Cards */
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);
+      cursor: pointer; user-select: none;
     }
-    .card-title {
-      font-size: 0.875rem;
-      font-weight: 600;
-    }
-    .card-badge {
-      font-size: 0.75rem;
-      padding: 0.125rem 0.5rem;
-      border-radius: 4px;
-      background: var(--border);
-    }
-    .card-content {
-      padding: 1rem;
-      font-size: 0.8125rem;
-    }
-    .data-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.375rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .data-row:last-child {
-      border-bottom: none;
-    }
-    .data-key {
-      color: var(--text-dim);
-    }
-    .data-value {
-      color: var(--text);
-      text-align: right;
-      word-break: break-all;
-      max-width: 60%;
-    }
-    .data-value.hash {
-      font-family: monospace;
-      font-size: 0.75rem;
-    }
-    .score-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .score-fill {
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      flex: 1;
-      overflow: hidden;
-    }
-    .score-fill-inner {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 0.3s ease;
-    }
+    .card-header:hover { background: rgba(255, 255, 255, 0.04); }
+    .card-title { font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+    .card-title .icon { font-size: 1rem; }
+    .card-meta { display: flex; align-items: center; gap: 0.5rem; }
+    .card-badge { font-size: 0.7rem; padding: 0.125rem 0.5rem; border-radius: 4px; background: var(--border); }
+    .card-badge.pass { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .card-badge.fail { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+    .card-badge.warn { background: rgba(234, 179, 8, 0.2); color: var(--warning); }
+    .card-hash { font-size: 0.65rem; color: var(--text-dim); font-family: monospace; }
+    .card-content { padding: 1rem; font-size: 0.8rem; }
+    .card-content.collapsed { display: none; }
+    .expand-icon { transition: transform 0.2s; }
+    .expand-icon.collapsed { transform: rotate(-90deg); }
+
+    /* Data Display */
+    .data-row { display: flex; justify-content: space-between; padding: 0.375rem 0; border-bottom: 1px solid var(--border); }
+    .data-row:last-child { border-bottom: none; }
+    .data-key { color: var(--text-dim); }
+    .data-value { color: var(--text); text-align: right; word-break: break-all; max-width: 60%; }
+    .data-value.hash { font-family: monospace; font-size: 0.7rem; }
+    .data-value.truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Score Bar */
+    .score-bar { display: flex; align-items: center; gap: 0.5rem; }
+    .score-fill { height: 6px; border-radius: 3px; background: var(--border); flex: 1; overflow: hidden; }
+    .score-fill-inner { height: 100%; border-radius: 3px; }
     .score-fill-inner.low { background: var(--success); }
     .score-fill-inner.medium { background: var(--warning); }
     .score-fill-inner.high { background: var(--error); }
-    pre {
-      background: var(--bg);
-      padding: 1rem;
-      border-radius: 4px;
-      overflow-x: auto;
-      font-size: 0.75rem;
-      max-height: 400px;
-    }
-    .full-width {
-      grid-column: 1 / -1;
-    }
-    .spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+
+    /* JSON Display */
+    pre { background: var(--bg); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.7rem; max-height: 600px; }
+    .full-width { grid-column: 1 / -1; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+    .tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-dim); }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Spinner */
+    .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .hidden { display: none; }
+
+    /* Section Headers */
+    .section-header { font-size: 1rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.5rem; }
+    .section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   </style>
 </head>
 <body>
@@ -224,7 +125,7 @@
     <div class="config-bar">
       <div class="config-group">
         <label>Sigint Domain</label>
-        <input type="text" id="sigintDomain" value="wolcott.io" placeholder="wolcott.io">
+        <input type="text" id="sigintDomain" value="wolcott.io">
       </div>
       <div class="config-group">
         <label>Stage</label>
@@ -232,7 +133,6 @@
           <option value="">Production</option>
           <option value="uat-">UAT</option>
           <option value="qa-">QA</option>
-          <option value="dev-jw-">DEV-JW</option>
           <option value="dev-">DEV</option>
         </select>
       </div>
@@ -253,55 +153,67 @@
       </div>
     </div>
 
-    <div class="grid" id="results">
+    <!-- Summary Section -->
+    <div class="section-header">Summary</div>
+    <div class="summary-grid" id="summaryGrid">
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Device Identity</span>
-          <span class="card-badge">persistence</span>
+        <div class="card-header" onclick="toggleCard(this)">
+          <span class="card-title"><span class="icon">🔑</span> Identity</span>
+          <span class="expand-icon">▼</span>
         </div>
         <div class="card-content" id="identityCard">
           <p style="color: var(--text-dim);">Click "Collect Fingerprint" to start</p>
         </div>
       </div>
-
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">TLS Fingerprint</span>
-          <span class="card-badge">sigint</span>
+        <div class="card-header" onclick="toggleCard(this)">
+          <span class="card-title"><span class="icon">🔐</span> TLS Fingerprint</span>
+          <span class="expand-icon">▼</span>
         </div>
         <div class="card-content" id="tlsCard">
-          <p style="color: var(--text-dim);">Requires sigint enabled</p>
+          <p style="color: var(--text-dim);">Requires sigint</p>
         </div>
       </div>
-
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Network Analysis</span>
-          <span class="card-badge">sigint</span>
+        <div class="card-header" onclick="toggleCard(this)">
+          <span class="card-title"><span class="icon">🌐</span> Network</span>
+          <span class="expand-icon">▼</span>
         </div>
         <div class="card-content" id="networkCard">
-          <p style="color: var(--text-dim);">Requires sigint enabled</p>
+          <p style="color: var(--text-dim);">Requires sigint</p>
         </div>
       </div>
-
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Proxy/VPN Detection</span>
-          <span class="card-badge">sigint</span>
+        <div class="card-header" onclick="toggleCard(this)">
+          <span class="card-title"><span class="icon">🛡️</span> Bot Detection</span>
+          <span class="expand-icon">▼</span>
         </div>
-        <div class="card-content" id="proxyCard">
-          <p style="color: var(--text-dim);">Requires sigint enabled</p>
+        <div class="card-content" id="botCard">
+          <p style="color: var(--text-dim);">Pending...</p>
         </div>
       </div>
+    </div>
 
-      <div class="card full-width">
-        <div class="card-header">
-          <span class="card-title">Full Fingerprint Data</span>
-          <span class="card-badge" id="fpBadge">pending</span>
-        </div>
-        <div class="card-content">
-          <pre id="fullData">// Waiting for collection...</pre>
-        </div>
+    <!-- Module Section -->
+    <div class="section-header">Fingerprint Modules</div>
+    <div class="module-grid" id="moduleGrid">
+      <!-- Modules will be dynamically added here -->
+    </div>
+
+    <!-- Raw Data Section -->
+    <div class="section-header">Raw Data</div>
+    <div class="card full-width">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('all')">All Data</div>
+        <div class="tab" onclick="switchTab('fingerprint')">Fingerprint</div>
+        <div class="tab" onclick="switchTab('sigint')">Sigint</div>
+        <div class="tab" onclick="switchTab('bot')">Bot Signals</div>
+      </div>
+      <div class="card-content">
+        <div id="tab-all" class="tab-content active"><pre id="fullData">// Waiting for collection...</pre></div>
+        <div id="tab-fingerprint" class="tab-content"><pre id="fpData">// Waiting...</pre></div>
+        <div id="tab-sigint" class="tab-content"><pre id="sigintData">// Waiting...</pre></div>
+        <div id="tab-bot" class="tab-content"><pre id="botData">// Waiting...</pre></div>
       </div>
     </div>
   </div>
@@ -310,44 +222,75 @@
     import { load } from './argus-loader.esm.js';
     import { getEvercookieId } from './argus.esm.js';
 
-    // Auto-detect stage from hostname and map to sigint stage prefix
-    // static-dev-jw.argus.pw -> dev- (dev-jw uses dev sigint)
-    // static-qa.argus.pw -> qa-
-    // static-uat.argus.pw -> uat-
-    // static.argus.pw -> '' (prod)
+    // Module descriptions for CreepJS-style info
+    const MODULE_INFO = {
+      navigator: { icon: '🧭', desc: 'Browser navigator properties and user agent' },
+      screen: { icon: '🖥️', desc: 'Screen dimensions, color depth, pixel ratio' },
+      windowFeatures: { icon: '🪟', desc: 'Window properties and browser features' },
+      webrtc: { icon: '📡', desc: 'WebRTC ICE candidates and media capabilities' },
+      canvas2d: { icon: '🎨', desc: 'Canvas 2D rendering fingerprint' },
+      canvasWebgl: { icon: '🎮', desc: 'WebGL renderer, vendor, and parameters' },
+      offlineAudioContext: { icon: '🔊', desc: 'AudioContext fingerprint from oscillator' },
+      fonts: { icon: '🔤', desc: 'Available fonts detected via rendering' },
+      timezone: { icon: '🌍', desc: 'Timezone offset and locale' },
+      intl: { icon: '🌐', desc: 'Intl API formatting fingerprint' },
+      maths: { icon: '🔢', desc: 'Math function precision fingerprint' },
+      css: { icon: '🎨', desc: 'CSS computed styles fingerprint' },
+      cssMedia: { icon: '📱', desc: 'CSS media queries and preferences' },
+      features: { icon: '⚙️', desc: 'Browser feature detection' },
+      resistance: { icon: '🛡️', desc: 'Privacy tool detection (Tor, Brave, etc.)' },
+      headless: { icon: '🤖', desc: 'Headless browser detection signals' },
+      lies: { icon: '🎭', desc: 'API tampering and prototype pollution' },
+      svg: { icon: '📐', desc: 'SVG rendering measurements' },
+      clientRects: { icon: '📏', desc: 'DOM element bounding rectangles' },
+      workerScope: { icon: '👷', desc: 'Web Worker environment fingerprint' },
+      wasm: { icon: '⚡', desc: 'WebAssembly performance fingerprint' },
+      webgpuCompute: { icon: '🎯', desc: 'WebGPU compute capabilities' },
+      timing: { icon: '⏱️', desc: 'Performance timing analysis' },
+      proxy: { icon: '🔒', desc: 'Proxy/VPN detection signals' },
+      consoleErrors: { icon: '🐛', desc: 'Console error patterns' },
+      htmlElementVersion: { icon: '📄', desc: 'HTML element properties' },
+      voices: { icon: '🗣️', desc: 'Speech synthesis voices' },
+      media: { icon: '🎬', desc: 'Media capabilities and MIME types' },
+      trash: { icon: '🗑️', desc: 'DOM pollution detection' },
+      capturedErrors: { icon: '⚠️', desc: 'Error pattern analysis' },
+    };
+
+    // Auto-detect stage
     function detectStage() {
       const hostname = window.location.hostname;
-
-      // Match static-{stage}.domain pattern
       const match = hostname.match(/^static-([^.]+)\./);
       if (match) {
         const stage = match[1];
-        // Map personal dev stacks (dev-jw, dev-xyz, etc.) to dev- sigint
-        // since they don't have their own sigint endpoints
-        if (stage.startsWith('dev-')) {
-          return 'dev-';
-        }
-        // qa, uat have their own sigint endpoints
+        if (stage.startsWith('dev')) return 'dev-';
         return stage + '-';
       }
-
-      // If just "static.domain", it's prod
-      if (hostname.startsWith('static.')) {
-        return '';
-      }
-
-      // localhost or unknown - default to dev-
+      if (hostname.startsWith('static.')) return '';
       return 'dev-';
     }
 
-    // Set initial values based on detected stage
     const detectedStage = detectStage();
     document.getElementById('sigintStage').value = detectedStage;
-
-    // Update subtitle to show detected environment
     const stageLabel = detectedStage ? detectedStage.replace('-', '').toUpperCase() : 'PROD';
-    document.querySelector('.subtitle').textContent += ' [' + stageLabel + ' environment]';
+    document.querySelector('.subtitle').textContent += ' [' + stageLabel + ']';
 
+    // Toggle card expand/collapse
+    window.toggleCard = function(header) {
+      const content = header.nextElementSibling;
+      const icon = header.querySelector('.expand-icon');
+      content.classList.toggle('collapsed');
+      icon.classList.toggle('collapsed');
+    };
+
+    // Tab switching
+    window.switchTab = function(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+      document.getElementById('tab-' + tab).classList.add('active');
+    };
+
+    // Main collection function
     window.collect = async function() {
       const btn = document.getElementById('collectBtn');
       const status = document.getElementById('status');
@@ -363,29 +306,23 @@
         const enableSigint = document.getElementById('enableSigint').checked;
         const enableStun = document.getElementById('enableStun').checked;
 
-        // Collect fingerprint with sigint integration
         const result = await load({
           enableSigint,
-          sigint: {
-            baseDomain: sigintDomain,
-            stagePrefix: sigintStage,
-            enableStun,
-          },
+          sigint: { baseDomain: sigintDomain, stagePrefix: sigintStage, enableStun },
         });
 
-        // Get evercookie ID for persistence display
         const evercookie = await getEvercookieId();
 
-        // Update UI
+        // Update all sections
         updateIdentityCard(result, evercookie);
         updateTlsCard(result);
         updateNetworkCard(result);
-        updateProxyCard(result);
-        updateFullData(result, evercookie);
+        updateBotCard(result);
+        updateModuleGrid(result);
+        updateRawData(result, evercookie);
 
         status.className = 'status success';
-        status.innerHTML = 'Completed in ' + result.timing.duration.toFixed(0) + 'ms';
-        document.getElementById('fpBadge').textContent = 'complete';
+        status.innerHTML = '✓ ' + result.timing.duration.toFixed(0) + 'ms';
 
       } catch (err) {
         status.className = 'status error';
@@ -399,146 +336,109 @@
     function updateIdentityCard(result, evercookie) {
       const card = document.getElementById('identityCard');
       const fpHash = result.fingerprint.hashes?.stable || result.fingerprint.hashes?.fuzzy || 'N/A';
-      card.innerHTML =
-        '<div class="data-row">' +
-          '<span class="data-key">Fingerprint Hash</span>' +
-          '<span class="data-value hash">' + fpHash + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Evercookie ID</span>' +
-          '<span class="data-value hash">' + evercookie.id + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">First Seen</span>' +
-          '<span class="data-value">' + new Date(evercookie.created).toLocaleString() + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Third-Party Cookie</span>' +
-          '<span class="data-value hash">' + (result.sigint?.tlsFingerprint?.id || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Collection Time</span>' +
-          '<span class="data-value">' + result.timing.duration.toFixed(0) + 'ms</span>' +
-        '</div>';
+      card.innerHTML = `
+        <div class="data-row"><span class="data-key">Stable Hash</span><span class="data-value hash truncate">${fpHash}</span></div>
+        <div class="data-row"><span class="data-key">Fuzzy Hash</span><span class="data-value hash truncate">${result.fingerprint.hashes?.fuzzy || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">Evercookie</span><span class="data-value hash truncate">${evercookie.id}</span></div>
+        <div class="data-row"><span class="data-key">3rd Party Cookie</span><span class="data-value hash truncate">${result.sigint?.tlsFingerprint?.id || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">First Seen</span><span class="data-value">${new Date(evercookie.created).toLocaleString()}</span></div>
+      `;
     }
 
     function updateTlsCard(result) {
       const card = document.getElementById('tlsCard');
       const tls = result.sigint?.tlsFingerprint;
-
-      if (!tls) {
-        card.innerHTML = '<p style="color: var(--text-dim);">Sigint not enabled or failed</p>';
-        return;
-      }
-
-      card.innerHTML = 
-        '<div class="data-row">' +
-          '<span class="data-key">JA4 Hash</span>' +
-          '<span class="data-value hash">' + (tls.ja4 || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">JA3 Hash</span>' +
-          '<span class="data-value hash">' + (tls.ja3 || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">IP Address</span>' +
-          '<span class="data-value">' + (tls.ip || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Country</span>' +
-          '<span class="data-value">' + (tls.country || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">ASN</span>' +
-          '<span class="data-value">' + (tls.asn || 'N/A') + '</span>' +
-        '</div>';
+      if (!tls) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
+      card.innerHTML = `
+        <div class="data-row"><span class="data-key">JA4</span><span class="data-value hash truncate">${tls.ja4 || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">JA3</span><span class="data-value hash truncate">${tls.ja3 || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">IP</span><span class="data-value">${tls.ip || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">Country</span><span class="data-value">${tls.country || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">ASN</span><span class="data-value">${tls.asn || 'N/A'}</span></div>
+      `;
     }
 
     function updateNetworkCard(result) {
       const card = document.getElementById('networkCard');
       const tcp = result.sigint?.tcpProbe;
-
-      if (!tcp) {
-        card.innerHTML = '<p style="color: var(--text-dim);">TCP probe not available</p>';
-        return;
-      }
-
+      if (!tcp) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
       const rtt = tcp.rtt_fingerprint;
-      card.innerHTML = 
-        '<div class="data-row">' +
-          '<span class="data-key">TCP RTT</span>' +
-          '<span class="data-value">' + (rtt ? (rtt.tcp_rtt_us / 1000).toFixed(1) + 'ms' : 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">TLS Handshake</span>' +
-          '<span class="data-value">' + (rtt ? (rtt.tls_handshake_us / 1000).toFixed(1) + 'ms' : 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">MSS</span>' +
-          '<span class="data-value">' + (rtt?.snd_mss || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Protocol</span>' +
-          '<span class="data-value">' + (tcp.http2_fingerprint?.protocol || 'N/A') + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Client IP</span>' +
-          '<span class="data-value">' + (tcp.client_ip || 'N/A') + '</span>' +
-        '</div>';
+      card.innerHTML = `
+        <div class="data-row"><span class="data-key">TCP RTT</span><span class="data-value">${rtt ? (rtt.tcp_rtt_us / 1000).toFixed(1) + 'ms' : 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">TLS Handshake</span><span class="data-value">${rtt ? (rtt.tls_handshake_us / 1000).toFixed(1) + 'ms' : 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">Proxy Score</span><span class="data-value">${rtt ? (rtt.proxy_score * 100).toFixed(0) + '%' : 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">VPN Score</span><span class="data-value">${rtt ? (rtt.vpn_score * 100).toFixed(0) + '%' : 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">Protocol</span><span class="data-value">${tcp.http2_fingerprint?.protocol || 'N/A'}</span></div>
+      `;
     }
 
-    function updateProxyCard(result) {
-      const card = document.getElementById('proxyCard');
-      const rtt = result.sigint?.tcpProbe?.rtt_fingerprint;
-
-      if (!rtt) {
-        card.innerHTML = '<p style="color: var(--text-dim);">RTT fingerprint not available</p>';
-        return;
-      }
-
-      const proxyScore = Math.max(rtt.proxy_score, rtt.vpn_score);
-      const scoreClass = proxyScore < 0.3 ? 'low' : proxyScore < 0.6 ? 'medium' : 'high';
-
-      card.innerHTML = 
-        '<div class="data-row">' +
-          '<span class="data-key">Proxy Score</span>' +
-          '<span class="data-value">' +
-            '<div class="score-bar">' +
-              '<span>' + (rtt.proxy_score * 100).toFixed(0) + '%</span>' +
-              '<div class="score-fill">' +
-                '<div class="score-fill-inner ' + scoreClass + '" style="width: ' + (rtt.proxy_score * 100) + '%"></div>' +
-              '</div>' +
-            '</div>' +
-          '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">VPN Score</span>' +
-          '<span class="data-value">' +
-            '<div class="score-bar">' +
-              '<span>' + (rtt.vpn_score * 100).toFixed(0) + '%</span>' +
-              '<div class="score-fill">' +
-                '<div class="score-fill-inner ' + scoreClass + '" style="width: ' + (rtt.vpn_score * 100) + '%"></div>' +
-              '</div>' +
-            '</div>' +
-          '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">TLS/TCP Ratio</span>' +
-          '<span class="data-value">' + rtt.tls_to_tcp_ratio.toFixed(2) + '</span>' +
-        '</div>' +
-        '<div class="data-row">' +
-          '<span class="data-key">Signals</span>' +
-          '<span class="data-value">' + rtt.proxy_signals.join(', ') + '</span>' +
-        '</div>';
+    function updateBotCard(result) {
+      const card = document.getElementById('botCard');
+      const bot = result.fingerprint.botSignals;
+      if (!bot) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
+      const isBot = bot.isBot || bot.isHeadless || bot.hasLies;
+      card.innerHTML = `
+        <div class="data-row"><span class="data-key">Is Bot</span><span class="data-value" style="color: ${bot.isBot ? 'var(--error)' : 'var(--success)'}">${bot.isBot ? 'Yes' : 'No'}</span></div>
+        <div class="data-row"><span class="data-key">Headless</span><span class="data-value" style="color: ${bot.isHeadless ? 'var(--error)' : 'var(--success)'}">${bot.isHeadless ? 'Yes' : 'No'}</span></div>
+        <div class="data-row"><span class="data-key">Has Lies</span><span class="data-value" style="color: ${bot.hasLies ? 'var(--warning)' : 'var(--success)'}">${bot.hasLies ? `Yes (${bot.lieCount})` : 'No'}</span></div>
+        <div class="data-row"><span class="data-key">Bad Bot</span><span class="data-value">${bot.badBot || 'None'}</span></div>
+        <div class="data-row"><span class="data-key">Engine Mismatch</span><span class="data-value" style="color: ${bot.engineMismatch ? 'var(--error)' : 'var(--success)'}">${bot.engineMismatch ? 'Yes' : 'No'}</span></div>
+      `;
     }
 
-    function updateFullData(result, evercookie) {
-      const pre = document.getElementById('fullData');
-      const combined = {
-        fingerprint: {
-          hashes: result.fingerprint.hashes,
-          moduleCount: Object.keys(result.fingerprint.loose || {}).length,
-        },
+    function updateModuleGrid(result) {
+      const grid = document.getElementById('moduleGrid');
+      grid.innerHTML = '';
+
+      const loose = result.fingerprint.loose || {};
+      const modules = Object.keys(loose).filter(k => loose[k] && typeof loose[k] === 'object');
+
+      modules.forEach(moduleName => {
+        const data = loose[moduleName];
+        const info = MODULE_INFO[moduleName] || { icon: '📦', desc: 'Module data' };
+        const hash = data.$hash || 'N/A';
+        const keys = Object.keys(data).filter(k => k !== '$hash');
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-header" onclick="toggleCard(this)">
+            <span class="card-title"><span class="icon">${info.icon}</span> ${moduleName}</span>
+            <div class="card-meta">
+              <span class="card-hash">${hash.slice(0, 8)}...</span>
+              <span class="card-badge">${keys.length} props</span>
+              <span class="expand-icon collapsed">▼</span>
+            </div>
+          </div>
+          <div class="card-content collapsed">
+            <p style="color: var(--text-dim); margin-bottom: 0.5rem; font-size: 0.75rem;">${info.desc}</p>
+            ${keys.slice(0, 10).map(k => `
+              <div class="data-row">
+                <span class="data-key">${k}</span>
+                <span class="data-value truncate">${formatValue(data[k])}</span>
+              </div>
+            `).join('')}
+            ${keys.length > 10 ? `<p style="color: var(--text-dim); margin-top: 0.5rem; font-size: 0.7rem;">... and ${keys.length - 10} more properties</p>` : ''}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function formatValue(val) {
+      if (val === null || val === undefined) return 'null';
+      if (typeof val === 'boolean') return val ? '✓' : '✗';
+      if (typeof val === 'number') return val.toLocaleString();
+      if (typeof val === 'string') return val.length > 50 ? val.slice(0, 50) + '...' : val;
+      if (Array.isArray(val)) return `[${val.length} items]`;
+      if (typeof val === 'object') return `{${Object.keys(val).length} props}`;
+      return String(val);
+    }
+
+    function updateRawData(result, evercookie) {
+      // All data combined
+      const allData = {
+        fingerprint: result.fingerprint,
         evercookie: {
           id: evercookie.id,
           created: evercookie.created,
@@ -548,7 +448,19 @@
         sigint: result.sigint,
         timing: result.timing,
       };
-      pre.textContent = JSON.stringify(combined, null, 2);
+      document.getElementById('fullData').textContent = JSON.stringify(allData, null, 2);
+
+      // Fingerprint only
+      document.getElementById('fpData').textContent = JSON.stringify(result.fingerprint, null, 2);
+
+      // Sigint only
+      document.getElementById('sigintData').textContent = JSON.stringify(result.sigint || {}, null, 2);
+
+      // Bot signals only
+      document.getElementById('botData').textContent = JSON.stringify({
+        botSignals: result.fingerprint.botSignals,
+        inconsistencies: result.fingerprint.inconsistencies,
+      }, null, 2);
     }
   </script>
 </body>
