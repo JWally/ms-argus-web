@@ -54,6 +54,15 @@ export class PipelineStack extends Stack {
      * -------------------------------------------------- */
     const pipeline = new CodePipeline(this, id, {
       crossAccountKeys: true,
+      // SelfMutate needs SSM access for CDK bootstrap version check
+      selfMutationCodeBuildDefaults: {
+        rolePolicy: [
+          new PolicyStatement({
+            actions: ["ssm:GetParameter"],
+            resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/cdk-bootstrap/*`],
+          }),
+        ],
+      },
       synth: new CodeBuildStep("Synth", {
         input: source,
         buildEnvironment: {
