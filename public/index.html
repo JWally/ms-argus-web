@@ -153,7 +153,7 @@
       </div>
       <div class="config-group">
         <label>Stage Prefix</label>
-        <input type="text" id="sigintStage" placeholder="e.g., qa-, dev-jw-" style="width: 120px;">
+        <input type="text" id="sigintStage" placeholder="dev-jw-, qa-, etc." style="width: 120px;">
       </div>
       <div class="config-group">
         <label>Options</label>
@@ -289,6 +289,9 @@
     // static-dev-jw.argus.pw -> 'dev-jw-'
     // static-qa.argus.pw -> 'qa-'
     // static.argus.pw -> '' (prod)
+    // NOTE: Default is 'dev-jw-' (not 'dev-') because the dev environment
+    // is deployed as ms-argus-sigint-dev-jw with 'dev-jw-' prefix endpoints.
+    // There is no 'dev-' deployment - only dev-jw, qa, uat, prod.
     function detectStage() {
       const hostname = window.location.hostname;
       const match = hostname.match(/^static-([^.]+)\./);
@@ -296,12 +299,12 @@
         return match[1] + '-';
       }
       if (hostname.startsWith('static.')) return '';
-      return 'dev-';
+      return 'dev-jw-'; // Default to dev-jw (the actual dev environment)
     }
 
     const detectedStage = detectStage();
     document.getElementById('sigintStage').value = detectedStage;
-    const stageLabel = detectedStage ? detectedStage.replace('-', '').toUpperCase() : 'PROD';
+    const stageLabel = detectedStage ? detectedStage.replace(/-$/, '').toUpperCase() : 'PROD';
     document.querySelector('.subtitle').textContent += ' [' + stageLabel + ']';
 
     // Toggle card expand/collapse
