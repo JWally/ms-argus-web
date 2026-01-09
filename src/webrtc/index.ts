@@ -138,17 +138,19 @@ function parseICECandidate(candidateStr: string): ParsedICECandidate | null {
  * - IP category distribution (private/public/mdns)
  * - Android detection (exposes private IPs)
  * - Privacy tool detection (mDNS obfuscation)
+ * - ALL collected IPs ordered by preference (public IPv4 > private > IPv6)
  *
  * @param candidates - Array of parsed ICE candidates
- * @returns Summary with counts and flags
+ * @returns Summary with counts, flags, and all IPs
  */
 function summarizeICECandidates(
   candidates: ParsedICECandidate[],
 ): ICECandidateSummary {
   const typeCount: Record<string, number> = {};
   const categoryCount: Record<string, number> = {};
+  const publicIPs: string[] = [];
   const privateIPs: string[] = [];
-  let publicIP: string | undefined;
+  const ipv6Addresses: string[] = [];
   let hasMDNS = false;
 
   for (const candidate of candidates) {
@@ -159,17 +161,30 @@ function summarizeICECandidates(
     categoryCount[candidate.category] =
       (categoryCount[candidate.category] || 0) + 1;
 
-    // Track specific categories
-    if (candidate.category === 'private') {
+    // Track IPs by category (avoid duplicates)
+    if (candidate.category === 'public') {
+      if (!publicIPs.includes(candidate.address)) {
+        publicIPs.push(candidate.address);
+      }
+    } else if (candidate.category === 'private') {
       if (!privateIPs.includes(candidate.address)) {
         privateIPs.push(candidate.address);
       }
-    } else if (candidate.category === 'public' && !publicIP) {
-      publicIP = candidate.address;
+    } else if (candidate.category === 'ipv6') {
+      if (!ipv6Addresses.includes(candidate.address)) {
+        ipv6Addresses.push(candidate.address);
+      }
     } else if (candidate.category === 'mdns') {
       hasMDNS = true;
     }
   }
+
+  // Build allIPs array ordered by preference: public IPv4 > private IPv4 > IPv6
+  const allIPs = [...publicIPs, ...privateIPs, ...ipv6Addresses];
+
+  // Primary IP is the "best" one for comparison with server-side
+  // Prefer: public IPv4 > private IPv4 > IPv6
+  const primaryIP = publicIPs[0] || privateIPs[0] || ipv6Addresses[0];
 
   return {
     candidates,
@@ -177,8 +192,11 @@ function summarizeICECandidates(
     categoryCount,
     hasPrivateIP: privateIPs.length > 0,
     hasMDNS,
-    publicIP,
+    publicIP: publicIPs[0],
     privateIPs,
+    ipv6Addresses,
+    allIPs,
+    primaryIP,
   };
 }
 

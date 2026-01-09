@@ -84,10 +84,25 @@ export interface ICECandidateSummary {
   hasPrivateIP: boolean;
   /** Whether mDNS obfuscation is active */
   hasMDNS: boolean;
-  /** Public IP if discovered via STUN */
+  /** Public IPv4 if discovered via STUN (first one found) */
   publicIP?: string;
   /** Private IPs if exposed (useful for profiling) */
   privateIPs: string[];
+  /** IPv6 addresses collected */
+  ipv6Addresses: string[];
+  /**
+   * ALL unique IPs collected, ordered by preference:
+   * 1. Public IPv4 (most useful for comparison)
+   * 2. Private IPv4 (192.168.x, 10.x, 172.16-31.x)
+   * 3. IPv6 addresses
+   */
+  allIPs: string[];
+  /**
+   * Primary IP for comparison with server-side IP.
+   * Prefers public IPv4 > private IPv4 > IPv6.
+   * Use this to compare against sigint tlsFingerprint.ip or tcpProbe.client_ip
+   */
+  primaryIP?: string;
 }
 
 /**
