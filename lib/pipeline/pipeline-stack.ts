@@ -64,8 +64,15 @@ export class PipelineStack extends Stack {
           new PolicyStatement({
             actions: ["s3:GetObject*", "s3:PutObject*", "s3:ListBucket"],
             resources: [
-              `arn:aws:s3:::cdk-hnb659fds-assets-${this.account}-${this.region}`,
-              `arn:aws:s3:::cdk-hnb659fds-assets-${this.account}-${this.region}/*`,
+              `arn:aws:s3:::cdk-probe2025-assets-${this.account}-${this.region}`,
+              `arn:aws:s3:::cdk-probe2025-assets-${this.account}-${this.region}/*`,
+            ],
+          }),
+          new PolicyStatement({
+            actions: ["sts:AssumeRole"],
+            resources: [
+              `arn:aws:iam::${this.account}:role/cdk-probe2025-deploy-role-${this.account}-*`,
+              `arn:aws:iam::${this.account}:role/cdk-probe2025-file-publishing-role-${this.account}-*`,
             ],
           }),
         ],
