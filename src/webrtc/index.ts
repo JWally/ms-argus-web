@@ -28,7 +28,7 @@
  */
 
 import {
-  RTC_CONFIG,
+  getRtcConfig,
   KNOWN_FOUNDATIONS,
   ICE_GATHER_TIMEOUT,
   TEST_CODECS,
@@ -497,7 +497,7 @@ export default async function getWebRTCData(): Promise<WebRTCFingerprint | null>
       return resolve(null);
     }
 
-    const connection = new RTCPeerConnection(RTC_CONFIG);
+    const connection = new RTCPeerConnection(getRtcConfig());
     connection.createDataChannel('');
 
     const options = { offerToReceiveAudio: 1, offerToReceiveVideo: 1 };

@@ -5,22 +5,65 @@
  */
 
 /**
- * STUN servers for ICE candidate gathering.
+ * Default STUN servers for ICE candidate gathering.
  *
  * Google's public STUN servers are widely available and reliable.
  * STUN (Session Traversal Utilities for NAT) helps discover public IP.
  */
-export const STUN_SERVERS = [
+export const DEFAULT_STUN_SERVERS = [
   'stun:stun4.l.google.com:19302',
   'stun:stun3.l.google.com:19302',
 ];
 
 /**
+ * Custom STUN servers override.
+ * When set, these will be used instead of Google's public servers.
+ * Use setCustomStunServers() to configure.
+ */
+let customStunServers: string[] | null = null;
+
+/**
+ * Set custom STUN servers for WebRTC fingerprinting.
+ * Use this to route STUN traffic through your own infrastructure (e.g., sigint).
+ *
+ * @param servers - Array of STUN URIs (e.g., ['stun:stun.example.com:3478'])
+ */
+export function setCustomStunServers(servers: string[]): void {
+  customStunServers = servers;
+}
+
+/**
+ * Clear custom STUN servers and revert to defaults.
+ */
+export function clearCustomStunServers(): void {
+  customStunServers = null;
+}
+
+/**
+ * Get current STUN servers (custom if set, otherwise defaults).
+ */
+export function getStunServers(): string[] {
+  return customStunServers || DEFAULT_STUN_SERVERS;
+}
+
+/**
+ * Get RTCPeerConnection configuration for fingerprinting.
+ * Uses custom STUN servers if configured.
+ */
+export function getRtcConfig(): RTCConfiguration {
+  return {
+    iceCandidatePoolSize: 1,
+    iceServers: [{ urls: getStunServers() }],
+  };
+}
+
+/**
+ * @deprecated Use getRtcConfig() instead for dynamic STUN server support.
  * RTCPeerConnection configuration for fingerprinting.
  */
 export const RTC_CONFIG = {
   iceCandidatePoolSize: 1,
-  iceServers: [{ urls: STUN_SERVERS }],
+  iceServers: [{ urls: DEFAULT_STUN_SERVERS }],
 };
 
 /**

@@ -1,5 +1,5 @@
 // bin/ms-argus-web.ts
-import { App } from "aws-cdk-lib";
+import { App, CliCredentialsStackSynthesizer } from "aws-cdk-lib";
 import { PipelineStack } from "../lib/pipeline/pipeline-stack";
 import { TheStack as AppStack } from "../lib/stacks/app-stack";
 import {
@@ -9,18 +9,22 @@ import {
   AWS_ACCOUNT_ID,
   PIPELINE_HOME_REGION,
 } from "./config";
+import { CODESTAR_CONNECTION_ARN } from "../lib/pipeline/constants";
 
 const app = new App();
 
 // Pipeline: QA -> UAT -> Prod
-new PipelineStack(app, PIPELINE_NAME, {
-  rootDomain: ROOT_DOMAIN,
-  siteDomain: SITE_DOMAIN,
-  env: {
-    account: AWS_ACCOUNT_ID,
-    region: PIPELINE_HOME_REGION,
-  },
-});
+// Only create if we have a CodeStar connection ARN
+if (CODESTAR_CONNECTION_ARN) {
+  new PipelineStack(app, PIPELINE_NAME, {
+    rootDomain: ROOT_DOMAIN,
+    siteDomain: SITE_DOMAIN,
+    env: {
+      account: AWS_ACCOUNT_ID,
+      region: PIPELINE_HOME_REGION,
+    },
+  });
+}
 
 // /////////////////////////////////
 // Personal dev stacks
@@ -38,6 +42,8 @@ new AppStack(app, "ms-argus-web-dev-jw", {
   region: "us-east-1",
   account: AWS_ACCOUNT_ID,
   siteDomain: SITE_DOMAIN,
+  // Use CLI credentials directly for dev stack deployments
+  synthesizer: new CliCredentialsStackSynthesizer(),
 });
 
 app.synth();

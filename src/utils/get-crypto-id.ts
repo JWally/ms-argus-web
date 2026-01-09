@@ -9,7 +9,7 @@
  * caller always gets a working key bundle.
  */
 
-import { DATABASE_NAME, TABLE_NAME_KEYS, INDEX_VALUE_KEY } from './constants'
+import { DATABASE_NAME, DATABASE_VERSION, TABLE_NAME_KEYS, INDEX_VALUE_KEY, EVERCOOKIE_DB_STORE } from './constants'
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
@@ -56,11 +56,15 @@ let inflight: Promise<CryptoKeys> | undefined
 
 const openDb = (): Promise<IDBDatabase> =>
   new Promise((res, rej) => {
-    const req = indexedDB.open(DATABASE_NAME, 1)
+    const req = indexedDB.open(DATABASE_NAME, DATABASE_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(TABLE_NAME_KEYS)) {
         db.createObjectStore(TABLE_NAME_KEYS, { keyPath: 'id' })
+      }
+      // Create evercookie store for shared DB consistency
+      if (!db.objectStoreNames.contains(EVERCOOKIE_DB_STORE)) {
+        db.createObjectStore(EVERCOOKIE_DB_STORE, { keyPath: 'key' })
       }
     }
     req.onsuccess = () => res(req.result)

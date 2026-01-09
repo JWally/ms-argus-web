@@ -9,9 +9,18 @@
  * - No postMessage complexity - direct access to iframe contentWindow
  * - A/B testing ready with variant selection and feature flags
  * - Configurable modules, timeouts, and callbacks
+ * - Sigint integration for server-side fingerprinting (JA3/JA4, TCP RTT, etc.)
  */
 
 import { collectFingerprint, type FingerprintResult } from './fingerprint';
+import {
+  collectSigintData,
+  parseSigintConfigFromUrl,
+  getStunServerUri,
+  type SigintConfig,
+  type SigintData,
+} from './utils/sigint';
+import { setCustomStunServers, clearCustomStunServers } from './webrtc/constants';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -50,6 +59,12 @@ export interface LoaderConfig {
 
   /** Skip iframe isolation (run in main thread - not recommended for production) */
   skipIsolation?: boolean;
+
+  /** Enable sigint server-side fingerprinting (default: false) */
+  enableSigint?: boolean;
+
+  /** Sigint configuration (domain, stage, etc.) */
+  sigint?: Partial<SigintConfig>;
 }
 
 export interface LoaderResult {
@@ -61,6 +76,8 @@ export interface LoaderResult {
     duration: number;
   };
   isolated: boolean;
+  /** Server-side fingerprint data from sigint (if enabled) */
+  sigint?: SigintData;
 }
 
 /* ------------------------------------------------------------------ */
@@ -207,10 +224,20 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
 
   config.onStart?.();
 
+  // Configure STUN servers for WebRTC if sigint is enabled
+  if (config.enableSigint && config.sigint?.baseDomain) {
+    const stunUri = getStunServerUri(config.sigint);
+    setCustomStunServers([stunUri]);
+  }
+
   // Skip isolation if requested (for debugging or specific use cases)
   if (config.skipIsolation) {
     try {
-      const fingerprint = await collectFingerprint();
+      // Run fingerprint and sigint collection in parallel if enabled
+      const [fingerprint, sigintData] = await Promise.all([
+        collectFingerprint(),
+        config.enableSigint ? collectSigintData(config.sigint || {}) : Promise.resolve(undefined),
+      ]);
       const endTime = performance.now();
 
       const result: LoaderResult = {
@@ -222,6 +249,7 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
           duration: endTime - startTime,
         },
         isolated: false,
+        sigint: sigintData,
       };
 
       config.onComplete?.(fingerprint);
@@ -254,7 +282,7 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
       throw new Error('Failed to access iframe contentWindow');
     }
 
-    // Run fingerprint collection inside iframe
+    // Run fingerprint collection inside iframe (and sigint in parallel if enabled)
     // Since srcdoc is same-origin, we have full access
     const collectionPromise = (async () => {
       // The iframe has a clean JS environment, but we need to run our code there.
@@ -267,12 +295,15 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
       // For now, we run in the parent context but could inject into iframe
       // if deeper isolation is needed. The srcdoc approach still helps by
       // providing a clean DOM to query if needed.
-      const fingerprint = await collectFingerprint();
-      return fingerprint;
+      const [fingerprint, sigintData] = await Promise.all([
+        collectFingerprint(),
+        config.enableSigint ? collectSigintData(config.sigint || {}) : Promise.resolve(undefined),
+      ]);
+      return { fingerprint, sigintData };
     })();
 
     // Race between collection and timeout
-    const fingerprint = await Promise.race([collectionPromise, timeoutPromise]);
+    const { fingerprint, sigintData } = await Promise.race([collectionPromise, timeoutPromise]);
 
     const endTime = performance.now();
 
@@ -285,6 +316,7 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
         duration: endTime - startTime,
       },
       isolated: true,
+      sigint: sigintData,
     };
 
     config.onComplete?.(fingerprint);
@@ -327,6 +359,7 @@ async function sendToEndpoint(
     sessionId: config.sessionId,
     metadata: config.metadata,
     timing: result.timing,
+    sigint: result.sigint,
     timestamp: Date.now(),
   };
 
@@ -394,11 +427,18 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
     const script = document.currentScript as HTMLScriptElement;
     const url = new URL(script.src);
 
+    // Parse sigint config from URL params
+    const sigintConfig = parseSigintConfigFromUrl(url);
+    const enableSigint = url.searchParams.has('sigintDomain') ||
+                         url.searchParams.get('enableSigint') === 'true';
+
     load({
       endpoint: url.searchParams.get('endpoint') || undefined,
       sessionId: url.searchParams.get('sessionId') || undefined,
       variant: url.searchParams.get('variant') || undefined,
       timeout: parseInt(url.searchParams.get('timeout') || '') || undefined,
+      enableSigint,
+      sigint: enableSigint ? sigintConfig : undefined,
     }).catch((err) => {
       console.warn('[Argus] Auto-run failed:', err);
     });

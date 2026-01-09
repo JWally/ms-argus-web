@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 
 // We need to test the internal functions, so let's import the module and test indirectly
 // by examining the exported function behavior
@@ -8,21 +8,47 @@ import { describe, it, expect } from 'vitest';
 
 // For now, let's create a test file that imports the constants and tests patterns
 import {
-  STUN_SERVERS,
+  DEFAULT_STUN_SERVERS,
+  getStunServers,
+  setCustomStunServers,
+  clearCustomStunServers,
   KNOWN_FOUNDATIONS,
   ICE_GATHER_TIMEOUT,
   TEST_CODECS,
 } from './constants';
 
 describe('webrtc constants', () => {
-  describe('STUN_SERVERS', () => {
+  describe('DEFAULT_STUN_SERVERS', () => {
     it('contains Google STUN servers', () => {
-      expect(STUN_SERVERS).toBeInstanceOf(Array);
-      expect(STUN_SERVERS.length).toBeGreaterThan(0);
-      STUN_SERVERS.forEach((server) => {
+      expect(DEFAULT_STUN_SERVERS).toBeInstanceOf(Array);
+      expect(DEFAULT_STUN_SERVERS.length).toBeGreaterThan(0);
+      DEFAULT_STUN_SERVERS.forEach((server) => {
         expect(server).toMatch(/^stun:/);
         expect(server).toContain('google.com');
       });
+    });
+  });
+
+  describe('custom STUN servers', () => {
+    afterEach(() => {
+      clearCustomStunServers();
+    });
+
+    it('uses default STUN servers by default', () => {
+      const servers = getStunServers();
+      expect(servers).toEqual(DEFAULT_STUN_SERVERS);
+    });
+
+    it('uses custom STUN servers when set', () => {
+      const customServers = ['stun:stun.example.com:3478'];
+      setCustomStunServers(customServers);
+      expect(getStunServers()).toEqual(customServers);
+    });
+
+    it('reverts to defaults after clearing custom servers', () => {
+      setCustomStunServers(['stun:custom.io:3478']);
+      clearCustomStunServers();
+      expect(getStunServers()).toEqual(DEFAULT_STUN_SERVERS);
     });
   });
 
