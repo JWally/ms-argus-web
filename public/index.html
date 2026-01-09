@@ -152,13 +152,8 @@
         <input type="text" id="sigintDomain" value="argus.pw">
       </div>
       <div class="config-group">
-        <label>Stage</label>
-        <select id="sigintStage">
-          <option value="">Production</option>
-          <option value="uat-">UAT</option>
-          <option value="qa-">QA</option>
-          <option value="dev-">DEV</option>
-        </select>
+        <label>Stage Prefix</label>
+        <input type="text" id="sigintStage" placeholder="e.g., qa-, dev-jw-" style="width: 120px;">
       </div>
       <div class="config-group">
         <label>Options</label>
@@ -290,14 +285,15 @@
       capturedErrors: { icon: '⚠️', desc: 'Error pattern analysis' },
     };
 
-    // Auto-detect stage
+    // Auto-detect stage from hostname
+    // static-dev-jw.argus.pw -> 'dev-jw-'
+    // static-qa.argus.pw -> 'qa-'
+    // static.argus.pw -> '' (prod)
     function detectStage() {
       const hostname = window.location.hostname;
       const match = hostname.match(/^static-([^.]+)\./);
       if (match) {
-        const stage = match[1];
-        if (stage.startsWith('dev')) return 'dev-';
-        return stage + '-';
+        return match[1] + '-';
       }
       if (hostname.startsWith('static.')) return '';
       return 'dev-';
