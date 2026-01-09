@@ -143,7 +143,7 @@
             <input type="checkbox" id="enableSigint" checked> Sigint
           </label>
           <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.875rem;">
-            <input type="checkbox" id="enableStun"> STUN
+            <input type="checkbox" id="enableStun" checked> STUN
           </label>
         </div>
       </div>
@@ -192,6 +192,15 @@
           <p style="color: var(--text-dim);">Pending...</p>
         </div>
       </div>
+      <div class="card">
+        <div class="card-header" onclick="toggleCard(this)">
+          <span class="card-title"><span class="icon">⚠️</span> Inconsistencies</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="card-content" id="inconsistenciesCard">
+          <p style="color: var(--text-dim);">Pending...</p>
+        </div>
+      </div>
     </div>
 
     <!-- Module Section -->
@@ -230,7 +239,8 @@
       webrtc: { icon: '📡', desc: 'WebRTC ICE candidates and media capabilities' },
       canvas2d: { icon: '🎨', desc: 'Canvas 2D rendering fingerprint' },
       canvasWebgl: { icon: '🎮', desc: 'WebGL renderer, vendor, and parameters' },
-      offlineAudioContext: { icon: '🔊', desc: 'AudioContext fingerprint from oscillator' },
+      audio: { icon: '🔊', desc: 'AudioContext fingerprint from oscillator' },
+      offlineAudioContext: { icon: '🔊', desc: 'AudioContext fingerprint from oscillator' },  // alias
       fonts: { icon: '🔤', desc: 'Available fonts detected via rendering' },
       timezone: { icon: '🌍', desc: 'Timezone offset and locale' },
       intl: { icon: '🌐', desc: 'Intl API formatting fingerprint' },
@@ -318,6 +328,7 @@
         updateTlsCard(result);
         updateNetworkCard(result);
         updateBotCard(result);
+        updateInconsistenciesCard(result);
         updateModuleGrid(result);
         updateRawData(result, evercookie);
 
@@ -363,12 +374,18 @@
       const tcp = result.sigint?.tcpProbe;
       if (!tcp) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
       const rtt = tcp.rtt_fingerprint;
+      const h2 = tcp.http2_fingerprint;
+      // Simple hash of HTTP/2 fingerprint string
+      const h2Hash = h2?.fingerprint ? h2.fingerprint.split('').reduce((a,c) => (a*31+c.charCodeAt(0))>>>0, 0).toString(16).padStart(8,'0') : null;
       card.innerHTML = `
         <div class="data-row"><span class="data-key">TCP RTT</span><span class="data-value">${rtt ? (rtt.tcp_rtt_us / 1000).toFixed(1) + 'ms' : 'N/A'}</span></div>
         <div class="data-row"><span class="data-key">TLS Handshake</span><span class="data-value">${rtt ? (rtt.tls_handshake_us / 1000).toFixed(1) + 'ms' : 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">MSS (Send)</span><span class="data-value">${rtt?.snd_mss || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">PMTU</span><span class="data-value">${rtt?.pmtu || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">HTTP/2 FP</span><span class="data-value hash truncate">${h2Hash || 'N/A'}</span></div>
+        <div class="data-row"><span class="data-key">Protocol</span><span class="data-value">${h2?.protocol || 'N/A'}</span></div>
         <div class="data-row"><span class="data-key">Proxy Score</span><span class="data-value">${rtt ? (rtt.proxy_score * 100).toFixed(0) + '%' : 'N/A'}</span></div>
         <div class="data-row"><span class="data-key">VPN Score</span><span class="data-value">${rtt ? (rtt.vpn_score * 100).toFixed(0) + '%' : 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">Protocol</span><span class="data-value">${tcp.http2_fingerprint?.protocol || 'N/A'}</span></div>
       `;
     }
 
@@ -386,16 +403,67 @@
       `;
     }
 
+    function updateInconsistenciesCard(result) {
+      const card = document.getElementById('inconsistenciesCard');
+      const inc = result.fingerprint.inconsistencies;
+      if (!inc || !inc.inconsistencies) {
+        card.innerHTML = '<p style="color: var(--success);">No inconsistencies detected</p>';
+        return;
+      }
+
+      const { inconsistencies, counts, riskScore } = inc;
+      const severityColor = { critical: 'var(--error)', high: 'var(--error)', medium: 'var(--warning)', low: 'var(--text-dim)' };
+
+      if (inconsistencies.length === 0) {
+        card.innerHTML = '<p style="color: var(--success);">✓ All checks passed - no inconsistencies detected</p>';
+        return;
+      }
+
+      let html = `
+        <div class="data-row"><span class="data-key">Risk Score</span><span class="data-value" style="color: ${riskScore > 50 ? 'var(--error)' : riskScore > 20 ? 'var(--warning)' : 'var(--success)'}">${riskScore}/100</span></div>
+        <div class="data-row"><span class="data-key">Critical</span><span class="data-value" style="color: ${counts.critical > 0 ? 'var(--error)' : 'var(--success)'}">${counts.critical}</span></div>
+        <div class="data-row"><span class="data-key">High</span><span class="data-value" style="color: ${counts.high > 0 ? 'var(--error)' : 'var(--success)'}">${counts.high}</span></div>
+        <div class="data-row"><span class="data-key">Medium</span><span class="data-value" style="color: ${counts.medium > 0 ? 'var(--warning)' : 'var(--success)'}">${counts.medium}</span></div>
+        <p style="margin-top: 0.75rem; font-size: 0.7rem; color: var(--text-dim);">Issues found:</p>
+      `;
+
+      for (const item of inconsistencies.slice(0, 8)) {
+        html += `
+          <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 4px; border-left: 3px solid ${severityColor[item.severity]};">
+            <div style="font-size: 0.75rem; color: ${severityColor[item.severity]}; text-transform: uppercase;">${item.severity} - ${item.category}</div>
+            <div style="font-size: 0.8rem; margin-top: 0.25rem;">${item.description}</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Expected: ${item.expected}</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Actual: ${item.actual}</div>
+          </div>
+        `;
+      }
+
+      if (inconsistencies.length > 8) {
+        html += `<p style="margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-dim);">... and ${inconsistencies.length - 8} more</p>`;
+      }
+
+      card.innerHTML = html;
+    }
+
     function updateModuleGrid(result) {
       const grid = document.getElementById('moduleGrid');
       grid.innerHTML = '';
 
       const loose = result.fingerprint.loose || {};
-      const modules = Object.keys(loose).filter(k => loose[k] && typeof loose[k] === 'object');
+      const modules = Object.keys(loose)
+        .filter(k => loose[k] && typeof loose[k] === 'object')
+        .sort((a, b) => {
+          // Sort alphabetically, but rename offlineAudioContext to "audio" for sorting
+          const nameA = a === 'offlineAudioContext' ? 'audio' : a;
+          const nameB = b === 'offlineAudioContext' ? 'audio' : b;
+          return nameA.localeCompare(nameB);
+        });
 
-      modules.forEach(moduleName => {
-        const data = loose[moduleName];
-        const info = MODULE_INFO[moduleName] || { icon: '📦', desc: 'Module data' };
+      modules.forEach(rawModuleName => {
+        // Rename offlineAudioContext to audio for display
+        const displayName = rawModuleName === 'offlineAudioContext' ? 'audio' : rawModuleName;
+        const data = loose[rawModuleName];
+        const info = MODULE_INFO[displayName] || MODULE_INFO[rawModuleName] || { icon: '📦', desc: 'Module data' };
         const hash = data.$hash || 'N/A';
         const keys = Object.keys(data).filter(k => k !== '$hash');
 
@@ -403,7 +471,7 @@
         card.className = 'card';
         card.innerHTML = `
           <div class="card-header" onclick="toggleCard(this)">
-            <span class="card-title"><span class="icon">${info.icon}</span> ${moduleName}</span>
+            <span class="card-title"><span class="icon">${info.icon}</span> ${displayName}</span>
             <div class="card-meta">
               <span class="card-hash">${hash.slice(0, 8)}...</span>
               <span class="card-badge">${keys.length} props</span>
