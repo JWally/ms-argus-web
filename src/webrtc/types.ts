@@ -72,13 +72,13 @@ export interface ParsedICECandidate {
 
 /**
  * Summary of collected ICE candidates for profiling.
+ * Note: Raw candidates array is excluded from output to avoid bloating
+ * the fingerprint with random/non-deterministic data.
  */
 export interface ICECandidateSummary {
-  /** All parsed candidates */
-  candidates: ParsedICECandidate[];
-  /** Count by candidate type */
+  /** Count by candidate type (host/srflx/relay) */
   typeCount: Record<string, number>;
-  /** Count by IP category */
+  /** Count by IP category (private/public/ipv6/mdns) */
   categoryCount: Record<string, number>;
   /** Whether any private IPs were exposed (Android behavior) */
   hasPrivateIP: boolean;
@@ -107,22 +107,22 @@ export interface ICECandidateSummary {
 
 /**
  * WebRTC fingerprint result.
+ *
+ * Note: Raw ICE candidate strings (iceCandidate, stunConnection) are excluded
+ * because they contain random/session-specific data that shouldn't be hashed.
+ * Only stable fingerprint data (codecsSdp, extensions) should be used for hashing.
  */
 export interface WebRTCFingerprint {
-  /** Codec capabilities extracted from SDP */
+  /** Codec capabilities extracted from SDP (stable - use for hashing) */
   codecsSdp: SDPCodecs;
-  /** RTP header extensions */
+  /** RTP header extensions (stable - use for hashing) */
   extensions: string[];
   /** ICE candidate foundation (interface identifier) */
   foundation: string;
   /** Foundation property from candidate event */
   foundationProp?: string;
-  /** Raw ICE candidate string */
-  iceCandidate: string;
   /** Resolved IP address (if available) */
   address?: string;
-  /** STUN connection candidate string */
-  stunConnection?: string;
-  /** All collected ICE candidates with analysis */
+  /** All collected ICE candidates with analysis (IPs and counts only) */
   iceCandidates?: ICECandidateSummary;
 }

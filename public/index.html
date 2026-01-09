@@ -99,6 +99,30 @@
     pre { background: var(--bg); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.7rem; max-height: 600px; }
     .full-width { grid-column: 1 / -1; }
 
+    /* Expandable nested values */
+    .nested-value {
+      cursor: pointer;
+      color: var(--accent);
+      text-decoration: underline;
+      text-decoration-style: dotted;
+    }
+    .nested-value:hover { text-decoration-style: solid; }
+    .nested-expand {
+      max-height: 200px;
+      overflow-y: auto;
+      background: var(--bg);
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .nested-expand::-webkit-scrollbar { width: 4px; }
+    .nested-expand::-webkit-scrollbar-track { background: transparent; }
+    .nested-expand::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .nested-expand pre { margin: 0; padding: 0; background: none; max-height: none; }
+
     /* Tabs */
     .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--border); }
     .tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-dim); }
@@ -483,7 +507,7 @@
             ${keys.slice(0, 10).map(k => `
               <div class="data-row">
                 <span class="data-key">${k}</span>
-                <span class="data-value truncate">${formatValue(data[k])}</span>
+                <span class="data-value">${formatValue(data[k], k)}</span>
               </div>
             `).join('')}
             ${keys.length > 10 ? `<p style="color: var(--text-dim); margin-top: 0.5rem; font-size: 0.7rem;">... and ${keys.length - 10} more properties</p>` : ''}
@@ -493,15 +517,44 @@
       });
     }
 
-    function formatValue(val) {
+    // Simple hash function for arrays
+    function simpleHash(val) {
+      const str = JSON.stringify(val);
+      return str.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) >>> 0, 0).toString(16).padStart(8, '0');
+    }
+
+    // Generate unique ID for expandable elements
+    let expandId = 0;
+
+    function formatValue(val, key) {
       if (val === null || val === undefined) return 'null';
       if (typeof val === 'boolean') return val ? '✓' : '✗';
       if (typeof val === 'number') return val.toLocaleString();
       if (typeof val === 'string') return val.length > 50 ? val.slice(0, 50) + '...' : val;
-      if (Array.isArray(val)) return `[${val.length} items]`;
-      if (typeof val === 'object') return `{${Object.keys(val).length} props}`;
+
+      // For wasm jitCurve and memGrowPattern, show hash instead of array
+      if (Array.isArray(val) && (key === 'jitCurve' || key === 'memGrowPattern')) {
+        return `#${simpleHash(val)}`;
+      }
+
+      // Arrays and objects - make expandable
+      if (Array.isArray(val) || typeof val === 'object') {
+        const id = 'expand-' + (++expandId);
+        const label = Array.isArray(val) ? `[${val.length} items]` : `{${Object.keys(val).length} props}`;
+        const jsonStr = JSON.stringify(val, null, 2);
+        return `<span class="nested-value" onclick="toggleExpand('${id}')">${label}</span><div id="${id}" class="nested-expand" style="display:none;"><pre>${escapeHtml(jsonStr)}</pre></div>`;
+      }
       return String(val);
     }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    window.toggleExpand = function(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    };
 
     function updateRawData(result, evercookie) {
       // All data combined

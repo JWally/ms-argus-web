@@ -186,8 +186,9 @@ function summarizeICECandidates(
   // Prefer: public IPv4 > private IPv4 > IPv6
   const primaryIP = publicIPs[0] || privateIPs[0] || ipv6Addresses[0];
 
+  // Note: Raw candidates array is intentionally excluded from output
+  // to avoid bloating fingerprint with non-deterministic data
   return {
-    candidates,
     typeCount,
     categoryCount,
     hasPrivateIP: privateIPs.length > 0,
@@ -550,14 +551,15 @@ export default async function getWebRTCData(): Promise<WebRTCFingerprint | null>
       // Use summary's public IP if we didn't get one from SDP
       const address = firstAddress || iceCandidates.publicIP;
 
+      // Note: Raw iceCandidate/stunConnection strings are excluded
+      // because they contain random session-specific data that shouldn't be hashed.
+      // Only stable data (codecsSdp, extensions) should be used for fingerprint hashing.
       return resolve({
         codecsSdp,
         extensions,
         foundation: KNOWN_FOUNDATIONS[foundation] || foundation,
         foundationProp: foundation,
-        iceCandidate: firstCandidate,
         address,
-        stunConnection: firstCandidate,
         iceCandidates,
       });
     };
