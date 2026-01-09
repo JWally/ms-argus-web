@@ -39,6 +39,7 @@ import getWebGpuCompute from './webgpu-compute'
 import getTimingFingerprint from './timing'
 import { analyzeInconsistencies } from './inconsistencies'
 import detectProxy from './proxy'
+import { detectIncognito } from './incognito'
 
 // Types for the fingerprint result
 export interface FingerprintMeta {
@@ -57,6 +58,8 @@ export interface BotSignals {
 	likelyResidentialProxy: boolean
 	/** True if detected JS engine doesn't match User-Agent claim (e.g., Firefox claiming to be Chrome) */
 	engineMismatch: boolean
+	/** True if private/incognito browsing detected */
+	isPrivate: boolean
 }
 
 export interface FingerprintHashes {
@@ -122,6 +125,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		webgpuComputeComputed,
 		timingComputed,
 		proxyComputed,
+		incognitoComputed,
 	] = await Promise.all([
 		getBestWorkerScope(),
 		getVoices(),
@@ -147,6 +151,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		getWebGpuCompute(),
 		getTimingFingerprint(),
 		detectProxy(),
+		detectIncognito(),
 	]).catch((error) => {
 		console.error('Fingerprint collection error:', error.message)
 		return []
@@ -246,6 +251,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		webgpuComputeHash,
 		timingHash,
 		proxyHash,
+		incognitoHash,
 		deviceOfTimezoneHash,
 	] = await Promise.all([
 		hashify(windowFeaturesComputed),
@@ -299,6 +305,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		hashify(webgpuComputeComputed),
 		hashify(timingComputed),
 		hashify(proxyComputed),
+		hashify(incognitoComputed),
 		hashify(
 			(() => {
 				const {
@@ -461,6 +468,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		webgpuCompute: !webgpuComputeComputed ? undefined : { ...webgpuComputeComputed, $hash: webgpuComputeHash },
 		timing: !timingComputed ? undefined : { ...timingComputed, $hash: timingHash },
 		proxy: !proxyComputed ? undefined : { ...proxyComputed, $hash: proxyHash },
+		incognito: !incognitoComputed ? undefined : { ...incognitoComputed, $hash: incognitoHash },
 	}
 
 	// Build the stable fingerprint (filtered/hardened for production)
@@ -689,6 +697,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		stealthSignals: stealth || {},
 		likelyResidentialProxy: proxyComputed?.likelyResidentialProxy || false,
 		engineMismatch: consoleErrorsComputed?.engineMismatch || false,
+		isPrivate: incognitoComputed?.isPrivate || false,
 	}
 
 	const timeEnd = startTime()

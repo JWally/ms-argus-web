@@ -184,8 +184,12 @@ function createWorkerBlobUrl(): string {
 
 /**
  * Worker type identifiers for parallel execution.
+ * - main: Window/document context
+ * - web: Dedicated Web Worker
+ * - shared: SharedWorker
+ * - service: ServiceWorker
  */
-export type WorkerType = 'service' | 'shared' | 'dedicated';
+export type WorkerType = 'main' | 'web' | 'shared' | 'service';
 
 /**
  * Result from a single worker type.
@@ -272,7 +276,7 @@ export const enum Scope {
   WINDOW,
 }
 
-/** The type of worker that successfully spawned ("service", "shared", or "dedicated"). */
+/** The type of worker that successfully spawned ("service", "shared", or "web"). */
 
 /** The global scope name of the spawned worker. */
 export let WORKER_TYPE = '';
@@ -595,20 +599,20 @@ export default async function getBestWorkerScope() {
           WORKER_TIMEOUT_MS,
         );
 
-        const dedicatedWorker = ask(() => new Worker(blobUrl));
-        if (!hasConstructor(dedicatedWorker, 'Worker')) {
+        const webWorker = ask(() => new Worker(blobUrl));
+        if (!hasConstructor(webWorker, 'Worker')) {
           clearTimeout(giveUpOnWorker);
           return resolve(null);
         }
 
-        dedicatedWorker!.onmessage = (event) => {
-          dedicatedWorker!.terminate();
+        webWorker!.onmessage = (event) => {
+          webWorker!.terminate();
           clearTimeout(giveUpOnWorker);
           resolve(event.data);
         };
 
-        dedicatedWorker!.onerror = () => {
-          dedicatedWorker!.terminate();
+        webWorker!.onerror = () => {
+          webWorker!.terminate();
           clearTimeout(giveUpOnWorker);
           resolve(null);
         };
@@ -655,8 +659,8 @@ export default async function getBestWorkerScope() {
     };
 
     // Run SharedWorker and DedicatedWorker in parallel
-    // ServiceWorker is skipped - it cannot use Blob URLs
-    const [sharedResult, dedicatedResult] = await Promise.all([
+    // ServiceWorker cannot use Blob URLs - report as unavailable
+    const [sharedResult, webResult] = await Promise.all([
       getSharedWorker().catch(() => null),
       getDedicatedWorker().catch(() => null),
     ]);
@@ -664,11 +668,16 @@ export default async function getBestWorkerScope() {
     // Clean up Blob URL
     URL.revokeObjectURL(blobUrl);
 
+    // Check if ServiceWorker is supported (even though we can't use Blob URLs)
+    const serviceWorkerSupported = 'serviceWorker' in navigator;
+
     // Store all scopes for the return payload
+    // Each scope shows collected data or null if unavailable
     const allScopes = {
       main: mainScope,
+      web: webResult,
       shared: sharedResult,
-      dedicated: dedicatedResult,
+      service: serviceWorkerSupported ? 'unavailable' : null, // Can't use Blob URLs
     };
 
     // Use first successful result, preferring SharedWorker
@@ -677,10 +686,10 @@ export default async function getBestWorkerScope() {
       workerScope = sharedResult;
       WORKER_NAME = 'SharedWorkerGlobalScope';
       WORKER_TYPE = 'shared';
-    } else if (dedicatedResult?.userAgent) {
-      workerScope = dedicatedResult;
+    } else if (webResult?.userAgent) {
+      workerScope = webResult;
       WORKER_NAME = 'DedicatedWorkerGlobalScope';
-      WORKER_TYPE = 'dedicated';
+      WORKER_TYPE = 'web';
     }
 
     // Return empty object if all workers failed (graceful degradation)
@@ -883,8 +892,9 @@ export default async function getBestWorkerScope() {
       gpu: {},
       scopes: {
         main: mainScope,
+        web: null,
         shared: null,
-        dedicated: null,
+        service: null,
       },
     };
   }
@@ -1029,7 +1039,7 @@ export async function getAllWorkerScopes(
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve({
-          type: 'dedicated',
+          type: 'web',
           name: 'DedicatedWorkerGlobalScope',
           data: null,
           error: 'timeout',
@@ -1041,7 +1051,7 @@ export async function getAllWorkerScopes(
       if (!hasConstructor(worker, 'Worker')) {
         clearTimeout(timeout);
         resolve({
-          type: 'dedicated',
+          type: 'web',
           name: 'DedicatedWorkerGlobalScope',
           data: null,
           error: 'not supported',
@@ -1054,7 +1064,7 @@ export async function getAllWorkerScopes(
         worker!.terminate();
         clearTimeout(timeout);
         resolve({
-          type: 'dedicated',
+          type: 'web',
           name: 'DedicatedWorkerGlobalScope',
           data: event.data,
           durationMs: performance.now() - workerStart,
@@ -1065,7 +1075,7 @@ export async function getAllWorkerScopes(
         worker!.terminate();
         clearTimeout(timeout);
         resolve({
-          type: 'dedicated',
+          type: 'web',
           name: 'DedicatedWorkerGlobalScope',
           data: null,
           error: error.message,
