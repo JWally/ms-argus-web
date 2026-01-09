@@ -15,7 +15,7 @@
 
 /** Configuration for sigint endpoints */
 export interface SigintConfig {
-  /** Base domain for sigint services (e.g., "wolcott.io") */
+  /** Base domain for sigint services (e.g., "argus.pw") */
   baseDomain: string
   /** Stage prefix for sub-production (e.g., "qa-", "uat-", or "" for prod) */
   stagePrefix?: string
@@ -161,7 +161,7 @@ export interface SigintData {
 /* ------------------------------------------------------------------ */
 
 const DEFAULT_CONFIG: Required<SigintConfig> = {
-  baseDomain: 'wolcott.io',
+  baseDomain: 'argus.pw',
   stagePrefix: '',
   timeout: 5000,
   enableCookie: true,
@@ -488,7 +488,7 @@ export async function collectSigintData(config: SigintConfig): Promise<SigintDat
  * Parse sigint config from URL search params
  *
  * Supported params:
- * - sigintDomain: Base domain (e.g., "wolcott.io")
+ * - sigintDomain: Base domain (e.g., "argus.pw")
  * - sigintStage: Stage prefix (e.g., "qa-", "uat-")
  * - sigintTimeout: Request timeout in ms
  * - sigintCookie: Enable cookie endpoint ("true"/"false")

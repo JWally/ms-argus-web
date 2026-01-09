@@ -17,39 +17,39 @@ import {
 
 describe('sigint URL builders', () => {
   it('builds TLS fingerprint endpoint with default config', () => {
-    const config: SigintConfig = { baseDomain: 'wolcott.io' }
+    const config: SigintConfig = { baseDomain: 'argus.pw' }
     const url = getTlsFingerprintEndpoint(config)
-    expect(url).toBe('https://id.wolcott.io/')
+    expect(url).toBe('https://id.argus.pw/')
   })
 
   it('builds TLS fingerprint endpoint with stage prefix', () => {
-    const config: SigintConfig = { baseDomain: 'wolcott.io', stagePrefix: 'qa-' }
+    const config: SigintConfig = { baseDomain: 'argus.pw', stagePrefix: 'qa-' }
     const url = getTlsFingerprintEndpoint(config)
-    expect(url).toBe('https://qa-id.wolcott.io/')
+    expect(url).toBe('https://qa-id.argus.pw/')
   })
 
   it('builds TCP probe endpoint with default config', () => {
-    const config: SigintConfig = { baseDomain: 'wolcott.io' }
+    const config: SigintConfig = { baseDomain: 'argus.pw' }
     const url = getTcpProbeEndpoint(config)
-    expect(url).toBe('https://tcp-probe.wolcott.io/')
+    expect(url).toBe('https://tcp-probe.argus.pw/')
   })
 
   it('builds TCP probe endpoint with stage prefix', () => {
-    const config: SigintConfig = { baseDomain: 'wolcott.io', stagePrefix: 'uat-' }
+    const config: SigintConfig = { baseDomain: 'argus.pw', stagePrefix: 'uat-' }
     const url = getTcpProbeEndpoint(config)
-    expect(url).toBe('https://uat-tcp-probe.wolcott.io/')
+    expect(url).toBe('https://uat-tcp-probe.argus.pw/')
   })
 
   it('builds STUN server URI with default config', () => {
-    const config: SigintConfig = { baseDomain: 'wolcott.io' }
+    const config: SigintConfig = { baseDomain: 'argus.pw' }
     const uri = getStunServerUri(config)
-    expect(uri).toBe('stun:stun.wolcott.io:3478')
+    expect(uri).toBe('stun:stun.argus.pw:3478')
   })
 
   it('builds STUN server URI with stage prefix', () => {
-    const config: SigintConfig = { baseDomain: 'wolcott.io', stagePrefix: 'qa-' }
+    const config: SigintConfig = { baseDomain: 'argus.pw', stagePrefix: 'qa-' }
     const uri = getStunServerUri(config)
-    expect(uri).toBe('stun:qa-stun.wolcott.io:3478')
+    expect(uri).toBe('stun:qa-stun.argus.pw:3478')
   })
 })
 
