@@ -32,6 +32,7 @@
 import { captureError } from '../errors';
 import { lieProps, PHANTOM_DARKNESS, documentLie } from '../lies';
 import { sendToTrash } from '../trash';
+import { hashMini } from '../utils/crypto';
 import {
   createTimer,
   queueEvent,
@@ -1043,13 +1044,19 @@ export default async function getCanvas2d(): Promise<
 
     logTestResult({ time: timer.stop(), test: 'canvas 2d', passed: true });
 
+    // Hash URIs to reduce fingerprint size (full base64 strings are huge)
     return {
-      dataURI,
-      paintURI,
-      paintCpuURI,
-      textURI,
-      emojiURI,
-      mods,
+      dataURI: hashMini(dataURI),
+      paintURI: hashMini(paintURI),
+      paintCpuURI: hashMini(paintCpuURI),
+      textURI: hashMini(textURI),
+      emojiURI: hashMini(emojiURI),
+      mods: mods
+        ? {
+            ...mods,
+            pixelImage: hashMini(mods.pixelImage), // Hash the pixel image too
+          }
+        : undefined,
       textMetricsSystemSum,
       textMetricsExtended,
       liedTextMetrics: textMetricsLie,

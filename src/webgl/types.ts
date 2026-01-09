@@ -118,21 +118,24 @@ export interface WebGLPixelData {
  *
  * Contains all data extracted from WebGL/WebGL2 contexts including
  * GPU parameters, rendered pixels, extensions, and lie detection status.
+ *
+ * Note: pixels and dataURI fields are hashed (not raw arrays/base64) to
+ * reduce fingerprint size while maintaining uniqueness.
  */
 export interface WebGLFingerprint {
   /** Supported WebGL extensions (combined WebGL + WebGL2) */
   extensions: string[];
 
-  /** Pixel data from WebGL context */
-  pixels?: number[];
+  /** Hash of pixel data from WebGL context */
+  pixels?: string;
 
-  /** Pixel data from WebGL2 context */
-  pixels2?: number[];
+  /** Hash of pixel data from WebGL2 context */
+  pixels2?: string;
 
-  /** Data URI from WebGL canvas */
+  /** Hash of data URI from WebGL canvas */
   dataURI?: string;
 
-  /** Data URI from WebGL2 canvas */
+  /** Hash of data URI from WebGL2 canvas */
   dataURI2?: string;
 
   /** All collected WebGL parameters */

@@ -626,15 +626,16 @@ export default async function getCanvasWebgl(): Promise<
       }),
     };
 
+    // Hash pixel arrays and data URIs to reduce fingerprint size
     const data = {
       extensions: [
         ...getSupportedExtensions(gl),
         ...getSupportedExtensions(gl2),
       ],
-      pixels,
-      pixels2,
-      dataURI,
-      dataURI2,
+      pixels: pixels ? hashMini(pixels) : undefined,
+      pixels2: pixels2 ? hashMini(pixels2) : undefined,
+      dataURI: dataURI ? hashMini(dataURI) : undefined,
+      dataURI2: dataURI2 ? hashMini(dataURI2) : undefined,
       parameters: combinedParams,
       parameterOrExtensionLie,
       lied,

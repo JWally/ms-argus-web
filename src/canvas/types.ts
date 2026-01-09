@@ -77,34 +77,37 @@ export interface PicassoSeed {
 
 /**
  * Complete canvas fingerprint result.
+ *
+ * Note: All URI fields are hashed (not full base64 data URIs) to reduce
+ * fingerprint size. The hash is still unique per rendering.
  */
 export interface CanvasFingerprint {
   /**
-   * Data URL of the main canvas fingerprint image.
+   * Hash of the main canvas fingerprint image.
    * This is the "Picasso-like" pattern with text.
    */
   dataURI: string;
 
   /**
-   * Data URL of the paint-only fingerprint (no text).
+   * Hash of the paint-only fingerprint (no text).
    * Isolates GPU rendering differences from font differences.
    */
   paintURI: string;
 
   /**
-   * Data URL from CPU-rendered canvas.
+   * Hash from CPU-rendered canvas.
    * Comparing this to GPU render can detect GPU spoofing.
    */
   paintCpuURI: string;
 
   /**
-   * Data URL of text rendering test.
+   * Hash of text rendering test.
    * Tests font rendering specifically.
    */
   textURI: string;
 
   /**
-   * Data URL of emoji rendering test.
+   * Hash of emoji rendering test.
    * Emoji rendering varies significantly across OS/browser.
    */
   emojiURI: string;
