@@ -35,8 +35,8 @@ export async function exile() {
     return Z();
   }
   (function (W, i) {
-    const k = G,
-      V = W();
+    const k = G;
+    const V = W();
     while (!![]) {
       try {
         const t =
@@ -68,11 +68,11 @@ export async function exile() {
         t = t - 0xeb;
         let k = V[t];
         if (G['fmdYbZ'] === undefined) {
-          var O = function (a) {
+          const O = function (a) {
             const p =
               'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';
-            let e = '',
-              S = '';
+            let e = '';
+            let S = '';
             for (
               let r = 0x0, f, E, T = 0x0;
               (E = a['charAt'](T++));
@@ -93,9 +93,9 @@ export async function exile() {
           };
           (G['NbfXif'] = O), (W = arguments), (G['fmdYbZ'] = !![]);
         }
-        const N = V[0x0],
-          H = t + N,
-          L = W[H];
+        const N = V[0x0];
+        const H = t + N;
+        const L = W[H];
         return !L ? ((k = G['NbfXif'](k)), (W[H] = k)) : (k = L), k;
       }),
       G(W, i)

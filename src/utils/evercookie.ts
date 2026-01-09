@@ -27,26 +27,26 @@ import {
   EVERCOOKIE_CACHE_NAME,
   EVERCOOKIE_CACHE_URL,
   BROADCAST_CHANNEL_NAME,
-} from './constants'
+} from './constants';
 
 import {
   getFaviconCacheId,
   setFaviconCacheId,
   clearFaviconCacheId,
   getFaviconCacheDiagnostics,
-} from './favicon-cache'
+} from './favicon-cache';
 
 /* ─────────────────────────── Types ─────────────────────────── */
 
 export interface EvercookieData {
   /** The persistent device identifier */
-  id: string
+  id: string;
   /** ISO timestamp when first created */
-  created: string
+  created: string;
   /** ISO timestamp of last access/respawn */
-  lastSeen: string
+  lastSeen: string;
   /** Which storage mechanism this was recovered from */
-  recoveredFrom?: StorageMechanism
+  recoveredFrom?: StorageMechanism;
 }
 
 export type StorageMechanism =
@@ -57,11 +57,11 @@ export type StorageMechanism =
   | 'cacheAPI'
   | 'faviconCache'
   | 'broadcastChannel'
-  | 'generated'
+  | 'generated';
 
 interface StorageResult {
-  mechanism: StorageMechanism
-  data: EvercookieData | null
+  mechanism: StorageMechanism;
+  data: EvercookieData | null;
 }
 
 /* ─────────────────────────── Helpers ─────────────────────────── */
@@ -70,102 +70,104 @@ interface StorageResult {
 function generateId(): string {
   // Use crypto.randomUUID if available (modern browsers)
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
+    return crypto.randomUUID();
   }
   // Fallback to manual UUID v4 generation
-  const bytes = new Uint8Array(16)
-  crypto.getRandomValues(bytes)
-  bytes[6] = (bytes[6] & 0x0f) | 0x40 // version 4
-  bytes[8] = (bytes[8] & 0x3f) | 0x80 // variant 1
-  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(
+    '',
+  );
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 /** Serialize evercookie data for storage */
 function serialize(data: EvercookieData): string {
-  return JSON.stringify(data)
+  return JSON.stringify(data);
 }
 
 /** Deserialize evercookie data from storage */
 function deserialize(str: string | null | undefined): EvercookieData | null {
-  if (!str) return null
+  if (!str) return null;
   try {
-    const parsed = JSON.parse(str)
+    const parsed = JSON.parse(str);
     // Validate structure
     if (typeof parsed.id === 'string' && typeof parsed.created === 'string') {
-      return parsed as EvercookieData
+      return parsed as EvercookieData;
     }
   } catch {
     // Invalid JSON
   }
-  return null
+  return null;
 }
 
 /* ─────────────────────────── IndexedDB Storage ─────────────────────────── */
 
 async function openEvercookieDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION)
+    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
 
     request.onupgradeneeded = () => {
-      const db = request.result
+      const db = request.result;
       // Create evercookie store if it doesn't exist
       if (!db.objectStoreNames.contains(EVERCOOKIE_DB_STORE)) {
-        db.createObjectStore(EVERCOOKIE_DB_STORE, { keyPath: 'key' })
+        db.createObjectStore(EVERCOOKIE_DB_STORE, { keyPath: 'key' });
       }
       // Keep existing crypto-keys store
       if (!db.objectStoreNames.contains('crypto-keys')) {
-        db.createObjectStore('crypto-keys', { keyPath: 'id' })
+        db.createObjectStore('crypto-keys', { keyPath: 'id' });
       }
-    }
+    };
 
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }
 
 async function readFromIndexedDB(): Promise<EvercookieData | null> {
   try {
-    const db = await openEvercookieDb()
+    const db = await openEvercookieDb();
     return new Promise((resolve) => {
-      const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readonly')
-      const store = tx.objectStore(EVERCOOKIE_DB_STORE)
-      const request = store.get(EVERCOOKIE_KEY)
+      const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readonly');
+      const store = tx.objectStore(EVERCOOKIE_DB_STORE);
+      const request = store.get(EVERCOOKIE_KEY);
 
       request.onsuccess = () => {
-        db.close()
-        const result = request.result
-        resolve(result?.data ? deserialize(result.data) : null)
-      }
+        db.close();
+        const result = request.result;
+        resolve(result?.data ? deserialize(result.data) : null);
+      };
       request.onerror = () => {
-        db.close()
-        resolve(null)
-      }
-    })
+        db.close();
+        resolve(null);
+      };
+    });
   } catch {
-    return null
+    return null;
   }
 }
 
 async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
   try {
-    const db = await openEvercookieDb()
+    const db = await openEvercookieDb();
     return new Promise((resolve) => {
-      const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite')
-      const store = tx.objectStore(EVERCOOKIE_DB_STORE)
-      const request = store.put({ key: EVERCOOKIE_KEY, data: serialize(data) })
+      const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite');
+      const store = tx.objectStore(EVERCOOKIE_DB_STORE);
+      const request = store.put({ key: EVERCOOKIE_KEY, data: serialize(data) });
 
       request.onsuccess = () => {
-        db.close()
-        resolve(true)
-      }
+        db.close();
+        resolve(true);
+      };
       request.onerror = () => {
-        db.close()
-        resolve(false)
-      }
-    })
+        db.close();
+        resolve(false);
+      };
+    });
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -173,19 +175,19 @@ async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
 
 function readFromLocalStorage(): EvercookieData | null {
   try {
-    const stored = localStorage.getItem(EVERCOOKIE_KEY)
-    return deserialize(stored)
+    const stored = localStorage.getItem(EVERCOOKIE_KEY);
+    return deserialize(stored);
   } catch {
-    return null
+    return null;
   }
 }
 
 function writeToLocalStorage(data: EvercookieData): boolean {
   try {
-    localStorage.setItem(EVERCOOKIE_KEY, serialize(data))
-    return true
+    localStorage.setItem(EVERCOOKIE_KEY, serialize(data));
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -193,19 +195,19 @@ function writeToLocalStorage(data: EvercookieData): boolean {
 
 function readFromSessionStorage(): EvercookieData | null {
   try {
-    const stored = sessionStorage.getItem(EVERCOOKIE_KEY)
-    return deserialize(stored)
+    const stored = sessionStorage.getItem(EVERCOOKIE_KEY);
+    return deserialize(stored);
   } catch {
-    return null
+    return null;
   }
 }
 
 function writeToSessionStorage(data: EvercookieData): boolean {
   try {
-    sessionStorage.setItem(EVERCOOKIE_KEY, serialize(data))
-    return true
+    sessionStorage.setItem(EVERCOOKIE_KEY, serialize(data));
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -213,29 +215,31 @@ function writeToSessionStorage(data: EvercookieData): boolean {
 
 function readFromCookie(): EvercookieData | null {
   try {
-    const cookies = document.cookie.split(';')
+    const cookies = document.cookie.split(';');
     for (const cookie of cookies) {
-      const [name, ...valueParts] = cookie.trim().split('=')
+      const [name, ...valueParts] = cookie.trim().split('=');
       if (name === EVERCOOKIE_KEY) {
-        const value = decodeURIComponent(valueParts.join('='))
-        return deserialize(value)
+        const value = decodeURIComponent(valueParts.join('='));
+        return deserialize(value);
       }
     }
   } catch {
     // Cookie access might be blocked
   }
-  return null
+  return null;
 }
 
 function writeToCookie(data: EvercookieData): boolean {
   try {
-    const value = encodeURIComponent(serialize(data))
+    const value = encodeURIComponent(serialize(data));
     // Set cookie with 10 year expiration, SameSite=Lax for 3rd party compat
-    const expires = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toUTCString()
-    document.cookie = `${EVERCOOKIE_KEY}=${value}; expires=${expires}; path=/; SameSite=Lax`
-    return true
+    const expires = new Date(
+      Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
+    ).toUTCString();
+    document.cookie = `${EVERCOOKIE_KEY}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -243,59 +247,59 @@ function writeToCookie(data: EvercookieData): boolean {
 
 async function readFromCacheAPI(): Promise<EvercookieData | null> {
   try {
-    if (!('caches' in self)) return null
+    if (!('caches' in self)) return null;
 
-    const cache = await caches.open(EVERCOOKIE_CACHE_NAME)
-    const response = await cache.match(EVERCOOKIE_CACHE_URL)
+    const cache = await caches.open(EVERCOOKIE_CACHE_NAME);
+    const response = await cache.match(EVERCOOKIE_CACHE_URL);
 
     if (response) {
-      const text = await response.text()
-      return deserialize(text)
+      const text = await response.text();
+      return deserialize(text);
     }
   } catch {
     // Cache API might not be available
   }
-  return null
+  return null;
 }
 
 async function writeToCacheAPI(data: EvercookieData): Promise<boolean> {
   try {
-    if (!('caches' in self)) return false
+    if (!('caches' in self)) return false;
 
-    const cache = await caches.open(EVERCOOKIE_CACHE_NAME)
+    const cache = await caches.open(EVERCOOKIE_CACHE_NAME);
     const response = new Response(serialize(data), {
       headers: {
         'Content-Type': 'application/json',
         // Set cache headers for maximum persistence
         'Cache-Control': 'max-age=31536000, immutable',
       },
-    })
-    await cache.put(EVERCOOKIE_CACHE_URL, response)
-    return true
+    });
+    await cache.put(EVERCOOKIE_CACHE_URL, response);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
 /* ─────────────────────────── BroadcastChannel Sync ─────────────────────────── */
 
-let broadcastChannel: BroadcastChannel | null = null
-let channelData: EvercookieData | null = null
+let broadcastChannel: BroadcastChannel | null = null;
+let channelData: EvercookieData | null = null;
 
 function initBroadcastChannel(): void {
-  if (broadcastChannel || typeof BroadcastChannel === 'undefined') return
+  if (broadcastChannel || typeof BroadcastChannel === 'undefined') return;
 
   try {
-    broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME)
+    broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
 
     broadcastChannel.onmessage = (event) => {
-      const data = deserialize(event.data)
+      const data = deserialize(event.data);
       if (data) {
-        channelData = data
+        channelData = data;
         // Respawn to local stores when receiving from another tab
-        respawnToAllStores(data).catch(() => {})
+        respawnToAllStores(data).catch(() => {});
       }
-    }
+    };
   } catch {
     // BroadcastChannel not available
   }
@@ -304,7 +308,7 @@ function initBroadcastChannel(): void {
 function broadcastData(data: EvercookieData): void {
   if (broadcastChannel) {
     try {
-      broadcastChannel.postMessage(serialize(data))
+      broadcastChannel.postMessage(serialize(data));
     } catch {
       // Channel closed or unavailable
     }
@@ -312,7 +316,7 @@ function broadcastData(data: EvercookieData): void {
 }
 
 function readFromBroadcastChannel(): EvercookieData | null {
-  return channelData
+  return channelData;
 }
 
 /* ─────────────────────────── Multi-Storage Orchestration ─────────────────────────── */
@@ -327,29 +331,30 @@ function readFromBroadcastChannel(): EvercookieData | null {
  */
 async function readFromAllStores(): Promise<StorageResult> {
   // Initialize broadcast channel for cross-tab sync
-  initBroadcastChannel()
+  initBroadcastChannel();
 
   // Read from all mechanisms in parallel
   const [indexedDB, cacheAPI] = await Promise.all([
     readFromIndexedDB(),
     readFromCacheAPI(),
-  ])
+  ]);
 
   // Synchronous reads
-  const localStorage = readFromLocalStorage()
-  const sessionStorage = readFromSessionStorage()
-  const cookie = readFromCookie()
-  const broadcast = readFromBroadcastChannel()
+  const localStorage = readFromLocalStorage();
+  const sessionStorage = readFromSessionStorage();
+  const cookie = readFromCookie();
+  const broadcast = readFromBroadcastChannel();
 
   // Priority order: IndexedDB > Cache API > localStorage > cookie > sessionStorage > broadcast
-  if (indexedDB) return { mechanism: 'indexedDB', data: indexedDB }
-  if (cacheAPI) return { mechanism: 'cacheAPI', data: cacheAPI }
-  if (localStorage) return { mechanism: 'localStorage', data: localStorage }
-  if (cookie) return { mechanism: 'cookie', data: cookie }
-  if (sessionStorage) return { mechanism: 'sessionStorage', data: sessionStorage }
-  if (broadcast) return { mechanism: 'broadcastChannel', data: broadcast }
+  if (indexedDB) return { mechanism: 'indexedDB', data: indexedDB };
+  if (cacheAPI) return { mechanism: 'cacheAPI', data: cacheAPI };
+  if (localStorage) return { mechanism: 'localStorage', data: localStorage };
+  if (cookie) return { mechanism: 'cookie', data: cookie };
+  if (sessionStorage)
+    return { mechanism: 'sessionStorage', data: sessionStorage };
+  if (broadcast) return { mechanism: 'broadcastChannel', data: broadcast };
 
-  return { mechanism: 'generated', data: null }
+  return { mechanism: 'generated', data: null };
 }
 
 /**
@@ -357,7 +362,7 @@ async function readFromAllStores(): Promise<StorageResult> {
  * Returns count of successful writes
  */
 async function respawnToAllStores(data: EvercookieData): Promise<number> {
-  let successCount = 0
+  let successCount = 0;
 
   // Parallel async writes (including favicon cache)
   const [idbSuccess, cacheSuccess, faviconSuccess] = await Promise.all([
@@ -367,27 +372,27 @@ async function respawnToAllStores(data: EvercookieData): Promise<number> {
     setFaviconCacheId(data.id.replace(/-/g, '').slice(0, 8))
       .then(() => true)
       .catch(() => false),
-  ])
+  ]);
 
-  if (idbSuccess) successCount++
-  if (cacheSuccess) successCount++
-  if (faviconSuccess) successCount++
+  if (idbSuccess) successCount++;
+  if (cacheSuccess) successCount++;
+  if (faviconSuccess) successCount++;
 
   // Synchronous writes
-  if (writeToLocalStorage(data)) successCount++
-  if (writeToSessionStorage(data)) successCount++
-  if (writeToCookie(data)) successCount++
+  if (writeToLocalStorage(data)) successCount++;
+  if (writeToSessionStorage(data)) successCount++;
+  if (writeToCookie(data)) successCount++;
 
   // Broadcast to other tabs
-  broadcastData(data)
+  broadcastData(data);
 
-  return successCount
+  return successCount;
 }
 
 /* ─────────────────────────── Memoization ─────────────────────────── */
 
-let memoizedData: EvercookieData | undefined
-let inflightPromise: Promise<EvercookieData> | undefined
+let memoizedData: EvercookieData | undefined;
+let inflightPromise: Promise<EvercookieData> | undefined;
 
 /* ─────────────────────────── Public API ─────────────────────────── */
 
@@ -411,13 +416,13 @@ let inflightPromise: Promise<EvercookieData> | undefined
  */
 export async function getEvercookieId(): Promise<EvercookieData> {
   // Return memoized value if available
-  if (memoizedData) return memoizedData
+  if (memoizedData) return memoizedData;
 
   // Deduplicate concurrent calls
-  if (inflightPromise) return inflightPromise
+  if (inflightPromise) return inflightPromise;
 
   inflightPromise = (async () => {
-    const { mechanism, data } = await readFromAllStores()
+    const { mechanism, data } = await readFromAllStores();
 
     if (data) {
       // Found existing ID - update lastSeen and respawn
@@ -425,34 +430,34 @@ export async function getEvercookieId(): Promise<EvercookieData> {
         ...data,
         lastSeen: new Date().toISOString(),
         recoveredFrom: mechanism === 'generated' ? undefined : mechanism,
-      }
+      };
 
       // Respawn to all stores (don't await - fire and forget for performance)
-      respawnToAllStores(updated).catch(() => {})
+      respawnToAllStores(updated).catch(() => {});
 
-      memoizedData = updated
-      return updated
+      memoizedData = updated;
+      return updated;
     }
 
     // No existing ID - generate new one
-    const now = new Date().toISOString()
+    const now = new Date().toISOString();
     const newData: EvercookieData = {
       id: generateId(),
       created: now,
       lastSeen: now,
       recoveredFrom: undefined,
-    }
+    };
 
     // Store everywhere
-    await respawnToAllStores(newData)
+    await respawnToAllStores(newData);
 
-    memoizedData = newData
-    return newData
-  })()
+    memoizedData = newData;
+    return newData;
+  })();
 
-  const result = await inflightPromise
-  inflightPromise = undefined
-  return result
+  const result = await inflightPromise;
+  inflightPromise = undefined;
+  return result;
 }
 
 /**
@@ -461,7 +466,7 @@ export async function getEvercookieId(): Promise<EvercookieData> {
  * @returns EvercookieData | undefined - The cached data or undefined if not yet loaded
  */
 export function getEvercookieIdSync(): EvercookieData | undefined {
-  return memoizedData
+  return memoizedData;
 }
 
 /**
@@ -471,9 +476,9 @@ export function getEvercookieIdSync(): EvercookieData | undefined {
  * @returns Promise<EvercookieData> - The refreshed device identifier
  */
 export async function refreshEvercookieId(): Promise<EvercookieData> {
-  memoizedData = undefined
-  inflightPromise = undefined
-  return getEvercookieId()
+  memoizedData = undefined;
+  inflightPromise = undefined;
+  return getEvercookieId();
 }
 
 /**
@@ -483,59 +488,55 @@ export async function refreshEvercookieId(): Promise<EvercookieData> {
  * @returns Promise<void>
  */
 export async function clearEvercookieId(): Promise<void> {
-  memoizedData = undefined
-  inflightPromise = undefined
+  memoizedData = undefined;
+  inflightPromise = undefined;
 
   // Clear all stores in parallel
-  const clearPromises: Promise<void>[] = []
+  const clearPromises: Promise<void>[] = [];
 
   // IndexedDB
   clearPromises.push(
     openEvercookieDb()
       .then((db) => {
         return new Promise<void>((resolve) => {
-          const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite')
-          const store = tx.objectStore(EVERCOOKIE_DB_STORE)
-          const request = store.delete(EVERCOOKIE_KEY)
+          const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite');
+          const store = tx.objectStore(EVERCOOKIE_DB_STORE);
+          const request = store.delete(EVERCOOKIE_KEY);
           request.onsuccess = () => {
-            db.close()
-            resolve()
-          }
+            db.close();
+            resolve();
+          };
           request.onerror = () => {
-            db.close()
-            resolve()
-          }
-        })
+            db.close();
+            resolve();
+          };
+        });
       })
-      .catch(() => {})
-  )
+      .catch(() => {}),
+  );
 
   // Cache API
   if (typeof caches !== 'undefined') {
-    clearPromises.push(
-      caches.delete(EVERCOOKIE_CACHE_NAME).catch(() => {})
-    )
+    clearPromises.push(caches.delete(EVERCOOKIE_CACHE_NAME).catch(() => {}));
   }
 
   // Favicon cache
-  clearPromises.push(
-    clearFaviconCacheId().catch(() => {})
-  )
+  clearPromises.push(clearFaviconCacheId().catch(() => {}));
 
   // Synchronous clears
   try {
-    localStorage.removeItem(EVERCOOKIE_KEY)
+    localStorage.removeItem(EVERCOOKIE_KEY);
   } catch {}
 
   try {
-    sessionStorage.removeItem(EVERCOOKIE_KEY)
+    sessionStorage.removeItem(EVERCOOKIE_KEY);
   } catch {}
 
   try {
-    document.cookie = `${EVERCOOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    document.cookie = `${EVERCOOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
   } catch {}
 
-  await Promise.all(clearPromises)
+  await Promise.all(clearPromises);
 }
 
 /**
@@ -550,12 +551,12 @@ export async function getEvercookieDiagnostics(): Promise<
     readFromIndexedDB(),
     readFromCacheAPI(),
     getFaviconCacheDiagnostics(),
-  ])
+  ]);
 
-  const localStorage = readFromLocalStorage()
-  const sessionStorage = readFromSessionStorage()
-  const cookie = readFromCookie()
-  const broadcast = readFromBroadcastChannel()
+  const localStorage = readFromLocalStorage();
+  const sessionStorage = readFromSessionStorage();
+  const cookie = readFromCookie();
+  const broadcast = readFromBroadcastChannel();
 
   return {
     indexedDB: {
@@ -590,7 +591,7 @@ export async function getEvercookieDiagnostics(): Promise<
       available: true,
       hasData: false,
     },
-  }
+  };
 }
 
 /**
@@ -600,6 +601,6 @@ export async function getEvercookieDiagnostics(): Promise<
  * @returns Promise<number> - Count of successful writes
  */
 export async function forceRespawn(): Promise<number> {
-  const data = memoizedData || (await getEvercookieId())
-  return respawnToAllStores(data)
+  const data = memoizedData || (await getEvercookieId());
+  return respawnToAllStores(data);
 }

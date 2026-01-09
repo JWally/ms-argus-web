@@ -73,7 +73,7 @@ function filterNoiseProperties(keys: string[]): string[] {
  * @returns Normalized property names
  */
 function normalizeFirefoxKeys(keys: string[]): string[] {
-  let normalized = [...keys];
+  const normalized = [...keys];
 
   // Move 'Event' to end for consistent ordering
   const eventIndex = normalized.indexOf(FIREFOX_INSPECTOR_KEY);

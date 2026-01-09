@@ -299,9 +299,7 @@ function getPhantomIframe(): PhantomIframe {
 
     // Get the iframe's window and optionally nest further with Behemoth
     const iframeWindow = iframe.contentWindow;
-    const phantomWindow = iframeWindow
-      ? getBehemothIframe(iframeWindow)
-      : null;
+    const phantomWindow = iframeWindow ? getBehemothIframe(iframeWindow) : null;
 
     return {
       iframeWindow: (phantomWindow || iframeWindow || self) as Window &

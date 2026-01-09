@@ -19,7 +19,13 @@ import { captureError } from '../errors';
 export interface ProxyDetectionResult {
   localhostBlocked: boolean;
   responseTime: number;
-  errorType: 'empty_response' | 'connection_refused' | 'timeout' | 'forbidden' | 'success' | 'unknown';
+  errorType:
+    | 'empty_response'
+    | 'connection_refused'
+    | 'timeout'
+    | 'forbidden'
+    | 'success'
+    | 'unknown';
   errorMessage: string | null;
   likelyResidentialProxy: boolean;
   $hash?: string;
@@ -57,22 +63,42 @@ async function testLocalhostConnectivity(): Promise<{
 
     // If we get here, something responded
     if (response.status === 403) {
-      return { blocked: true, elapsed, errorType: 'forbidden', errorMessage: '403 Forbidden' };
+      return {
+        blocked: true,
+        elapsed,
+        errorType: 'forbidden',
+        errorMessage: '403 Forbidden',
+      };
     }
 
-    return { blocked: false, elapsed, errorType: 'success', errorMessage: null };
+    return {
+      blocked: false,
+      elapsed,
+      errorType: 'success',
+      errorMessage: null,
+    };
   } catch (error: any) {
     const elapsed = performance.now() - start;
     const message = error?.message || String(error);
 
     // Aborted = timeout
     if (error?.name === 'AbortError' || message.includes('abort')) {
-      return { blocked: false, elapsed, errorType: 'timeout', errorMessage: 'Request timed out' };
+      return {
+        blocked: false,
+        elapsed,
+        errorType: 'timeout',
+        errorMessage: 'Request timed out',
+      };
     }
 
     // Empty response = proxy intercepted and dropped
     if (message.includes('ERR_EMPTY_RESPONSE') || message.includes('empty')) {
-      return { blocked: true, elapsed, errorType: 'empty_response', errorMessage: message };
+      return {
+        blocked: true,
+        elapsed,
+        errorType: 'empty_response',
+        errorMessage: message,
+      };
     }
 
     // Connection refused/reset - this is normal when nothing is listening
@@ -94,10 +120,20 @@ async function testLocalhostConnectivity(): Promise<{
 
     // Network error - could be proxy
     if (message.includes('NetworkError') || message.includes('network')) {
-      return { blocked: true, elapsed, errorType: 'connection_refused', errorMessage: message };
+      return {
+        blocked: true,
+        elapsed,
+        errorType: 'connection_refused',
+        errorMessage: message,
+      };
     }
 
-    return { blocked: false, elapsed, errorType: 'unknown', errorMessage: message };
+    return {
+      blocked: false,
+      elapsed,
+      errorType: 'unknown',
+      errorMessage: message,
+    };
   }
 }
 
@@ -119,7 +155,8 @@ export async function detectProxy(): Promise<ProxyDetectionResult> {
     //   Without a proxy, the local machine immediately knows nothing is listening
     //   With a proxy, the request routes through network which adds latency
     const fastLocalResponse =
-      result.elapsed < FAST_FAIL_MS && result.errorType === 'connection_refused';
+      result.elapsed < FAST_FAIL_MS &&
+      result.errorType === 'connection_refused';
     const slowNetworkResponse = result.elapsed >= FAST_FAIL_MS;
 
     const likelyResidentialProxy =

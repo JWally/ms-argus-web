@@ -169,6 +169,7 @@
       <div style="flex: 1; display: flex; justify-content: flex-end; align-items: flex-end; gap: 1rem;">
         <span id="status" class="status hidden"></span>
         <button id="collectBtn" onclick="collect()">Collect Fingerprint</button>
+        <button id="downloadBtn" onclick="downloadFp()" disabled style="background: var(--border);">Download JSON</button>
       </div>
     </div>
 
@@ -249,6 +250,23 @@
   <script type="module">
     import { load } from './argus-loader.esm.js';
     import { getEvercookieId } from './argus.esm.js';
+
+    // Store last collection result for download
+    let lastResult = null;
+
+    // Download fingerprint as JSON
+    window.downloadFp = function() {
+      if (!lastResult) return;
+      const date = new Date().toISOString().slice(0,10);
+      const filename = `argus-fp-${date}.json`;
+      const blob = new Blob([JSON.stringify(lastResult)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
 
     // Module descriptions for CreepJS-style info
     const MODULE_INFO = {
@@ -345,6 +363,19 @@
         });
 
         const evercookie = await getEvercookieId();
+
+        // Store for download - include everything
+        lastResult = {
+          fingerprint: result.fingerprint,
+          evercookie: { id: evercookie.id, created: evercookie.created, lastSeen: evercookie.lastSeen, recoveredFrom: evercookie.recoveredFrom },
+          sigint: result.sigint,
+          timing: result.timing,
+        };
+
+        // Enable download button
+        const dlBtn = document.getElementById('downloadBtn');
+        dlBtn.disabled = false;
+        dlBtn.style.background = 'var(--accent)';
 
         // Update all sections
         updateIdentityCard(result, evercookie);

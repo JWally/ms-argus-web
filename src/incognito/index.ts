@@ -93,7 +93,7 @@ async function testChromeFileSystem(): Promise<TestResult> {
         window.TEMPORARY,
         1,
         () => resolve({ ...result, isPrivate: false }),
-        () => resolve({ ...result, isPrivate: true })
+        () => resolve({ ...result, isPrivate: true }),
       );
     });
   } catch {
@@ -378,7 +378,13 @@ export async function detectIncognito(): Promise<IncognitoResult> {
   const results: TestResult[] = [];
 
   // Run browser-specific tests
-  const isChromium = ['Chrome', 'Edge', 'Opera', 'Brave', 'Chrome iOS'].includes(browser);
+  const isChromium = [
+    'Chrome',
+    'Edge',
+    'Opera',
+    'Brave',
+    'Chrome iOS',
+  ].includes(browser);
   const isFirefox = browser.includes('Firefox');
   const isSafari = browser.includes('Safari');
 

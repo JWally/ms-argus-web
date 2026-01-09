@@ -88,7 +88,10 @@ function detectFromStackPropertyDescriptor(): JSEngine | null {
     }
 
     // Check Error.prototype
-    const protoDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
+    const protoDescriptor = Object.getOwnPropertyDescriptor(
+      Error.prototype,
+      'stack',
+    );
     if (protoDescriptor && (protoDescriptor.get || protoDescriptor.set)) {
       return 'V8';
     }

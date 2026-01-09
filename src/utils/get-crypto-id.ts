@@ -9,21 +9,28 @@
  * caller always gets a working key bundle.
  */
 
-import { DATABASE_NAME, DATABASE_VERSION, TABLE_NAME_KEYS, INDEX_VALUE_KEY, EVERCOOKIE_DB_STORE } from './constants'
+import {
+  DATABASE_NAME,
+  DATABASE_VERSION,
+  TABLE_NAME_KEYS,
+  INDEX_VALUE_KEY,
+  EVERCOOKIE_DB_STORE,
+} from './constants';
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
 /** Convert an ArrayBuffer to a Base64 string */
 function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  return btoa(binary)
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++)
+    binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 /** Export a public CryptoKey in SPKI-Base64 form (handy for logs / transport) */
 async function exportPublicKeyB64(key: CryptoKey): Promise<string> {
-  return arrayBufferToBase64(await crypto.subtle.exportKey('spki', key))
+  return arrayBufferToBase64(await crypto.subtle.exportKey('spki', key));
 }
 
 /* ───────────────────────────── Types ───────────────────────────── */
@@ -33,78 +40,83 @@ async function exportPublicKeyB64(key: CryptoKey): Promise<string> {
  * `privateKey` is a live `CryptoKey` instance ready for `sign` operations.
  */
 export interface CryptoKeys {
-  id: string
-  publicKey: string
-  privateKey: CryptoKey
-  date: string
+  id: string;
+  publicKey: string;
+  privateKey: CryptoKey;
+  date: string;
 }
 
 /** Structure persisted to IndexedDB */
 interface StoredKeys {
-  id: string
-  publicKey: string
-  privateKey: CryptoKey
-  date: string
+  id: string;
+  publicKey: string;
+  privateKey: CryptoKey;
+  date: string;
 }
 
 /* ─────────────────────────── Internal state ───────────────────────── */
 
-let memoised: CryptoKeys | undefined
-let inflight: Promise<CryptoKeys> | undefined
+let memoised: CryptoKeys | undefined;
+let inflight: Promise<CryptoKeys> | undefined;
 
 /* ─────────────────────────── IDB plumbing ────────────────────────── */
 
 const openDb = (): Promise<IDBDatabase> =>
   new Promise((res, rej) => {
-    const req = indexedDB.open(DATABASE_NAME, DATABASE_VERSION)
+    const req = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     req.onupgradeneeded = () => {
-      const db = req.result
+      const db = req.result;
       if (!db.objectStoreNames.contains(TABLE_NAME_KEYS)) {
-        db.createObjectStore(TABLE_NAME_KEYS, { keyPath: 'id' })
+        db.createObjectStore(TABLE_NAME_KEYS, { keyPath: 'id' });
       }
       // Create evercookie store for shared DB consistency
       if (!db.objectStoreNames.contains(EVERCOOKIE_DB_STORE)) {
-        db.createObjectStore(EVERCOOKIE_DB_STORE, { keyPath: 'key' })
+        db.createObjectStore(EVERCOOKIE_DB_STORE, { keyPath: 'key' });
       }
-    }
-    req.onsuccess = () => res(req.result)
-    req.onerror = () => rej(req.error)
-  })
+    };
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
 
-const readStoredKeys = async (db: IDBDatabase): Promise<StoredKeys | undefined> =>
+const readStoredKeys = async (
+  db: IDBDatabase,
+): Promise<StoredKeys | undefined> =>
   new Promise((res, rej) => {
-    const tx = db.transaction(TABLE_NAME_KEYS, 'readonly')
-    const store = tx.objectStore(TABLE_NAME_KEYS)
-    const req = store.get(INDEX_VALUE_KEY)
-    req.onsuccess = () => res(req.result as StoredKeys | undefined)
-    req.onerror = () => rej(req.error)
-  })
+    const tx = db.transaction(TABLE_NAME_KEYS, 'readonly');
+    const store = tx.objectStore(TABLE_NAME_KEYS);
+    const req = store.get(INDEX_VALUE_KEY);
+    req.onsuccess = () => res(req.result as StoredKeys | undefined);
+    req.onerror = () => rej(req.error);
+  });
 
-const writeStoredKeys = async (db: IDBDatabase, data: StoredKeys): Promise<void> =>
+const writeStoredKeys = async (
+  db: IDBDatabase,
+  data: StoredKeys,
+): Promise<void> =>
   new Promise((res, rej) => {
-    const tx = db.transaction(TABLE_NAME_KEYS, 'readwrite')
-    const store = tx.objectStore(TABLE_NAME_KEYS)
-    const req = store.put(data)
-    req.onsuccess = () => res()
-    req.onerror = () => rej(req.error)
-  })
+    const tx = db.transaction(TABLE_NAME_KEYS, 'readwrite');
+    const store = tx.objectStore(TABLE_NAME_KEYS);
+    const req = store.put(data);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
 
 /* ────────────────────── Core initialisation logic ─────────────────── */
 
 const setupCryptography = async (): Promise<CryptoKeys> => {
-  const db = await openDb().catch(() => undefined)
+  const db = await openDb().catch(() => undefined);
 
   try {
     // 1. Attempt to load existing keys from DB
     if (db) {
-      const stored = await readStoredKeys(db)
+      const stored = await readStoredKeys(db);
       if (stored) {
         return {
           id: stored.id,
           publicKey: stored.publicKey,
           privateKey: stored.privateKey,
           date: stored.date,
-        }
+        };
       }
     }
 
@@ -113,30 +125,30 @@ const setupCryptography = async (): Promise<CryptoKeys> => {
     const keyPair = await crypto.subtle.generateKey(
       { name: 'ECDSA', namedCurve: 'P-256' },
       false, // non-extractable
-      ['sign', 'verify']
-    )
+      ['sign', 'verify'],
+    );
 
-    const pubB64 = await exportPublicKeyB64(keyPair.publicKey)
+    const pubB64 = await exportPublicKeyB64(keyPair.publicKey);
 
     const stored: StoredKeys = {
       id: INDEX_VALUE_KEY,
       publicKey: pubB64,
       privateKey: keyPair.privateKey,
       date: new Date().toISOString(),
-    }
+    };
 
-    if (db) await writeStoredKeys(db, stored)
+    if (db) await writeStoredKeys(db, stored);
 
     return {
       id: stored.id,
       publicKey: stored.publicKey,
       privateKey: keyPair.privateKey,
       date: stored.date,
-    }
+    };
   } finally {
-    db?.close()
+    db?.close();
   }
-}
+};
 
 /* ─────────────────────── Public entry-point ──────────────────────── */
 
@@ -163,27 +175,27 @@ const setupCryptography = async (): Promise<CryptoKeys> => {
  * )
  */
 export const getCryptoId = async (): Promise<CryptoKeys> => {
-  if (memoised) return memoised
+  if (memoised) return memoised;
   if (!inflight)
     inflight = setupCryptography().catch(async () => {
       // Absolute worst-case: no IDB (or it errors) - stay fully in-memory
       const keyPair = await crypto.subtle.generateKey(
         { name: 'ECDSA', namedCurve: 'P-256' },
         false,
-        ['sign', 'verify']
-      )
+        ['sign', 'verify'],
+      );
 
       return {
         id: INDEX_VALUE_KEY,
         publicKey: await exportPublicKeyB64(keyPair.publicKey),
         privateKey: keyPair.privateKey,
         date: new Date().toISOString(),
-      }
-    })
+      };
+    });
 
-  memoised = await inflight
-  return memoised
-}
+  memoised = await inflight;
+  return memoised;
+};
 
 /**
  * Sign data using the persistent private key.
@@ -191,48 +203,49 @@ export const getCryptoId = async (): Promise<CryptoKeys> => {
  * @param data - The data to sign (will be converted to ArrayBuffer if string)
  * @returns Promise<string> - Base64-encoded signature
  */
-export const signWithCryptoId = async (data: string | ArrayBuffer): Promise<string> => {
-  const keys = await getCryptoId()
-  const dataBuffer = typeof data === 'string'
-    ? new TextEncoder().encode(data)
-    : data
+export const signWithCryptoId = async (
+  data: string | ArrayBuffer,
+): Promise<string> => {
+  const keys = await getCryptoId();
+  const dataBuffer =
+    typeof data === 'string' ? new TextEncoder().encode(data) : data;
 
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     keys.privateKey,
-    dataBuffer
-  )
+    dataBuffer,
+  );
 
-  return arrayBufferToBase64(signature)
-}
+  return arrayBufferToBase64(signature);
+};
 
 /**
  * Reset the memoised keys (useful for testing).
  * WARNING: This does NOT clear IndexedDB - keys will be reloaded on next getCryptoId() call.
  */
 export const resetCryptoIdMemo = (): void => {
-  memoised = undefined
-  inflight = undefined
-}
+  memoised = undefined;
+  inflight = undefined;
+};
 
 /**
  * Clear all stored keys from IndexedDB.
  * After calling this, getCryptoId() will generate fresh keys.
  */
 export const clearStoredKeys = async (): Promise<void> => {
-  resetCryptoIdMemo()
-  const db = await openDb().catch(() => undefined)
-  if (!db) return
+  resetCryptoIdMemo();
+  const db = await openDb().catch(() => undefined);
+  if (!db) return;
 
   try {
     await new Promise<void>((res, rej) => {
-      const tx = db.transaction(TABLE_NAME_KEYS, 'readwrite')
-      const store = tx.objectStore(TABLE_NAME_KEYS)
-      const req = store.delete(INDEX_VALUE_KEY)
-      req.onsuccess = () => res()
-      req.onerror = () => rej(req.error)
-    })
+      const tx = db.transaction(TABLE_NAME_KEYS, 'readwrite');
+      const store = tx.objectStore(TABLE_NAME_KEYS);
+      const req = store.delete(INDEX_VALUE_KEY);
+      req.onsuccess = () => res();
+      req.onerror = () => rej(req.error);
+    });
   } finally {
-    db.close()
+    db.close();
   }
-}
+};
