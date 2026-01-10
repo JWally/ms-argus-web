@@ -5,9 +5,16 @@
  * - TLS Fingerprint Edge (CloudFront): JA3/JA4, third-party cookies, geo/ASN
  * - TCP Probe: TCP RTT, VPN/proxy detection, HTTP/2 fingerprint
  * - STUN: WebRTC IP discovery
+ * - Favicon Cache: Persistent device ID via browser favicon cache
  *
  * All endpoints are configurable via domain configuration.
  */
+
+import {
+  getFaviconCacheId,
+  type FaviconCacheData,
+  type FaviconCacheConfig as FaviconCacheConfigInternal,
+} from './favicon-cache';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -27,6 +34,15 @@ export interface SigintConfig {
   enableTcpProbe?: boolean;
   /** Enable STUN for WebRTC IP discovery (default: false - requires user gesture) */
   enableStun?: boolean;
+  /** Enable favicon cache fingerprinting (default: true) */
+  enableFaviconCache?: boolean;
+  /** Favicon cache configuration */
+  faviconCache?: {
+    /** Number of bits (default: 32) */
+    bits?: number;
+    /** Path prefix on the id subdomain (default: "/fav") */
+    pathPrefix?: string;
+  };
 }
 
 /** Response from TLS Fingerprint Edge (CloudFront) */
@@ -145,11 +161,14 @@ export interface SigintData {
   tcpProbe: TcpProbeResponse | null;
   /** STUN/WebRTC data */
   stun: StunResult | null;
+  /** Favicon cache device ID */
+  faviconCache: FaviconCacheData | null;
   /** Collection timing */
   timing: {
     tlsFingerprintMs: number | null;
     tcpProbeMs: number | null;
     stunMs: number | null;
+    faviconCacheMs: number | null;
     totalMs: number;
   };
   /** Any errors that occurred */
@@ -167,6 +186,11 @@ const DEFAULT_CONFIG: Required<SigintConfig> = {
   enableCookie: true,
   enableTcpProbe: true,
   enableStun: false,
+  enableFaviconCache: true,
+  faviconCache: {
+    bits: 32,
+    pathPrefix: '/fav',
+  },
 };
 
 /* ------------------------------------------------------------------ */
@@ -208,6 +232,33 @@ export function getStunServerUri(config: SigintConfig): string {
   const merged = { ...DEFAULT_CONFIG, ...config };
   const subdomain = `${merged.stagePrefix}stun`;
   return `stun:${subdomain}.${merged.baseDomain}:3478`;
+}
+
+/**
+ * Get favicon cache base URL (for favicon-cache.ts integration)
+ */
+export function getFaviconCacheEndpoint(config: SigintConfig): string {
+  const merged = { ...DEFAULT_CONFIG, ...config };
+  const pathPrefix = merged.faviconCache?.pathPrefix || '/fav';
+  // Favicon cache is served from the same domain as TLS fingerprint (id subdomain)
+  return buildEndpoint(merged, 'id', pathPrefix + '/');
+}
+
+/**
+ * Get favicon cache config for use with favicon-cache.ts
+ */
+export function getFaviconCacheConfig(config: SigintConfig): {
+  baseUrl: string;
+  bits: number;
+  probePath: string;
+} {
+  const merged = { ...DEFAULT_CONFIG, ...config };
+  const faviconConfig = merged.faviconCache || DEFAULT_CONFIG.faviconCache;
+  return {
+    baseUrl: buildEndpoint(merged, 'id', ''),
+    bits: faviconConfig.bits || 32,
+    probePath: (faviconConfig.pathPrefix || '/fav') + '/',
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -415,6 +466,30 @@ export async function performStunBinding(config: SigintConfig): Promise<{
 /* ------------------------------------------------------------------ */
 
 /**
+ * Collect favicon cache ID with timing
+ */
+async function collectFaviconCache(
+  config: SigintConfig,
+): Promise<{ data: FaviconCacheData | null; error: string | null; durationMs: number }> {
+  const start = performance.now();
+  try {
+    const faviconConfig = getFaviconCacheConfig(config);
+    const data = await getFaviconCacheId({
+      baseUrl: faviconConfig.baseUrl,
+      bits: faviconConfig.bits,
+      probePath: faviconConfig.probePath,
+    });
+    return { data, error: null, durationMs: performance.now() - start };
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : String(err),
+      durationMs: performance.now() - start,
+    };
+  }
+}
+
+/**
  * Collect all sigint data in parallel
  */
 export async function collectSigintData(
@@ -443,6 +518,11 @@ export async function collectSigintData(
     requestTypes.push('stun');
   }
 
+  if (merged.enableFaviconCache) {
+    requests.push(collectFaviconCache(config));
+    requestTypes.push('favicon');
+  }
+
   // Execute in parallel
   const results = await Promise.all(requests);
 
@@ -453,6 +533,8 @@ export async function collectSigintData(
   let tcpProbeMs: number | null = null;
   let stun: StunResult | null = null;
   let stunMs: number | null = null;
+  let faviconCache: FaviconCacheData | null = null;
+  let faviconCacheMs: number | null = null;
 
   for (let i = 0; i < results.length; i++) {
     const type = requestTypes[i];
@@ -479,6 +561,10 @@ export async function collectSigintData(
         stun = result.data as StunResult | null;
         stunMs = result.durationMs;
         break;
+      case 'favicon':
+        faviconCache = result.data as FaviconCacheData | null;
+        faviconCacheMs = result.durationMs;
+        break;
     }
   }
 
@@ -486,10 +572,12 @@ export async function collectSigintData(
     tlsFingerprint,
     tcpProbe,
     stun,
+    faviconCache,
     timing: {
       tlsFingerprintMs,
       tcpProbeMs,
       stunMs,
+      faviconCacheMs,
       totalMs: performance.now() - start,
     },
     errors,
@@ -510,6 +598,8 @@ export async function collectSigintData(
  * - sigintCookie: Enable cookie endpoint ("true"/"false")
  * - sigintTcpProbe: Enable TCP probe ("true"/"false")
  * - sigintStun: Enable STUN ("true"/"false")
+ * - sigintFavicon: Enable favicon cache ("true"/"false")
+ * - sigintFaviconBits: Number of favicon bits (default: 32)
  */
 export function parseSigintConfigFromUrl(
   url: string | URL,
@@ -538,6 +628,17 @@ export function parseSigintConfigFromUrl(
 
   const stun = searchParams.get('sigintStun');
   if (stun !== null) config.enableStun = stun === 'true';
+
+  const favicon = searchParams.get('sigintFavicon');
+  if (favicon !== null) config.enableFaviconCache = favicon !== 'false';
+
+  const faviconBits = searchParams.get('sigintFaviconBits');
+  if (faviconBits) {
+    const parsed = parseInt(faviconBits, 10);
+    if (!isNaN(parsed)) {
+      config.faviconCache = { bits: parsed };
+    }
+  }
 
   return config;
 }
@@ -571,4 +672,11 @@ export function getTlsHash(data: SigintData): string | null {
  */
 export function getThirdPartyCookieId(data: SigintData): string | null {
   return data.tlsFingerprint?.id || null;
+}
+
+/**
+ * Get favicon cache device ID
+ */
+export function getFaviconCacheDeviceId(data: SigintData): string | null {
+  return data.faviconCache?.id || null;
 }

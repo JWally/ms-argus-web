@@ -85,7 +85,7 @@ export {
 	SERVER_REFERENCE as FAVICON_SERVER_REFERENCE,
 } from './utils/favicon-cache'
 
-// Sigint integration - server-side fingerprinting (JA3/JA4, TCP RTT, STUN)
+// Sigint integration - server-side fingerprinting (JA3/JA4, TCP RTT, STUN, Favicon Cache)
 export {
 	collectSigintData,
 	fetchTlsFingerprint,
@@ -95,9 +95,12 @@ export {
 	getTlsFingerprintEndpoint,
 	getTcpProbeEndpoint,
 	getStunServerUri,
+	getFaviconCacheEndpoint,
+	getFaviconCacheConfig,
 	getProxyScore,
 	getTlsHash,
 	getThirdPartyCookieId,
+	getFaviconCacheDeviceId,
 	type SigintConfig,
 	type SigintData,
 	type TlsFingerprintResponse,
