@@ -222,6 +222,15 @@
           <p style="color: var(--text-dim);">Pending...</p>
         </div>
       </div>
+      <div class="card">
+        <div class="card-header" onclick="toggleCard(this)">
+          <span class="card-title"><span class="icon">🎯</span> Match Results</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="card-content" id="matchResultsCard">
+          <p style="color: var(--text-dim);">Submit to API to see match results</p>
+        </div>
+      </div>
     </div>
 
     <!-- Module Section -->
@@ -270,17 +279,27 @@
       URL.revokeObjectURL(url);
     };
 
+    // Generate unique session ID
+    function generateSessionId() {
+      return 'demo-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+    }
+
     // AR-66: Submit fingerprint to API
+    // AR-68: Poll for match results
     window.submitToApi = async function() {
       if (!lastResult) return;
 
       const btn = document.getElementById('submitBtn');
       const status = document.getElementById('status');
+      const matchCard = document.getElementById('matchResultsCard');
 
       btn.disabled = true;
       status.className = 'status running';
       status.innerHTML = '<div class="spinner"></div> Submitting...';
       status.classList.remove('hidden');
+
+      // Show loading state in match results card
+      matchCard.innerHTML = '<p style="color: var(--text-dim);"><span class="spinner" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;"></span> Processing...</p>';
 
       try {
         // Auto-detect stage from hostname or use configured stage
@@ -288,23 +307,25 @@
         const sigintStage = document.getElementById('sigintStage').value;
         const sigintDomain = document.getElementById('sigintDomain').value;
 
-        // Determine API endpoint - check if we're on an argus subdomain
-        let apiUrl;
+        // Determine API base URL - check if we're on an argus subdomain
+        let apiBase;
         if (hostname.includes('argus.pw')) {
-          // Extract stage from hostname (e.g., "dev-jw" from "dev-jw.argus.pw")
           const hostParts = hostname.split('.');
           const stage = hostParts.length > 2 ? hostParts[0] : '';
-          apiUrl = stage ? `https://api-${stage}.argus.pw/v1/collect` : `https://api.argus.pw/v1/collect`;
+          apiBase = stage ? `https://api-${stage}.argus.pw` : `https://api.argus.pw`;
         } else {
-          // Use configured stage prefix
           const stagePrefix = sigintStage ? sigintStage.replace(/-$/, '') : '';
-          apiUrl = stagePrefix
-            ? `https://api-${stagePrefix}.${sigintDomain}/v1/collect`
-            : `https://api.${sigintDomain}/v1/collect`;
+          apiBase = stagePrefix
+            ? `https://api-${stagePrefix}.${sigintDomain}`
+            : `https://api.${sigintDomain}`;
         }
+
+        // Generate unique session ID for tracking
+        const sessionId = generateSessionId();
 
         // Build submission payload matching API Fingerprint type
         const submission = {
+          session_id: sessionId,
           tenant_id: 'demo',
           fingerprint: {
             stable_hash: lastResult.fingerprint.hashes?.stable,
@@ -337,32 +358,114 @@
           },
         };
 
-        console.log('Submitting to:', apiUrl);
+        console.log('Submitting to:', apiBase + '/v1/collect');
+        console.log('Session ID:', sessionId);
         console.log('Payload:', submission);
 
-        const response = await fetch(apiUrl, {
+        const response = await fetch(apiBase + '/v1/collect', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(submission),
         });
 
-        if (response.status === 204 || response.ok) {
-          status.className = 'status success';
-          status.innerHTML = '✓ Submitted to API';
-        } else {
+        if (response.status !== 204 && !response.ok) {
           throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        }
+
+        status.innerHTML = '<div class="spinner"></div> Polling for results...';
+
+        // AR-68: Poll for match results
+        const matchResult = await pollSessionResult(apiBase, sessionId);
+
+        if (matchResult) {
+          updateMatchResultsCard(matchResult);
+          status.className = 'status success';
+          status.innerHTML = `✓ Matched (Tier ${matchResult.match_tier}, ${(matchResult.confidence * 100).toFixed(0)}% confidence)`;
+        } else {
+          matchCard.innerHTML = '<p style="color: var(--warning);">Match results not yet available. Processing may still be in progress.</p>';
+          status.className = 'status success';
+          status.innerHTML = '✓ Submitted (results pending)';
         }
       } catch (err) {
         status.className = 'status error';
         status.textContent = 'Submit error: ' + err.message;
+        matchCard.innerHTML = `<p style="color: var(--error);">Error: ${err.message}</p>`;
         console.error('Submit error:', err);
       } finally {
         btn.disabled = false;
         btn.style.background = 'var(--accent)';
       }
     };
+
+    // AR-68: Poll GET /v1/session/{session_id} for match results
+    async function pollSessionResult(apiBase, sessionId, maxAttempts = 10, delayMs = 500) {
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+
+        try {
+          const response = await fetch(`${apiBase}/v1/session/${sessionId}`);
+
+          if (response.status === 404) {
+            // Not ready yet, continue polling
+            console.log(`Poll attempt ${i + 1}: not found yet`);
+            continue;
+          }
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('Match result:', result);
+
+            // Check if still pending
+            if (result.status === 'pending') {
+              console.log(`Poll attempt ${i + 1}: still pending`);
+              continue;
+            }
+
+            return result;
+          }
+        } catch (err) {
+          console.warn(`Poll attempt ${i + 1} failed:`, err);
+        }
+      }
+
+      return null; // Timeout - no result after max attempts
+    }
+
+    // AR-68: Update Match Results card with API response
+    function updateMatchResultsCard(result) {
+      const card = document.getElementById('matchResultsCard');
+
+      const confidenceColor = result.confidence >= 0.9 ? 'var(--success)'
+        : result.confidence >= 0.7 ? 'var(--warning)'
+        : 'var(--error)';
+
+      const riskColor = result.risk_score >= 0.7 ? 'var(--error)'
+        : result.risk_score >= 0.4 ? 'var(--warning)'
+        : 'var(--success)';
+
+      const tierLabels = {
+        '-1': 'New Device',
+        '0': 'Cache Hit',
+        '0.5': 'Tier 0.5 (Evercookie/PublicKey)',
+        '1': 'Tier 1 (Hash Match)',
+        '2': 'Tier 2 (Bucket Match)',
+        '3': 'Tier 3 (Soft Match)',
+      };
+
+      card.innerHTML = `
+        <div class="data-row"><span class="data-key">Device ID</span><span class="data-value hash truncate">${result.device_id}</span></div>
+        <div class="data-row"><span class="data-key">Confidence</span><span class="data-value" style="color: ${confidenceColor}">${(result.confidence * 100).toFixed(1)}%</span></div>
+        <div class="data-row"><span class="data-key">Match Tier</span><span class="data-value">${tierLabels[result.match_tier] || `Tier ${result.match_tier}`}</span></div>
+        <div class="data-row"><span class="data-key">Risk Score</span><span class="data-value" style="color: ${riskColor}">${(result.risk_score * 100).toFixed(0)}%</span></div>
+        <div class="data-row"><span class="data-key">Status</span><span class="data-value">${result.status}</span></div>
+        ${result.flags && result.flags.length > 0 ? `
+          <div class="data-row"><span class="data-key">Flags</span><span class="data-value">${result.flags.join(', ')}</span></div>
+        ` : ''}
+        ${result.evidence_codes && result.evidence_codes.length > 0 ? `
+          <div class="data-row"><span class="data-key">Evidence</span><span class="data-value" style="font-size: 0.7rem;">${result.evidence_codes.join(', ')}</span></div>
+        ` : ''}
+      `;
+    }
 
     // Module descriptions for CreepJS-style info
     const MODULE_INFO = {
