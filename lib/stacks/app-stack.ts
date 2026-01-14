@@ -1,8 +1,8 @@
 // stacks/app-stack.ts
-import * as cdk from "aws-cdk-lib";
-import { Construct } from "constructs";
-import { Bucket } from "aws-cdk-lib/aws-s3";
-import { StaticSiteConstruct } from "../constructs/static-site";
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { StaticSiteConstruct } from '../constructs/static-site';
 
 interface AppStackProps extends cdk.StackProps {
   environment: string;
@@ -27,7 +27,7 @@ export class TheStack extends cdk.Stack {
     const { stage, siteDomain } = props;
 
     if (!siteDomain) {
-      throw new Error("SITE DOMAIN NOT PROVIDED - EXITING");
+      throw new Error('SITE DOMAIN NOT PROVIDED - EXITING');
     }
 
     /* --------------------------------------------------
@@ -35,9 +35,10 @@ export class TheStack extends cdk.Stack {
      * -------------------------------------------------- */
     const constructName = `${stage}-argus-web-static-${siteDomain}`;
     const stageLower = stage.toLowerCase();
-    const customDomain = stageLower === 'prod'
-      ? `static.${siteDomain}`
-      : `static-${stageLower}.${siteDomain}`;
+    const customDomain =
+      stageLower === 'prod'
+        ? `static.${siteDomain}`
+        : `static-${stageLower}.${siteDomain}`;
     const site = new StaticSiteConstruct(this, constructName, {
       customDomain,
       rootDomain: siteDomain,
@@ -48,9 +49,9 @@ export class TheStack extends cdk.Stack {
     this.STACK_S3_BUCKET = site.bucket;
 
     // expose only the bucket *name* for the pipeline stack
-    this.bucketNameOutput = new cdk.CfnOutput(this, "SiteBucketName", {
+    this.bucketNameOutput = new cdk.CfnOutput(this, 'SiteBucketName', {
       value: site.bucket.bucketName,
-      description: "S3 bucket name of the compiled static site",
+      description: 'S3 bucket name of the compiled static site',
     });
   }
 }
