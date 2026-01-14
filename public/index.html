@@ -170,6 +170,7 @@
         <span id="status" class="status hidden"></span>
         <button id="collectBtn" onclick="collect()">Collect Fingerprint</button>
         <button id="downloadBtn" onclick="downloadFp()" disabled style="background: var(--border);">Download JSON</button>
+        <button id="submitBtn" onclick="submitToApi()" disabled style="background: var(--border);">Submit to API</button>
       </div>
     </div>
 
@@ -249,10 +250,11 @@
 
   <script type="module">
     // Use the unified load() function directly - same as what lite loader calls
-    import { load, getEvercookieId } from './argus.esm.js';
+    import { load, getEvercookieId, getCryptoId } from './argus.esm.js';
 
     // Store last collection result for download
     let lastResult = null;
+    let lastCryptoId = null;
 
     // Download fingerprint as JSON
     window.downloadFp = function() {
@@ -266,6 +268,100 @@
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
+    };
+
+    // AR-66: Submit fingerprint to API
+    window.submitToApi = async function() {
+      if (!lastResult) return;
+
+      const btn = document.getElementById('submitBtn');
+      const status = document.getElementById('status');
+
+      btn.disabled = true;
+      status.className = 'status running';
+      status.innerHTML = '<div class="spinner"></div> Submitting...';
+      status.classList.remove('hidden');
+
+      try {
+        // Auto-detect stage from hostname or use configured stage
+        const hostname = window.location.hostname;
+        const sigintStage = document.getElementById('sigintStage').value;
+        const sigintDomain = document.getElementById('sigintDomain').value;
+
+        // Determine API endpoint - check if we're on an argus subdomain
+        let apiUrl;
+        if (hostname.includes('argus.pw')) {
+          // Extract stage from hostname (e.g., "dev-jw" from "dev-jw.argus.pw")
+          const hostParts = hostname.split('.');
+          const stage = hostParts.length > 2 ? hostParts[0] : '';
+          apiUrl = stage ? `https://api-${stage}.argus.pw/v1/collect` : `https://api.argus.pw/v1/collect`;
+        } else {
+          // Use configured stage prefix
+          const stagePrefix = sigintStage ? sigintStage.replace(/-$/, '') : '';
+          apiUrl = stagePrefix
+            ? `https://api-${stagePrefix}.${sigintDomain}/v1/collect`
+            : `https://api.${sigintDomain}/v1/collect`;
+        }
+
+        // Build submission payload matching API Fingerprint type
+        const submission = {
+          tenant_id: 'demo',
+          fingerprint: {
+            stable_hash: lastResult.fingerprint.hashes?.stable,
+            fuzzy_hash: lastResult.fingerprint.hashes?.fuzzy,
+            canvas_hash: lastResult.fingerprint.hashes?.canvas,
+            webgl_hash: lastResult.fingerprint.hashes?.webgl,
+            audio_hash: lastResult.fingerprint.hashes?.audio,
+            evercookie_id: lastResult.evercookie?.id,
+            public_key: lastCryptoId?.publicKey,
+            user_agent: navigator.userAgent,
+            gpu_renderer: lastResult.fingerprint.stable?.canvasWebgl?.renderer,
+            screen_dims: lastResult.fingerprint.stable?.screen ?
+              `${lastResult.fingerprint.stable.screen.width}x${lastResult.fingerprint.stable.screen.height}` : undefined,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            // AR-65: Privacy browser and bot signals
+            privacy_browser: lastResult.fingerprint.stable?.resistance?.browser,
+            is_private_browsing: lastResult.fingerprint.stable?.incognito?.isPrivate,
+            bot_hash: lastResult.fingerprint.hashes?.bot,
+            lie_count: lastResult.fingerprint.botSignals?.lieCount,
+            is_headless: lastResult.fingerprint.botSignals?.isHeadless,
+            hardware_concurrency: navigator.hardwareConcurrency,
+            device_memory: navigator.deviceMemory,
+            // Network signals from sigint (if available)
+            ip_address: lastResult.sigint?.tlsFingerprint?.ip,
+            ja4: lastResult.sigint?.tlsFingerprint?.ja4,
+            ja3: lastResult.sigint?.tlsFingerprint?.ja3,
+            tcp_rtt_us: lastResult.sigint?.tcpProbe?.rtt_fingerprint?.tcp_rtt_us,
+            proxy_score: lastResult.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score,
+            vpn_score: lastResult.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score,
+          },
+        };
+
+        console.log('Submitting to:', apiUrl);
+        console.log('Payload:', submission);
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submission),
+        });
+
+        if (response.status === 204 || response.ok) {
+          status.className = 'status success';
+          status.innerHTML = '✓ Submitted to API';
+        } else {
+          throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        }
+      } catch (err) {
+        status.className = 'status error';
+        status.textContent = 'Submit error: ' + err.message;
+        console.error('Submit error:', err);
+      } finally {
+        btn.disabled = false;
+        btn.style.background = 'var(--accent)';
+      }
     };
 
     // Module descriptions for CreepJS-style info
@@ -364,18 +460,27 @@
 
         const evercookie = await getEvercookieId();
 
+        // AR-66: Get cryptographic device identity (ECDSA public key)
+        const cryptoId = await getCryptoId();
+        lastCryptoId = cryptoId;
+
         // Store for download - include everything
         lastResult = {
           fingerprint: result.fingerprint,
           evercookie: { id: evercookie.id, created: evercookie.created, lastSeen: evercookie.lastSeen, recoveredFrom: evercookie.recoveredFrom },
+          cryptoId: { publicKey: cryptoId.publicKey, date: cryptoId.date },
           sigint: result.sigint,
           timing: result.timing,
         };
 
-        // Enable download button
+        // Enable download and submit buttons
         const dlBtn = document.getElementById('downloadBtn');
         dlBtn.disabled = false;
         dlBtn.style.background = 'var(--accent)';
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.style.background = 'var(--accent)';
 
         // Update all sections
         updateIdentityCard(result, evercookie);
@@ -401,10 +506,13 @@
     function updateIdentityCard(result, evercookie) {
       const card = document.getElementById('identityCard');
       const fpHash = result.fingerprint.hashes?.stable || result.fingerprint.hashes?.fuzzy || 'N/A';
+      // AR-66: Show first 32 chars of public key for display
+      const pubKeyShort = lastCryptoId?.publicKey ? lastCryptoId.publicKey.slice(0, 32) + '...' : 'N/A';
       card.innerHTML = `
         <div class="data-row"><span class="data-key">Stable Hash</span><span class="data-value hash truncate">${fpHash}</span></div>
         <div class="data-row"><span class="data-key">Fuzzy Hash</span><span class="data-value hash truncate">${result.fingerprint.hashes?.fuzzy || 'N/A'}</span></div>
         <div class="data-row"><span class="data-key">Evercookie</span><span class="data-value hash truncate">${evercookie.id}</span></div>
+        <div class="data-row"><span class="data-key">Crypto ID</span><span class="data-value hash truncate" title="${lastCryptoId?.publicKey || ''}">${pubKeyShort}</span></div>
         <div class="data-row"><span class="data-key">3rd Party Cookie</span><span class="data-value hash truncate">${result.sigint?.tlsFingerprint?.id || 'N/A'}</span></div>
         <div class="data-row"><span class="data-key">First Seen</span><span class="data-value">${new Date(evercookie.created).toLocaleString()}</span></div>
       `;
