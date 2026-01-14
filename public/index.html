@@ -308,10 +308,18 @@
         const sigintDomain = document.getElementById('sigintDomain').value;
 
         // Determine API base URL - check if we're on an argus subdomain
+        // static-dev-jw.argus.pw -> api-dev-jw.argus.pw
+        // static.argus.pw -> api.argus.pw
         let apiBase;
         if (hostname.includes('argus.pw')) {
           const hostParts = hostname.split('.');
-          const stage = hostParts.length > 2 ? hostParts[0] : '';
+          let stage = hostParts.length > 2 ? hostParts[0] : '';
+          // Strip 'static-' prefix to get the actual stage
+          if (stage.startsWith('static-')) {
+            stage = stage.replace('static-', '');
+          } else if (stage === 'static') {
+            stage = '';
+          }
           apiBase = stage ? `https://api-${stage}.argus.pw` : `https://api.argus.pw`;
         } else {
           const stagePrefix = sigintStage ? sigintStage.replace(/-$/, '') : '';
