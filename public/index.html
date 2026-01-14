@@ -406,7 +406,8 @@
     };
 
     // AR-68: Poll GET /v1/session/{session_id} for match results
-    async function pollSessionResult(apiBase, sessionId, maxAttempts = 10, delayMs = 500) {
+    // Processing can take up to 10 seconds, so poll for 20 seconds total
+    async function pollSessionResult(apiBase, sessionId, maxAttempts = 20, delayMs = 1000) {
       for (let i = 0; i < maxAttempts; i++) {
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
@@ -416,6 +417,9 @@
           if (response.status === 404) {
             // Not ready yet, continue polling
             console.log(`Poll attempt ${i + 1}: not found yet`);
+            // Update status to show progress
+            const statusEl = document.getElementById('status');
+            if (statusEl) statusEl.innerHTML = `<div class="spinner"></div> Processing... (${i + 1}s)`;
             continue;
           }
 
