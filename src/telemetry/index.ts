@@ -125,6 +125,49 @@ function generateSessionId(): string {
 	return 'demo-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11)
 }
 
+/**
+ * AR-91: Check if browser supports CompressionStream API for gzip
+ * Chrome 80+, Firefox 113+, Safari 16.4+
+ */
+function supportsGzipCompression(): boolean {
+	return typeof CompressionStream !== 'undefined'
+}
+
+/**
+ * AR-91: Gzip compress a string and return as Uint8Array (raw binary)
+ * Uses browser's CompressionStream API
+ */
+async function gzipCompress(data: string): Promise<Uint8Array> {
+	const encoder = new TextEncoder()
+	const inputBytes = encoder.encode(data)
+
+	const compressionStream = new CompressionStream('gzip')
+	const writer = compressionStream.writable.getWriter()
+	writer.write(inputBytes)
+	writer.close()
+
+	const compressedStream = compressionStream.readable
+	const reader = compressedStream.getReader()
+	const chunks: Uint8Array[] = []
+
+	while (true) {
+		const { done, value } = await reader.read()
+		if (done) break
+		chunks.push(value)
+	}
+
+	// Combine chunks into single Uint8Array
+	const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+	const combined = new Uint8Array(totalLength)
+	let offset = 0
+	for (const chunk of chunks) {
+		combined.set(chunk, offset)
+		offset += chunk.length
+	}
+
+	return combined
+}
+
 // ============================================================================
 // Main API
 // ============================================================================
@@ -218,12 +261,31 @@ export async function submitTelemetry(
 		const timeoutId = setTimeout(() => controller.abort(), timeout)
 
 		try {
-			const response = await fetch(`${apiBase}/v1/collect`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(submission),
-				signal: controller.signal,
-			})
+			let response: Response
+
+			// AR-91: Send binary gzip if browser supports CompressionStream
+			if (supportsGzipCompression()) {
+				const jsonString = JSON.stringify(submission)
+				const gzippedBytes = await gzipCompress(jsonString)
+
+				response = await fetch(`${apiBase}/v1/collect`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/octet-stream',
+						'Content-Encoding': 'gzip',
+					},
+					body: gzippedBytes, // Raw Uint8Array - browser sends as binary
+					signal: controller.signal,
+				})
+			} else {
+				// Fallback: send uncompressed JSON
+				response = await fetch(`${apiBase}/v1/collect`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(submission),
+					signal: controller.signal,
+				})
+			}
 
 			clearTimeout(timeoutId)
 
