@@ -160,57 +160,25 @@ export async function submitTelemetry(
 	}
 
 	try {
-		// Build submission payload
-		const loose = data.fingerprint.loose || {}
-
+		// AR-85: Send full fingerprint objects to API for server-side normalization
+		// The API's normalizeFingerprint() handles extraction and validation robustly
+		// This avoids brittle field extraction that results in NULL values
 		const submission = {
 			session_id: sessionId,
 			tenant_id: tenantId,
 			fingerprint: {
-				// Primary hashes
-				stable_hash: data.fingerprint.hashes?.stable,
-				fuzzy_hash: data.fingerprint.hashes?.fuzzy,
+				// Send full nested objects - API normalizes these
+				loose: data.fingerprint.loose,
+				hashes: data.fingerprint.hashes,
+				botSignals: data.fingerprint.botSignals,
 
-				// Component hashes
-				canvas_hash: loose.canvas2d?.$hash,
-				webgl_hash: loose.canvasWebgl?.$hash,
-				audio_hash: loose.offlineAudioContext?.$hash,
-
-				// Persistent identifiers
+				// Flat fields from other data sources (not in fingerprint.loose)
 				evercookie_id: data.evercookie?.id,
 				public_key: data.cryptoId?.publicKey,
-
-				// Hardware/display signals
 				user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-				gpu_renderer: loose.canvasWebgl?.gpu?.compressedGPU || loose.workerScope?.webglRenderer,
-				screen_dims: loose.screen ? `${loose.screen.width}x${loose.screen.height}` : undefined,
-				timezone: loose.timezone?.location || (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined),
-				hardware_concurrency: loose.navigator?.hardwareConcurrency || (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined),
-				device_memory: loose.navigator?.deviceMemory || (typeof navigator !== 'undefined' ? (navigator as any).deviceMemory : undefined),
-
-				// Privacy browser and bot signals
-				privacy_browser: loose.resistance?.privacy,
-				is_private_browsing: loose.incognito?.isPrivate,
-				bot_hash: data.fingerprint.hashes?.bot,
-				lie_count: data.fingerprint.botSignals?.lieCount,
-				is_headless: data.fingerprint.botSignals?.isHeadless,
-
-				// Structural hashes for privacy browser matching
-				maths_hash: loose.maths?.$hash,
-				window_features_hash: loose.windowFeatures?.$hash,
-				html_element_hash: loose.htmlElementVersion?.$hash,
-				css_hash: loose.css?.$hash,
-				svg_hash: loose.svg?.$hash,
-				webgl_extensions_count: loose.canvasWebgl?.parameters?.supportedExtensions?.length,
-
-				// Network signals from sigint
-				ip_address: data.sigint?.tlsFingerprint?.ip,
-				ja4: data.sigint?.tlsFingerprint?.ja4,
-				ja3: data.sigint?.tlsFingerprint?.ja3,
-				tcp_rtt_us: data.sigint?.tcpProbe?.rtt_fingerprint?.tcp_rtt_us,
-				proxy_score: data.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score,
-				vpn_score: data.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score,
 			},
+			// AR-81: Send full sigint object - API extracts TLS/TCP/favicon data
+			sigint: data.sigint,
 		}
 
 		// Submit to API
