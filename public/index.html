@@ -179,6 +179,22 @@
       vertical-align: middle;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Responsive truncation - only truncate on mobile */
+    .truncate-mobile {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+    @media (min-width: 640px) {
+      .truncate-mobile {
+        max-width: none;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+      }
+    }
   </style>
 </head>
 <body class="bg-white text-neutral-900 min-h-screen flex flex-col">
@@ -272,7 +288,7 @@
         </div>
 
         <!-- Signals Section -->
-        <div id="signalsCard" class="py-10 sm:py-12 border-b border-divider fade-in fade-in-delay-2">
+        <div id="signalsCard" class="py-10 sm:py-12 fade-in fade-in-delay-2">
           <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Trust signals</h2>
           <p class="text-subtle text-sm sm:text-base mb-6 sm:mb-8">Indicators that distinguish real users from bots and fraudsters.</p>
           <div class="grid sm:grid-cols-3 gap-4 sm:gap-6 stagger-in" id="signalsGrid">
@@ -280,50 +296,66 @@
           </div>
         </div>
 
-        <!-- Match Results (if API enabled) -->
-        <div id="matchCard" class="py-10 sm:py-12 border-b border-divider fade-in hidden">
+        <!-- Device Recognition + Technical Details -->
+        <div id="matchCard" class="py-10 sm:py-12 border-t border-divider fade-in fade-in-delay-3">
           <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Device recognition</h2>
-          <p class="text-subtle text-sm sm:text-base mb-6 sm:mb-8">Results from our identification API.</p>
-          <div id="matchGrid" class="grid sm:grid-cols-2 gap-x-12 lg:gap-x-20">
-            <!-- Populated by JS -->
-          </div>
-        </div>
+          <p class="text-subtle text-sm sm:text-base mb-6 sm:mb-8">Your unique device identifiers and fingerprint data.</p>
 
-        <!-- Technical Details -->
-        <div class="py-10 sm:py-12 fade-in fade-in-delay-3">
-          <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-6 sm:mb-8">Technical details</h2>
-
-          <details class="border-b border-divider py-4 group">
-            <summary class="font-medium text-sm sm:text-base">Fingerprint hashes</summary>
-            <div class="details-content pt-4 pb-2 space-y-1" id="hashesDetail"></div>
-          </details>
-
-          <details class="border-b border-divider py-4">
-            <summary class="font-medium text-sm sm:text-base">Hardware profile</summary>
-            <div class="details-content pt-4 pb-2 space-y-1" id="hardwareDetail"></div>
-          </details>
-
-          <details class="border-b border-divider py-4">
-            <summary class="font-medium text-sm sm:text-base">Browser environment</summary>
-            <div class="details-content pt-4 pb-2 space-y-1" id="browserDetail"></div>
-          </details>
-
-          <details class="border-b border-divider py-4">
-            <summary class="font-medium text-sm sm:text-base">Network information</summary>
-            <div class="details-content pt-4 pb-2 space-y-1" id="networkDetail"></div>
-          </details>
-
-          <details class="border-b border-divider py-4">
-            <summary class="font-medium text-sm sm:text-base">Raw JSON data</summary>
-            <div class="details-content pt-4 pb-2">
-              <div class="flex gap-4 mb-4">
-                <button onclick="copyData('pretty')" class="btn-link text-sm">Copy formatted</button>
-                <span class="text-divider">·</span>
-                <button onclick="copyData('mini')" class="btn-link text-sm">Copy minified</button>
-              </div>
-              <pre id="rawJson" class="text-xs text-muted font-mono bg-surface p-4 rounded-xl overflow-x-auto max-h-80 border border-divider/50"></pre>
+          <!-- API Match Results (shown when available) -->
+          <div id="matchResults" class="hidden mb-8 p-4 sm:p-6 bg-surface rounded-2xl">
+            <p class="text-xs uppercase tracking-widest text-subtle mb-4">API Match Result</p>
+            <div id="matchGrid" class="grid sm:grid-cols-2 gap-x-8 lg:gap-x-12">
+              <!-- Populated by JS -->
             </div>
-          </details>
+          </div>
+
+          <!-- Identity Hashes - Always visible, clean grid -->
+          <div class="mb-6 p-4 sm:p-5 bg-neutral-50/50 rounded-xl border border-neutral-100">
+            <p class="text-xs uppercase tracking-widest text-subtle mb-3">Device Identifiers</p>
+            <div class="grid sm:grid-cols-2 gap-x-8 lg:gap-x-12" id="identityGrid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Component Hashes -->
+          <div class="mb-6 p-4 sm:p-5 bg-neutral-50/50 rounded-xl border border-neutral-100">
+            <p class="text-xs uppercase tracking-widest text-subtle mb-3">Component Fingerprints</p>
+            <div class="grid sm:grid-cols-2 gap-x-8 lg:gap-x-12" id="componentGrid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Collapsible Technical Details -->
+          <div class="border-t border-divider pt-6 mt-6">
+            <p class="text-xs uppercase tracking-widest text-subtle mb-4">Technical Details</p>
+
+            <details class="border-b border-divider py-4">
+              <summary class="font-medium text-sm sm:text-base">Hardware profile</summary>
+              <div class="details-content pt-4 pb-2 space-y-1" id="hardwareDetail"></div>
+            </details>
+
+            <details class="border-b border-divider py-4">
+              <summary class="font-medium text-sm sm:text-base">Browser environment</summary>
+              <div class="details-content pt-4 pb-2 space-y-1" id="browserDetail"></div>
+            </details>
+
+            <details class="border-b border-divider py-4">
+              <summary class="font-medium text-sm sm:text-base">Network information</summary>
+              <div class="details-content pt-4 pb-2 space-y-1" id="networkDetail"></div>
+            </details>
+
+            <details class="py-4">
+              <summary class="font-medium text-sm sm:text-base">Raw JSON data</summary>
+              <div class="details-content pt-4 pb-2">
+                <div class="flex gap-4 mb-4">
+                  <button onclick="copyData('pretty')" class="btn-link text-sm">Copy formatted</button>
+                  <span class="text-divider">·</span>
+                  <button onclick="copyData('mini')" class="btn-link text-sm">Copy minified</button>
+                </div>
+                <pre id="rawJson" class="text-xs text-muted font-mono bg-surface p-4 rounded-xl overflow-x-auto max-h-80 border border-divider/50"></pre>
+              </div>
+            </details>
+          </div>
         </div>
 
         <!-- Collect Again -->
@@ -487,6 +519,16 @@
       `;
     }
 
+    // Create a data row with responsive truncation (full on desktop, truncated on mobile)
+    function dataRowResponsive(label, value) {
+      return `
+        <div class="data-row py-2.5 sm:py-3 flex justify-between items-baseline gap-4">
+          <span class="text-subtle text-sm flex-shrink-0">${label}</span>
+          <span class="text-sm text-right truncate-mobile" title="${value ?? ''}">${value ?? '—'}</span>
+        </div>
+      `;
+    }
+
     // Get browser name from UA
     function getBrowserName(ua) {
       if (!ua) return 'Unknown';
@@ -599,27 +641,50 @@
       const os = getOSName(ua);
       const screen = loose.screen ? `${loose.screen.width} × ${loose.screen.height}` : '—';
       const gpu = loose.canvasWebgl?.gpu?.compressedGPU || loose.workerScope?.webglRenderer || '—';
-      const gpuShort = gpu.length > 35 ? gpu.slice(0, 35) + '…' : gpu;
       const timezone = loose.timezone?.location || Intl.DateTimeFormat().resolvedOptions().timeZone;
       const language = loose.navigator?.language || navigator.language;
       const cores = loose.navigator?.hardwareConcurrency || navigator.hardwareConcurrency || '—';
       const memory = loose.navigator?.deviceMemory || navigator.deviceMemory;
 
-      // Network info if available
-      const ip = result.sigint?.tlsFingerprint?.ip;
+      // Network info
+      const tlsIp = result.sigint?.tlsFingerprint?.ip;
+      const webrtcIp = result.sigint?.stun?.reflexiveIp;
+      const localIp = result.sigint?.stun?.localIp;
+      const ipMismatch = tlsIp && webrtcIp && tlsIp !== webrtcIp;
+
+      // Build IP rows with mismatch highlighting
+      let ipRows = '';
+      if (tlsIp) {
+        ipRows += dataRow('IP address', tlsIp);
+      }
+      if (webrtcIp) {
+        if (ipMismatch) {
+          ipRows += `
+            <div class="data-row py-2.5 sm:py-3 flex justify-between items-baseline gap-4 bg-amber-50 -mx-2 px-2 rounded">
+              <span class="text-amber-700 text-sm font-medium">WebRTC IP ⚠</span>
+              <span class="text-sm text-right text-amber-700" title="Differs from TLS IP - possible proxy/VPN">${webrtcIp}</span>
+            </div>
+          `;
+        } else {
+          ipRows += dataRow('WebRTC IP', webrtcIp);
+        }
+      }
+      if (localIp) {
+        ipRows += dataRow('Local IP', localIp);
+      }
 
       grid.innerHTML = `
         <div>
           ${dataRow('Browser', browser)}
           ${dataRow('Operating system', os)}
           ${dataRow('Screen', screen)}
-          ${dataRow('Graphics', gpuShort)}
+          ${dataRowResponsive('Graphics', gpu)}
         </div>
         <div>
           ${dataRow('Timezone', timezone)}
           ${dataRow('Language', language)}
           ${dataRow('CPU cores', cores)}
-          ${ip ? dataRow('IP address', ip) : dataRow('Memory', memory ? memory + ' GB' : '—')}
+          ${ipRows || dataRow('Memory', memory ? memory + ' GB' : '—')}
         </div>
       `;
     }
@@ -638,6 +703,11 @@
       // Proxy/VPN detection
       const proxyScore = result.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score;
       const vpnScore = result.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score;
+
+      // IP mismatch detection (WebRTC vs TLS)
+      const tlsIp = result.sigint?.tlsFingerprint?.ip;
+      const webrtcIp = result.sigint?.stun?.reflexiveIp;
+      const ipMismatch = tlsIp && webrtcIp && tlsIp !== webrtcIp;
 
       const signalCard = (title, status, detail) => {
         const bgColor = status === 'good' ? 'bg-green-50' : status === 'warning' ? 'bg-amber-50' : 'bg-red-50';
@@ -676,7 +746,9 @@
       }
 
       // Network trust
-      if (proxyScore && proxyScore > 0.7) {
+      if (ipMismatch) {
+        signals += signalCard('IP mismatch', 'bad', `WebRTC IP (${webrtcIp}) differs from TLS IP (${tlsIp}).`);
+      } else if (proxyScore && proxyScore > 0.7) {
         signals += signalCard('Proxy likely', 'warning', `${Math.round(proxyScore * 100)}% confidence of proxy usage.`);
       } else if (vpnScore && vpnScore > 0.7) {
         signals += signalCard('VPN likely', 'warning', `${Math.round(vpnScore * 100)}% confidence of VPN usage.`);
@@ -690,63 +762,77 @@
     }
 
     function updateMatch(result) {
-      const card = document.getElementById('matchCard');
+      const matchResults = document.getElementById('matchResults');
       const grid = document.getElementById('matchGrid');
 
       if (!result.telemetry?.matchResult) {
-        card.classList.add('hidden');
-        return;
+        matchResults.classList.add('hidden');
+      } else {
+        matchResults.classList.remove('hidden');
+        const match = result.telemetry.matchResult;
+
+        const tierLabel = getMatchTierLabel(match.match_tier);
+        const confidence = (match.confidence * 100).toFixed(0) + '%';
+        const risk = (match.risk_score * 100).toFixed(0) + '%';
+
+        grid.innerHTML = `
+          <div>
+            ${dataRow('Device ID', miniHash(match.device_id), true)}
+            ${dataRow('Match type', tierLabel)}
+          </div>
+          <div>
+            ${dataRow('Confidence', confidence)}
+            ${dataRow('Risk score', risk)}
+          </div>
+        `;
       }
 
-      card.classList.remove('hidden');
-      const match = result.telemetry.matchResult;
+      // Update identity grid (always shown)
+      const loose = result.fingerprint.loose || {};
+      const hashes = result.fingerprint.hashes || {};
 
-      const tierLabel = getMatchTierLabel(match.match_tier);
-      const confidence = (match.confidence * 100).toFixed(0) + '%';
-      const risk = (match.risk_score * 100).toFixed(0) + '%';
-
-      grid.innerHTML = `
+      document.getElementById('identityGrid').innerHTML = `
         <div>
-          ${dataRow('Device ID', miniHash(match.device_id), true)}
-          ${dataRow('Match type', tierLabel)}
+          ${dataRow('Crypto ID', miniHash(result.cryptoId?.publicKey), true)}
+          ${dataRow('Evercookie ID', miniHash(result.evercookie?.id), true)}
         </div>
         <div>
-          ${dataRow('Confidence', confidence)}
-          ${dataRow('Risk score', risk)}
+          ${dataRow('Stable fingerprint', miniHash(hashes.stable), true)}
+          ${dataRow('Fuzzy fingerprint', miniHash(hashes.fuzzy), true)}
+        </div>
+      `;
+
+      // Update component fingerprints grid
+      document.getElementById('componentGrid').innerHTML = `
+        <div>
+          ${dataRow('Canvas', miniHash(loose.canvas2d?.$hash), true)}
+          ${dataRow('WebGL', miniHash(loose.canvasWebgl?.$hash), true)}
+        </div>
+        <div>
+          ${dataRow('Audio', miniHash(loose.offlineAudioContext?.$hash), true)}
+          ${dataRow('Fonts', miniHash(loose.fonts?.$hash), true)}
         </div>
       `;
     }
 
     function updateDetails(result) {
       const loose = result.fingerprint.loose || {};
-      const hashes = result.fingerprint.hashes || {};
-
-      // Hashes
-      document.getElementById('hashesDetail').innerHTML = `
-        ${dataRow('Stable fingerprint', hashes.stable?.slice(0, 16) + '…', true)}
-        ${dataRow('Fuzzy fingerprint', hashes.fuzzy?.slice(0, 16) + '…', true)}
-        ${dataRow('Canvas hash', miniHash(loose.canvas2d?.$hash), true)}
-        ${dataRow('WebGL hash', miniHash(loose.canvasWebgl?.$hash), true)}
-        ${dataRow('Audio hash', miniHash(loose.offlineAudioContext?.$hash), true)}
-        ${dataRow('Evercookie ID', miniHash(result.evercookie?.id), true)}
-        ${dataRow('Crypto ID', miniHash(result.cryptoId?.publicKey), true)}
-      `;
 
       // Hardware
+      const gpu = loose.canvasWebgl?.gpu?.compressedGPU || '—';
       document.getElementById('hardwareDetail').innerHTML = `
         ${dataRow('Screen', loose.screen ? `${loose.screen.width}×${loose.screen.height} @${loose.screen.pixelDepth}bit` : '—')}
         ${dataRow('Color depth', loose.screen?.colorDepth)}
         ${dataRow('Pixel ratio', loose.screen?.devicePixelRatio)}
         ${dataRow('CPU cores', loose.navigator?.hardwareConcurrency)}
         ${dataRow('Memory', loose.navigator?.deviceMemory ? loose.navigator.deviceMemory + ' GB' : '—')}
-        ${dataRow('GPU', loose.canvasWebgl?.gpu?.compressedGPU || '—')}
+        ${dataRowResponsive('GPU', gpu)}
         ${dataRow('Touch points', loose.navigator?.maxTouchPoints ?? '—')}
       `;
 
       // Browser
-      const uaShort = navigator.userAgent.length > 50 ? navigator.userAgent.slice(0, 50) + '…' : navigator.userAgent;
       document.getElementById('browserDetail').innerHTML = `
-        ${dataRow('User agent', uaShort)}
+        ${dataRowResponsive('User agent', navigator.userAgent)}
         ${dataRow('Platform', loose.navigator?.platform)}
         ${dataRow('Vendor', loose.navigator?.vendor)}
         ${dataRow('Language', loose.navigator?.language)}
@@ -758,13 +844,25 @@
       // Network
       const tls = result.sigint?.tlsFingerprint;
       const tcp = result.sigint?.tcpProbe;
+      const stun = result.sigint?.stun;
+
+      // Get MSS values from tcp_info or rtt_fingerprint
+      const sndMss = tcp?.tcp_info?.snd_mss || tcp?.rtt_fingerprint?.snd_mss;
+      const rcvMss = tcp?.tcp_info?.rcv_mss;
+      const pmtu = tcp?.tcp_info?.pmtu || tcp?.rtt_fingerprint?.pmtu;
+
       document.getElementById('networkDetail').innerHTML = `
         ${dataRow('IP address', tls?.ip || '—')}
         ${dataRow('Country', tls?.country || '—')}
         ${dataRow('ASN', tls?.asn || '—')}
+        ${stun?.reflexiveIp ? dataRow('WebRTC IP', stun.reflexiveIp) : ''}
+        ${stun?.localIp ? dataRow('Local IP', stun.localIp) : ''}
         ${dataRow('JA4', miniHash(tls?.ja4), true)}
         ${dataRow('JA3', miniHash(tls?.ja3), true)}
         ${dataRow('TCP RTT', tcp?.rtt_fingerprint?.tcp_rtt_us ? (tcp.rtt_fingerprint.tcp_rtt_us / 1000).toFixed(1) + ' ms' : '—')}
+        ${dataRow('Send MSS', sndMss || '—')}
+        ${dataRow('Recv MSS', rcvMss || '—')}
+        ${dataRow('Path MTU', pmtu || '—')}
         ${dataRow('HTTP/2 FP', tcp?.http2_fingerprint?.fingerprint ? miniHash(tcp.http2_fingerprint.fingerprint) : '—', true)}
       `;
     }
