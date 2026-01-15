@@ -112,6 +112,16 @@ export {
 	type StunResult,
 } from './utils/sigint'
 
+// Telemetry - API submission and match results
+export {
+	submitTelemetry,
+	getMatchTierLabel,
+	type TelemetryConfig,
+	type TelemetrySubmission,
+	type TelemetryResult,
+	type MatchResult,
+} from './telemetry'
+
 // WebRTC STUN configuration
 export {
 	setCustomStunServers,
@@ -126,20 +136,30 @@ export {
 import { collectFingerprint as _collectFingerprint } from './fingerprint'
 import { collectSigintData as _collectSigintData, getStunServerUri as _getStunServerUri, type SigintConfig } from './utils/sigint'
 import { setCustomStunServers as _setCustomStunServers } from './webrtc/constants'
+import { getEvercookieId as _getEvercookieId } from './utils/evercookie'
+import { getCryptoId as _getCryptoId } from './utils/get-crypto-id'
+import { submitTelemetry as _submitTelemetry, type TelemetryConfig, type TelemetryResult } from './telemetry'
 
 export interface LoadOptions {
 	enableSigint?: boolean
 	sigint?: Partial<SigintConfig>
+	/** Enable auto-submission to API after collection */
+	enableTelemetry?: boolean
+	/** Telemetry configuration */
+	telemetry?: Partial<TelemetryConfig>
 }
 
 export interface LoadResult {
 	fingerprint: Awaited<ReturnType<typeof _collectFingerprint>>
 	sigint?: Awaited<ReturnType<typeof _collectSigintData>>
+	evercookie?: { id: string; created: number; lastSeen: number; recoveredFrom?: string }
+	cryptoId?: { publicKey: string; date: number }
+	telemetry?: TelemetryResult
 	timing: { start: number; end: number; duration: number }
 }
 
 /**
- * Unified load function - collects fingerprint and optionally sigint data.
+ * Unified load function - collects fingerprint, sigint data, and optionally submits telemetry.
  * Used by the lite loader to run fingerprinting inside an iframe.
  */
 export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
@@ -151,17 +171,48 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
 		_setCustomStunServers([stunUri])
 	}
 
-	// Run fingerprint and sigint in parallel
-	const [fingerprint, sigint] = await Promise.all([
+	// Run fingerprint, sigint, evercookie, and cryptoId in parallel
+	const [fingerprint, sigint, evercookieData, cryptoIdData] = await Promise.all([
 		_collectFingerprint(),
 		opts.enableSigint ? _collectSigintData(opts.sigint || {}) : Promise.resolve(undefined),
+		_getEvercookieId(),
+		_getCryptoId(),
 	])
+
+	const evercookie = evercookieData ? {
+		id: evercookieData.id,
+		created: evercookieData.created,
+		lastSeen: evercookieData.lastSeen,
+		recoveredFrom: evercookieData.recoveredFrom,
+	} : undefined
+
+	const cryptoId = cryptoIdData ? {
+		publicKey: cryptoIdData.publicKey,
+		date: cryptoIdData.date,
+	} : undefined
+
+	// Submit telemetry if enabled
+	let telemetryResult: TelemetryResult | undefined
+	if (opts.enableTelemetry && opts.telemetry?.baseDomain) {
+		telemetryResult = await _submitTelemetry(
+			{
+				fingerprint,
+				sigint,
+				evercookie: evercookieData,
+				cryptoId: cryptoIdData,
+			},
+			opts.telemetry as TelemetryConfig
+		)
+	}
 
 	const end = performance.now()
 
 	return {
 		fingerprint,
 		sigint,
+		evercookie,
+		cryptoId,
+		telemetry: telemetryResult,
 		timing: { start, end, duration: end - start },
 	}
 }

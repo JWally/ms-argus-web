@@ -3,839 +3,810 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Argus Fingerprint Demo</title>
+  <title>Argus - Device Intelligence</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◉</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            accent: '#0071e3',
+            'accent-hover': '#0077ed',
+            subtle: '#86868b',
+            muted: '#6e6e73',
+            divider: '#d2d2d7',
+            surface: '#f5f5f7',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
+            mono: ['SF Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
   <style>
-    :root {
-      --bg: #0a0a0a;
-      --card-bg: #141414;
-      --border: #2a2a2a;
-      --text: #e5e5e5;
-      --text-dim: #888;
-      --accent: #3b82f6;
-      --success: #22c55e;
-      --warning: #eab308;
-      --error: #ef4444;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      padding: 2rem;
-      min-height: 100vh;
-    }
-    .container { max-width: 1400px; margin: 0 auto; }
-    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--accent); }
-    .subtitle { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 2rem; }
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
-    /* Config Bar */
-    .config-bar {
-      display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
-      padding: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
-    }
-    .config-group { display: flex; flex-direction: column; gap: 0.25rem; }
-    .config-group label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; }
-    .config-group input, .config-group select {
-      background: var(--bg); border: 1px solid var(--border); color: var(--text);
-      padding: 0.5rem; border-radius: 4px; font-family: inherit; font-size: 0.875rem;
-    }
-    .config-group input:focus, .config-group select:focus { outline: none; border-color: var(--accent); }
-    button {
-      background: var(--accent); color: white; border: none; padding: 0.75rem 1.5rem;
-      border-radius: 6px; font-family: inherit; font-size: 0.875rem; cursor: pointer;
-    }
-    button:hover { opacity: 0.9; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.875rem; }
-    .status.running { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
-    .status.success { background: rgba(34, 197, 94, 0.1); color: var(--success); }
-    .status.error { background: rgba(239, 68, 68, 0.1); color: var(--error); }
+    /* Smooth page transitions */
+    html { scroll-behavior: smooth; }
 
-    /* Summary Cards Grid */
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-
-    /* Module Grid */
-    .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-
-    /* Cards */
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .card-header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);
-      cursor: pointer; user-select: none;
+    /* Primary button */
+    .btn-primary {
+      background: #0071e3;
+      transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
-    .card-header:hover { background: rgba(255, 255, 255, 0.04); }
-    .card-title { font-size: 0.875rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
-    .card-title .icon { font-size: 1rem; }
-    .card-meta { display: flex; align-items: center; gap: 0.5rem; }
-    .card-badge { font-size: 0.7rem; padding: 0.125rem 0.5rem; border-radius: 4px; background: var(--border); }
-    .card-badge.pass { background: rgba(34, 197, 94, 0.2); color: var(--success); }
-    .card-badge.fail { background: rgba(239, 68, 68, 0.2); color: var(--error); }
-    .card-badge.warn { background: rgba(234, 179, 8, 0.2); color: var(--warning); }
-    .card-hash { font-size: 0.65rem; color: var(--text-dim); font-family: monospace; }
-    .card-content { padding: 1rem; font-size: 0.8rem; }
-    .card-content.collapsed { display: none; }
-    .expand-icon { transition: transform 0.2s; }
-    .expand-icon.collapsed { transform: rotate(-90deg); }
+    .btn-primary:hover { background: #0077ed; box-shadow: 0 2px 8px rgba(0,113,227,0.3); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-    /* Data Display */
-    .data-row { display: flex; justify-content: space-between; padding: 0.375rem 0; border-bottom: 1px solid var(--border); }
+    /* Secondary link button */
+    .btn-link {
+      color: #0071e3;
+      transition: color 0.15s ease;
+    }
+    .btn-link:hover { color: #0077ed; text-decoration: underline; }
+
+    /* Animations */
+    .fade-in {
+      animation: fadeIn 0.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+      opacity: 0;
+    }
+    .fade-in-delay-1 { animation-delay: 0.1s; }
+    .fade-in-delay-2 { animation-delay: 0.2s; }
+    .fade-in-delay-3 { animation-delay: 0.3s; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Stagger children animation */
+    .stagger-in > * {
+      opacity: 0;
+      animation: fadeIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    }
+    .stagger-in > *:nth-child(1) { animation-delay: 0.05s; }
+    .stagger-in > *:nth-child(2) { animation-delay: 0.1s; }
+    .stagger-in > *:nth-child(3) { animation-delay: 0.15s; }
+    .stagger-in > *:nth-child(4) { animation-delay: 0.2s; }
+
+    /* Subtle pulse for loading */
+    .pulse-subtle {
+      animation: pulseSoft 1.5s ease-in-out infinite;
+    }
+    @keyframes pulseSoft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Data rows */
+    .data-row {
+      border-bottom: 1px solid #f5f5f7;
+      transition: background 0.15s ease;
+    }
     .data-row:last-child { border-bottom: none; }
-    .data-key { color: var(--text-dim); }
-    .data-value { color: var(--text); text-align: right; word-break: break-all; max-width: 60%; }
-    .data-value.hash { font-family: monospace; font-size: 0.7rem; }
-    .data-value.truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .data-row:hover { background: rgba(0,0,0,0.01); }
 
-    /* Score Bar */
-    .score-bar { display: flex; align-items: center; gap: 0.5rem; }
-    .score-fill { height: 6px; border-radius: 3px; background: var(--border); flex: 1; overflow: hidden; }
-    .score-fill-inner { height: 100%; border-radius: 3px; }
-    .score-fill-inner.low { background: var(--success); }
-    .score-fill-inner.medium { background: var(--warning); }
-    .score-fill-inner.high { background: var(--error); }
-
-    /* JSON Display */
-    pre { background: var(--bg); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.7rem; max-height: 600px; }
-    .full-width { grid-column: 1 / -1; }
-
-    /* Expandable nested values */
-    .nested-value {
+    /* Details/accordion */
+    details summary {
       cursor: pointer;
-      color: var(--accent);
-      text-decoration: underline;
-      text-decoration-style: dotted;
+      list-style: none;
+      transition: color 0.15s ease;
     }
-    .nested-value:hover { text-decoration-style: solid; }
-    .nested-expand {
-      max-height: 200px;
-      overflow-y: auto;
-      background: var(--bg);
-      padding: 0.5rem;
-      border-radius: 4px;
-      margin-top: 0.5rem;
-      font-size: 0.7rem;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
+    details summary::-webkit-details-marker { display: none; }
+    details summary::after {
+      content: '+';
+      float: right;
+      font-weight: 300;
+      color: #86868b;
+      font-size: 1.25rem;
+      transition: transform 0.2s ease;
     }
-    .nested-expand::-webkit-scrollbar { width: 4px; }
-    .nested-expand::-webkit-scrollbar-track { background: transparent; }
-    .nested-expand::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    .nested-expand pre { margin: 0; padding: 0; background: none; max-height: none; }
+    details[open] summary::after {
+      content: '−';
+    }
+    details summary:hover { color: #0071e3; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--border); }
-    .tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-dim); }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    details .details-content {
+      animation: slideDown 0.2s ease-out;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Toast notification */
+    .copy-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1d1d1f;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 980px;
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+      pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .copy-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Signal cards */
+    .signal-card {
+      transition: all 0.2s ease;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .signal-card:hover {
+      background: rgba(0,0,0,0.02);
+    }
+
+    /* Header blur */
+    .header-blur {
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      background: rgba(255,255,255,0.72);
+    }
+
+    /* Footer accordion for mobile */
+    @media (max-width: 768px) {
+      .footer-section summary {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #d2d2d7;
+      }
+      .footer-section[open] summary {
+        border-bottom: none;
+      }
+    }
 
     /* Spinner */
-    .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #d2d2d7;
+      border-top-color: #0071e3;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .hidden { display: none; }
-
-    /* Section Headers */
-    .section-header { font-size: 1rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.5rem; }
-    .section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Argus Fingerprint Demo</h1>
-    <p class="subtitle">Client + Server-side device fingerprinting for fraud prevention</p>
+<body class="bg-white text-neutral-900 min-h-screen flex flex-col">
 
-    <div class="config-bar">
-      <div class="config-group">
-        <label>Sigint Domain</label>
-        <input type="text" id="sigintDomain" value="argus.pw">
-      </div>
-      <div class="config-group">
-        <label>Stage Prefix</label>
-        <input type="text" id="sigintStage" placeholder="dev-jw-, qa-, etc." style="width: 120px;">
-      </div>
-      <div class="config-group">
-        <label>Options</label>
-        <div style="display: flex; gap: 1rem; padding-top: 0.5rem;">
-          <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.875rem;">
-            <input type="checkbox" id="enableSigint" checked> Sigint
+  <!-- Header -->
+  <header class="header-blur sticky top-0 z-50 border-b border-divider/50">
+    <nav class="max-w-5xl mx-auto px-6">
+      <div class="flex items-center justify-between h-12">
+        <!-- Logo -->
+        <a href="#" class="flex items-center gap-2 text-neutral-900 hover:text-accent transition-colors">
+          <span class="text-xl">◉</span>
+          <span class="font-semibold tracking-tight">Argus</span>
+        </a>
+
+        <!-- Desktop Nav -->
+        <div class="hidden md:flex items-center gap-8 text-sm">
+          <a href="#demo" class="text-muted hover:text-neutral-900 transition-colors">Demo</a>
+          <a href="#features" class="text-muted hover:text-neutral-900 transition-colors">Features</a>
+          <a href="https://github.com" class="text-muted hover:text-neutral-900 transition-colors">GitHub</a>
+          <a href="#docs" class="text-muted hover:text-neutral-900 transition-colors">Docs</a>
+        </div>
+
+        <!-- Right side -->
+        <div class="flex items-center gap-4">
+          <label class="hidden sm:flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
+            <input type="checkbox" id="enableSigint" checked class="accent-accent w-3.5 h-3.5">
+            <span>Network signals</span>
           </label>
-          <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.875rem;">
-            <input type="checkbox" id="enableStun" checked> STUN
+          <!-- Mobile menu button -->
+          <button id="mobileMenuBtn" class="md:hidden p-1 text-muted hover:text-neutral-900">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Nav -->
+      <div id="mobileMenu" class="md:hidden hidden border-t border-divider py-3">
+        <div class="flex flex-col gap-3 text-sm">
+          <a href="#demo" class="text-muted hover:text-neutral-900 py-1">Demo</a>
+          <a href="#features" class="text-muted hover:text-neutral-900 py-1">Features</a>
+          <a href="https://github.com" class="text-muted hover:text-neutral-900 py-1">GitHub</a>
+          <a href="#docs" class="text-muted hover:text-neutral-900 py-1">Docs</a>
+          <label class="flex items-center gap-2 text-muted py-1 cursor-pointer sm:hidden">
+            <input type="checkbox" checked class="accent-accent w-3.5 h-3.5" onchange="document.getElementById('enableSigint').checked = this.checked">
+            <span>Network signals</span>
           </label>
         </div>
       </div>
-      <div style="flex: 1; display: flex; justify-content: flex-end; align-items: flex-end; gap: 1rem;">
-        <span id="status" class="status hidden"></span>
-        <button id="collectBtn" onclick="collect()">Collect Fingerprint</button>
-        <button id="downloadBtn" onclick="downloadFp()" disabled style="background: var(--border);">Download JSON</button>
-        <button id="submitBtn" onclick="submitToApi()" disabled style="background: var(--border);">Submit to API</button>
-      </div>
-    </div>
+    </nav>
+  </header>
 
-    <!-- Summary Section -->
-    <div class="section-header">Summary</div>
-    <div class="summary-grid" id="summaryGrid">
-      <div class="card">
-        <div class="card-header" onclick="toggleCard(this)">
-          <span class="card-title"><span class="icon">🔑</span> Identity</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="card-content" id="identityCard">
-          <p style="color: var(--text-dim);">Click "Collect Fingerprint" to start</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" onclick="toggleCard(this)">
-          <span class="card-title"><span class="icon">🔐</span> TLS Fingerprint</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="card-content" id="tlsCard">
-          <p style="color: var(--text-dim);">Requires sigint</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" onclick="toggleCard(this)">
-          <span class="card-title"><span class="icon">🌐</span> Network</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="card-content" id="networkCard">
-          <p style="color: var(--text-dim);">Requires sigint</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" onclick="toggleCard(this)">
-          <span class="card-title"><span class="icon">🛡️</span> Bot Detection</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="card-content" id="botCard">
-          <p style="color: var(--text-dim);">Pending...</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" onclick="toggleCard(this)">
-          <span class="card-title"><span class="icon">⚠️</span> Inconsistencies</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="card-content" id="inconsistenciesCard">
-          <p style="color: var(--text-dim);">Pending...</p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" onclick="toggleCard(this)">
-          <span class="card-title"><span class="icon">🎯</span> Match Results</span>
-          <span class="expand-icon">▼</span>
-        </div>
-        <div class="card-content" id="matchResultsCard">
-          <p style="color: var(--text-dim);">Submit to API to see match results</p>
-        </div>
-      </div>
-    </div>
+  <!-- Main Content -->
+  <main class="flex-1">
+    <div class="max-w-4xl mx-auto px-6">
 
-    <!-- Module Section -->
-    <div class="section-header">Fingerprint Modules</div>
-    <div class="module-grid" id="moduleGrid">
-      <!-- Modules will be dynamically added here -->
-    </div>
+      <!-- Hero Section -->
+      <section id="heroSection" class="py-16 sm:py-24 text-center">
+        <p class="text-accent text-sm font-medium tracking-wide uppercase mb-4 fade-in">Device Intelligence</p>
+        <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-5 fade-in fade-in-delay-1">
+          What does your browser reveal?
+        </h1>
+        <p class="text-subtle text-lg sm:text-xl mb-10 max-w-xl mx-auto leading-relaxed fade-in fade-in-delay-2">
+          Your device has a unique fingerprint. See exactly what websites can learn about you — no cookies required.
+        </p>
+        <div class="fade-in fade-in-delay-3">
+          <button id="collectBtn" onclick="collect()" class="btn-primary text-white px-8 py-3.5 rounded-full text-base font-medium">
+            Analyze My Browser
+          </button>
+          <p class="text-subtle text-xs mt-4">Takes about 2 seconds · No data stored</p>
+        </div>
+      </section>
 
-    <!-- Raw Data Section -->
-    <div class="section-header">Raw Data</div>
-    <div class="card full-width">
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab('all')">All Data</div>
-        <div class="tab" onclick="switchTab('fingerprint')">Fingerprint</div>
-        <div class="tab" onclick="switchTab('sigint')">Sigint</div>
-        <div class="tab" onclick="switchTab('bot')">Bot Signals</div>
+      <!-- Results Section (hidden until collection) -->
+      <section id="resultsSection" class="hidden pb-16">
+
+        <!-- Uniqueness Statement -->
+        <div id="uniquenessCard" class="py-12 sm:py-16 text-center border-b border-divider fade-in">
+          <p class="text-subtle text-xs uppercase tracking-widest mb-4">Your Browser Fingerprint</p>
+          <p class="text-4xl sm:text-5xl font-semibold tracking-tight mb-3 font-mono" id="uniquenessScore">—</p>
+          <p class="text-subtle text-base sm:text-lg max-w-md mx-auto" id="uniquenessText">Calculating...</p>
+        </div>
+
+        <!-- What We Know -->
+        <div id="summaryCard" class="py-10 sm:py-12 border-b border-divider fade-in fade-in-delay-1">
+          <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-6 sm:mb-8">What we detected</h2>
+          <div class="grid sm:grid-cols-2 gap-x-12 lg:gap-x-20 stagger-in" id="summaryGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Signals Section -->
+        <div id="signalsCard" class="py-10 sm:py-12 border-b border-divider fade-in fade-in-delay-2">
+          <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Trust signals</h2>
+          <p class="text-subtle text-sm sm:text-base mb-6 sm:mb-8">Indicators that distinguish real users from bots and fraudsters.</p>
+          <div class="grid sm:grid-cols-3 gap-4 sm:gap-6 stagger-in" id="signalsGrid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Match Results (if API enabled) -->
+        <div id="matchCard" class="py-10 sm:py-12 border-b border-divider fade-in hidden">
+          <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Device recognition</h2>
+          <p class="text-subtle text-sm sm:text-base mb-6 sm:mb-8">Results from our identification API.</p>
+          <div id="matchGrid" class="grid sm:grid-cols-2 gap-x-12 lg:gap-x-20">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Technical Details -->
+        <div class="py-10 sm:py-12 fade-in fade-in-delay-3">
+          <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-6 sm:mb-8">Technical details</h2>
+
+          <details class="border-b border-divider py-4 group">
+            <summary class="font-medium text-sm sm:text-base">Fingerprint hashes</summary>
+            <div class="details-content pt-4 pb-2 space-y-1" id="hashesDetail"></div>
+          </details>
+
+          <details class="border-b border-divider py-4">
+            <summary class="font-medium text-sm sm:text-base">Hardware profile</summary>
+            <div class="details-content pt-4 pb-2 space-y-1" id="hardwareDetail"></div>
+          </details>
+
+          <details class="border-b border-divider py-4">
+            <summary class="font-medium text-sm sm:text-base">Browser environment</summary>
+            <div class="details-content pt-4 pb-2 space-y-1" id="browserDetail"></div>
+          </details>
+
+          <details class="border-b border-divider py-4">
+            <summary class="font-medium text-sm sm:text-base">Network information</summary>
+            <div class="details-content pt-4 pb-2 space-y-1" id="networkDetail"></div>
+          </details>
+
+          <details class="border-b border-divider py-4">
+            <summary class="font-medium text-sm sm:text-base">Raw JSON data</summary>
+            <div class="details-content pt-4 pb-2">
+              <div class="flex gap-4 mb-4">
+                <button onclick="copyData('pretty')" class="btn-link text-sm">Copy formatted</button>
+                <span class="text-divider">·</span>
+                <button onclick="copyData('mini')" class="btn-link text-sm">Copy minified</button>
+              </div>
+              <pre id="rawJson" class="text-xs text-muted font-mono bg-surface p-4 rounded-xl overflow-x-auto max-h-80 border border-divider/50"></pre>
+            </div>
+          </details>
+        </div>
+
+        <!-- Collect Again -->
+        <div class="py-8 text-center">
+          <button onclick="collect()" class="btn-link font-medium">
+            Analyze again
+          </button>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-surface border-t border-divider mt-auto">
+    <div class="max-w-5xl mx-auto px-6 py-8 sm:py-12">
+      <!-- Footer columns - desktop -->
+      <div class="hidden md:grid md:grid-cols-4 gap-8 text-sm mb-8">
+        <div>
+          <h4 class="font-semibold text-neutral-900 mb-3">Product</h4>
+          <ul class="space-y-2 text-muted">
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Demo</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Features</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Pricing</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Enterprise</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold text-neutral-900 mb-3">Developers</h4>
+          <ul class="space-y-2 text-muted">
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Documentation</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">API Reference</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">SDKs</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">GitHub</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold text-neutral-900 mb-3">Use Cases</h4>
+          <ul class="space-y-2 text-muted">
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Fraud Prevention</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Bot Detection</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Account Security</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Paywall Enforcement</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold text-neutral-900 mb-3">Company</h4>
+          <ul class="space-y-2 text-muted">
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">About</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Blog</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Careers</a></li>
+            <li><a href="#" class="hover:text-neutral-900 transition-colors">Contact</a></li>
+          </ul>
+        </div>
       </div>
-      <div class="card-content">
-        <div id="tab-all" class="tab-content active"><pre id="fullData">// Waiting for collection...</pre></div>
-        <div id="tab-fingerprint" class="tab-content"><pre id="fpData">// Waiting...</pre></div>
-        <div id="tab-sigint" class="tab-content"><pre id="sigintData">// Waiting...</pre></div>
-        <div id="tab-bot" class="tab-content"><pre id="botData">// Waiting...</pre></div>
+
+      <!-- Footer accordion - mobile -->
+      <div class="md:hidden space-y-0 text-sm mb-6">
+        <details class="footer-section">
+          <summary class="font-semibold text-neutral-900 py-3 border-b border-divider flex justify-between items-center">
+            Product
+            <span class="text-muted text-lg font-light">+</span>
+          </summary>
+          <ul class="space-y-2 text-muted py-3">
+            <li><a href="#">Demo</a></li>
+            <li><a href="#">Features</a></li>
+            <li><a href="#">Pricing</a></li>
+            <li><a href="#">Enterprise</a></li>
+          </ul>
+        </details>
+        <details class="footer-section">
+          <summary class="font-semibold text-neutral-900 py-3 border-b border-divider flex justify-between items-center">
+            Developers
+            <span class="text-muted text-lg font-light">+</span>
+          </summary>
+          <ul class="space-y-2 text-muted py-3">
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">API Reference</a></li>
+            <li><a href="#">SDKs</a></li>
+            <li><a href="#">GitHub</a></li>
+          </ul>
+        </details>
+        <details class="footer-section">
+          <summary class="font-semibold text-neutral-900 py-3 border-b border-divider flex justify-between items-center">
+            Use Cases
+            <span class="text-muted text-lg font-light">+</span>
+          </summary>
+          <ul class="space-y-2 text-muted py-3">
+            <li><a href="#">Fraud Prevention</a></li>
+            <li><a href="#">Bot Detection</a></li>
+            <li><a href="#">Account Security</a></li>
+            <li><a href="#">Paywall Enforcement</a></li>
+          </ul>
+        </details>
+        <details class="footer-section">
+          <summary class="font-semibold text-neutral-900 py-3 border-b border-divider flex justify-between items-center">
+            Company
+            <span class="text-muted text-lg font-light">+</span>
+          </summary>
+          <ul class="space-y-2 text-muted py-3">
+            <li><a href="#">About</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </details>
+      </div>
+
+      <!-- Divider -->
+      <div class="border-t border-divider my-6"></div>
+
+      <!-- Bottom row -->
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-muted">
+        <div class="flex items-center gap-2">
+          <span class="text-base">◉</span>
+          <span>Argus Device Intelligence</span>
+        </div>
+        <div class="flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <a href="#" class="hover:text-neutral-900 transition-colors">Privacy Policy</a>
+          <a href="#" class="hover:text-neutral-900 transition-colors">Terms of Service</a>
+          <a href="#" class="hover:text-neutral-900 transition-colors">Cookie Policy</a>
+        </div>
+        <p>© 2025 Argus. All rights reserved.</p>
       </div>
     </div>
-  </div>
+  </footer>
+
+  <!-- Copy Toast -->
+  <div id="copyToast" class="copy-toast">Copied to clipboard</div>
 
   <script type="module">
-    // Use the unified load() function directly - same as what lite loader calls
-    import { load, getEvercookieId, getCryptoId } from './argus.esm.js';
+    import { load, getMatchTierLabel } from '/dist/argus.esm.js';
 
-    // Store last collection result for download
     let lastResult = null;
-    let lastCryptoId = null;
 
-    // Download fingerprint as JSON
-    window.downloadFp = function() {
-      if (!lastResult) return;
-      const date = new Date().toISOString().slice(0,10);
-      const filename = `argus-fp-${date}.json`;
-      const blob = new Blob([JSON.stringify(lastResult)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+    // Mobile menu toggle
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+      document.getElementById('mobileMenu').classList.toggle('hidden');
+    });
 
-    // Generate unique session ID
-    function generateSessionId() {
-      return 'demo-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+    // Fast hash for display
+    function miniHash(str) {
+      if (!str || typeof str !== 'string') return '—';
+      if (str.length <= 10) return str;
+      let hash = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+      }
+      return (hash >>> 0).toString(16).padStart(8, '0').toUpperCase();
     }
 
-    // AR-66: Submit fingerprint to API
-    // AR-68: Poll for match results
-    window.submitToApi = async function() {
-      if (!lastResult) return;
-
-      const btn = document.getElementById('submitBtn');
-      const status = document.getElementById('status');
-      const matchCard = document.getElementById('matchResultsCard');
-
-      btn.disabled = true;
-      status.className = 'status running';
-      status.innerHTML = '<div class="spinner"></div> Submitting...';
-      status.classList.remove('hidden');
-
-      // Show loading state in match results card
-      matchCard.innerHTML = '<p style="color: var(--text-dim);"><span class="spinner" style="display: inline-block; vertical-align: middle; margin-right: 0.5rem;"></span> Processing...</p>';
-
-      try {
-        // Auto-detect stage from hostname or use configured stage
-        const hostname = window.location.hostname;
-        const sigintStage = document.getElementById('sigintStage').value;
-        const sigintDomain = document.getElementById('sigintDomain').value;
-
-        // Determine API base URL - check if we're on an argus subdomain
-        // static-dev-jw.argus.pw -> api-dev-jw.argus.pw
-        // static.argus.pw -> api.argus.pw
-        let apiBase;
-        if (hostname.includes('argus.pw')) {
-          const hostParts = hostname.split('.');
-          let stage = hostParts.length > 2 ? hostParts[0] : '';
-          // Strip 'static-' prefix to get the actual stage
-          if (stage.startsWith('static-')) {
-            stage = stage.replace('static-', '');
-          } else if (stage === 'static') {
-            stage = '';
-          }
-          apiBase = stage ? `https://api-${stage}.argus.pw` : `https://api.argus.pw`;
-        } else {
-          const stagePrefix = sigintStage ? sigintStage.replace(/-$/, '') : '';
-          apiBase = stagePrefix
-            ? `https://api-${stagePrefix}.${sigintDomain}`
-            : `https://api.${sigintDomain}`;
-        }
-
-        // Generate unique session ID for tracking
-        const sessionId = generateSessionId();
-
-        // Build submission payload matching API Fingerprint type
-        const submission = {
-          session_id: sessionId,
-          tenant_id: 'demo',
-          fingerprint: {
-            stable_hash: lastResult.fingerprint.hashes?.stable,
-            fuzzy_hash: lastResult.fingerprint.hashes?.fuzzy,
-            canvas_hash: lastResult.fingerprint.hashes?.canvas,
-            webgl_hash: lastResult.fingerprint.hashes?.webgl,
-            audio_hash: lastResult.fingerprint.hashes?.audio,
-            evercookie_id: lastResult.evercookie?.id,
-            public_key: lastCryptoId?.publicKey,
-            user_agent: navigator.userAgent,
-            gpu_renderer: lastResult.fingerprint.stable?.canvasWebgl?.renderer,
-            screen_dims: lastResult.fingerprint.stable?.screen ?
-              `${lastResult.fingerprint.stable.screen.width}x${lastResult.fingerprint.stable.screen.height}` : undefined,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            // AR-65: Privacy browser and bot signals
-            privacy_browser: lastResult.fingerprint.stable?.resistance?.browser,
-            is_private_browsing: lastResult.fingerprint.stable?.incognito?.isPrivate,
-            bot_hash: lastResult.fingerprint.hashes?.bot,
-            lie_count: lastResult.fingerprint.botSignals?.lieCount,
-            is_headless: lastResult.fingerprint.botSignals?.isHeadless,
-            hardware_concurrency: navigator.hardwareConcurrency,
-            device_memory: navigator.deviceMemory,
-            // Network signals from sigint (if available)
-            ip_address: lastResult.sigint?.tlsFingerprint?.ip,
-            ja4: lastResult.sigint?.tlsFingerprint?.ja4,
-            ja3: lastResult.sigint?.tlsFingerprint?.ja3,
-            tcp_rtt_us: lastResult.sigint?.tcpProbe?.rtt_fingerprint?.tcp_rtt_us,
-            proxy_score: lastResult.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score,
-            vpn_score: lastResult.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score,
-          },
-        };
-
-        console.log('Submitting to:', apiBase + '/v1/collect');
-        console.log('Session ID:', sessionId);
-        console.log('Payload:', submission);
-
-        const response = await fetch(apiBase + '/v1/collect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(submission),
-        });
-
-        if (response.status !== 204 && !response.ok) {
-          throw new Error(`API returned ${response.status}: ${response.statusText}`);
-        }
-
-        status.innerHTML = '<div class="spinner"></div> Polling for results...';
-
-        // AR-68: Poll for match results
-        const matchResult = await pollSessionResult(apiBase, sessionId);
-
-        if (matchResult) {
-          updateMatchResultsCard(matchResult);
-          status.className = 'status success';
-          status.innerHTML = `✓ Matched (Tier ${matchResult.match_tier}, ${(matchResult.confidence * 100).toFixed(0)}% confidence)`;
-        } else {
-          matchCard.innerHTML = '<p style="color: var(--warning);">Match results not yet available. Processing may still be in progress.</p>';
-          status.className = 'status success';
-          status.innerHTML = '✓ Submitted (results pending)';
-        }
-      } catch (err) {
-        status.className = 'status error';
-        status.textContent = 'Submit error: ' + err.message;
-        matchCard.innerHTML = `<p style="color: var(--error);">Error: ${err.message}</p>`;
-        console.error('Submit error:', err);
-      } finally {
-        btn.disabled = false;
-        btn.style.background = 'var(--accent)';
-      }
-    };
-
-    // AR-68: Poll GET /v1/session/{session_id} for match results
-    // Processing can take up to 10 seconds, so poll for 20 seconds total
-    async function pollSessionResult(apiBase, sessionId, maxAttempts = 20, delayMs = 1000) {
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-
-        try {
-          const response = await fetch(`${apiBase}/v1/session/${sessionId}`);
-
-          if (response.status === 404) {
-            // Not ready yet, continue polling
-            console.log(`Poll attempt ${i + 1}: not found yet`);
-            // Update status to show progress
-            const statusEl = document.getElementById('status');
-            if (statusEl) statusEl.innerHTML = `<div class="spinner"></div> Processing... (${i + 1}s)`;
-            continue;
-          }
-
-          if (response.ok) {
-            const result = await response.json();
-            console.log('Match result:', result);
-
-            // Check if still pending
-            if (result.status === 'pending') {
-              console.log(`Poll attempt ${i + 1}: still pending`);
-              continue;
-            }
-
-            return result;
-          }
-        } catch (err) {
-          console.warn(`Poll attempt ${i + 1} failed:`, err);
-        }
-      }
-
-      return null; // Timeout - no result after max attempts
-    }
-
-    // AR-68: Update Match Results card with API response
-    function updateMatchResultsCard(result) {
-      const card = document.getElementById('matchResultsCard');
-
-      const confidenceColor = result.confidence >= 0.9 ? 'var(--success)'
-        : result.confidence >= 0.7 ? 'var(--warning)'
-        : 'var(--error)';
-
-      const riskColor = result.risk_score >= 0.7 ? 'var(--error)'
-        : result.risk_score >= 0.4 ? 'var(--warning)'
-        : 'var(--success)';
-
-      const tierLabels = {
-        '-1': 'New Device',
-        '0': 'Cache Hit',
-        '0.5': 'Tier 0.5 (Evercookie/PublicKey)',
-        '1': 'Tier 1 (Hash Match)',
-        '2': 'Tier 2 (Bucket Match)',
-        '3': 'Tier 3 (Soft Match)',
-      };
-
-      card.innerHTML = `
-        <div class="data-row"><span class="data-key">Device ID</span><span class="data-value hash truncate">${result.device_id}</span></div>
-        <div class="data-row"><span class="data-key">Confidence</span><span class="data-value" style="color: ${confidenceColor}">${(result.confidence * 100).toFixed(1)}%</span></div>
-        <div class="data-row"><span class="data-key">Match Tier</span><span class="data-value">${tierLabels[result.match_tier] || `Tier ${result.match_tier}`}</span></div>
-        <div class="data-row"><span class="data-key">Risk Score</span><span class="data-value" style="color: ${riskColor}">${(result.risk_score * 100).toFixed(0)}%</span></div>
-        <div class="data-row"><span class="data-key">Status</span><span class="data-value">${result.status}</span></div>
-        ${result.flags && result.flags.length > 0 ? `
-          <div class="data-row"><span class="data-key">Flags</span><span class="data-value">${result.flags.join(', ')}</span></div>
-        ` : ''}
-        ${result.evidence_codes && result.evidence_codes.length > 0 ? `
-          <div class="data-row"><span class="data-key">Evidence</span><span class="data-value" style="font-size: 0.7rem;">${result.evidence_codes.join(', ')}</span></div>
-        ` : ''}
+    // Create a data row
+    function dataRow(label, value, mono = false) {
+      const valueClass = mono ? 'font-mono text-xs sm:text-sm' : 'text-sm';
+      return `
+        <div class="data-row py-2.5 sm:py-3 flex justify-between items-baseline gap-4">
+          <span class="text-subtle text-sm">${label}</span>
+          <span class="${valueClass} text-right truncate max-w-[60%]" title="${value ?? ''}">${value ?? '—'}</span>
+        </div>
       `;
     }
 
-    // Module descriptions for CreepJS-style info
-    const MODULE_INFO = {
-      navigator: { icon: '🧭', desc: 'Browser navigator properties and user agent' },
-      screen: { icon: '🖥️', desc: 'Screen dimensions, color depth, pixel ratio' },
-      windowFeatures: { icon: '🪟', desc: 'Window properties and browser features' },
-      webrtc: { icon: '📡', desc: 'WebRTC ICE candidates and media capabilities' },
-      canvas2d: { icon: '🎨', desc: 'Canvas 2D rendering fingerprint' },
-      canvasWebgl: { icon: '🎮', desc: 'WebGL renderer, vendor, and parameters' },
-      audio: { icon: '🔊', desc: 'AudioContext fingerprint from oscillator' },
-      offlineAudioContext: { icon: '🔊', desc: 'AudioContext fingerprint from oscillator' },  // alias
-      fonts: { icon: '🔤', desc: 'Available fonts detected via rendering' },
-      timezone: { icon: '🌍', desc: 'Timezone offset and locale' },
-      intl: { icon: '🌐', desc: 'Intl API formatting fingerprint' },
-      maths: { icon: '🔢', desc: 'Math function precision fingerprint' },
-      css: { icon: '🎨', desc: 'CSS computed styles fingerprint' },
-      cssMedia: { icon: '📱', desc: 'CSS media queries and preferences' },
-      features: { icon: '⚙️', desc: 'Browser feature detection' },
-      resistance: { icon: '🛡️', desc: 'Privacy tool detection (Tor, Brave, etc.)' },
-      headless: { icon: '🤖', desc: 'Headless browser detection signals' },
-      lies: { icon: '🎭', desc: 'API tampering and prototype pollution' },
-      svg: { icon: '📐', desc: 'SVG rendering measurements' },
-      clientRects: { icon: '📏', desc: 'DOM element bounding rectangles' },
-      workerScope: { icon: '👷', desc: 'Web Worker environment fingerprint' },
-      wasm: { icon: '⚡', desc: 'WebAssembly performance fingerprint' },
-      webgpuCompute: { icon: '🎯', desc: 'WebGPU compute capabilities' },
-      timing: { icon: '⏱️', desc: 'Performance timing analysis' },
-      proxy: { icon: '🔒', desc: 'Proxy/VPN detection signals' },
-      consoleErrors: { icon: '🐛', desc: 'Console error patterns' },
-      htmlElementVersion: { icon: '📄', desc: 'HTML element properties' },
-      voices: { icon: '🗣️', desc: 'Speech synthesis voices' },
-      media: { icon: '🎬', desc: 'Media capabilities and MIME types' },
-      trash: { icon: '🗑️', desc: 'DOM pollution detection' },
-      capturedErrors: { icon: '⚠️', desc: 'Error pattern analysis' },
-    };
-
-    // Auto-detect stage from hostname
-    // static-dev-jw.argus.pw -> 'dev-jw-'
-    // static-qa.argus.pw -> 'qa-'
-    // static.argus.pw -> '' (prod)
-    // NOTE: Default is 'dev-jw-' (not 'dev-') because the dev environment
-    // is deployed as ms-argus-sigint-dev-jw with 'dev-jw-' prefix endpoints.
-    // There is no 'dev-' deployment - only dev-jw, qa, uat, prod.
-    function detectStage() {
-      const hostname = window.location.hostname;
-      const match = hostname.match(/^static-([^.]+)\./);
-      if (match) {
-        return match[1] + '-';
-      }
-      if (hostname.startsWith('static.')) return '';
-      return 'dev-jw-'; // Default to dev-jw (the actual dev environment)
+    // Get browser name from UA
+    function getBrowserName(ua) {
+      if (!ua) return 'Unknown';
+      if (ua.includes('Firefox')) return 'Firefox';
+      if (ua.includes('Edg/')) return 'Microsoft Edge';
+      if (ua.includes('Chrome')) return 'Chrome';
+      if (ua.includes('Safari')) return 'Safari';
+      return 'Unknown';
     }
 
-    const detectedStage = detectStage();
-    document.getElementById('sigintStage').value = detectedStage;
-    const stageLabel = detectedStage ? detectedStage.replace(/-$/, '').toUpperCase() : 'PROD';
-    document.querySelector('.subtitle').textContent += ' [' + stageLabel + ']';
+    // Get OS name from UA
+    function getOSName(ua) {
+      if (!ua) return 'Unknown';
+      if (ua.includes('Mac OS')) return 'macOS';
+      if (ua.includes('Windows')) return 'Windows';
+      if (ua.includes('Linux')) return 'Linux';
+      if (ua.includes('Android')) return 'Android';
+      if (ua.includes('iOS') || ua.includes('iPhone')) return 'iOS';
+      return 'Unknown';
+    }
 
-    // Toggle card expand/collapse
-    window.toggleCard = function(header) {
-      const content = header.nextElementSibling;
-      const icon = header.querySelector('.expand-icon');
-      content.classList.toggle('collapsed');
-      icon.classList.toggle('collapsed');
-    };
-
-    // Tab switching
-    window.switchTab = function(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-      document.getElementById('tab-' + tab).classList.add('active');
-    };
-
-    // Main collection function
+    // Main collection
     window.collect = async function() {
       const btn = document.getElementById('collectBtn');
-      const status = document.getElementById('status');
+      const heroSection = document.getElementById('heroSection');
+      const resultsSection = document.getElementById('resultsSection');
 
       btn.disabled = true;
-      status.className = 'status running';
-      status.innerHTML = '<div class="spinner"></div> Collecting...';
-      status.classList.remove('hidden');
+      btn.innerHTML = '<span class="spinner mr-2"></span>Analyzing...';
 
       try {
-        const sigintDomain = document.getElementById('sigintDomain').value;
-        const sigintStage = document.getElementById('sigintStage').value;
         const enableSigint = document.getElementById('enableSigint').checked;
-        const enableStun = document.getElementById('enableStun').checked;
+        const baseDomain = 'argus.pw';
+
+        // Detect stage from hostname
+        const hostname = window.location.hostname;
+        let stagePrefix = 'dev-jw-';
+        const match = hostname.match(/^static-([^.]+)\./);
+        if (match) stagePrefix = match[1] + '-';
+        else if (hostname.startsWith('static.')) stagePrefix = '';
 
         const result = await load({
           enableSigint,
-          sigint: { baseDomain: sigintDomain, stagePrefix: sigintStage, enableStun },
+          sigint: { baseDomain, stagePrefix, enableStun: true },
+          enableTelemetry: true,
+          telemetry: { baseDomain, stagePrefix },
         });
 
-        const evercookie = await getEvercookieId();
+        lastResult = result;
 
-        // AR-66: Get cryptographic device identity (ECDSA public key)
-        const cryptoId = await getCryptoId();
-        lastCryptoId = cryptoId;
+        // Hide hero, show results
+        heroSection.classList.add('hidden');
+        resultsSection.classList.remove('hidden');
 
-        // Store for download - include everything
-        lastResult = {
-          fingerprint: result.fingerprint,
-          evercookie: { id: evercookie.id, created: evercookie.created, lastSeen: evercookie.lastSeen, recoveredFrom: evercookie.recoveredFrom },
-          cryptoId: { publicKey: cryptoId.publicKey, date: cryptoId.date },
-          sigint: result.sigint,
-          timing: result.timing,
-        };
-
-        // Enable download and submit buttons
-        const dlBtn = document.getElementById('downloadBtn');
-        dlBtn.disabled = false;
-        dlBtn.style.background = 'var(--accent)';
-
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.disabled = false;
-        submitBtn.style.background = 'var(--accent)';
+        // Scroll to top smoothly
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Update all sections
-        updateIdentityCard(result, evercookie);
-        updateTlsCard(result);
-        updateNetworkCard(result);
-        updateBotCard(result);
-        updateInconsistenciesCard(result);
-        updateModuleGrid(result);
-        updateRawData(result, evercookie);
-
-        status.className = 'status success';
-        status.innerHTML = '✓ ' + result.timing.duration.toFixed(0) + 'ms';
+        updateUniqueness(result);
+        updateSummary(result);
+        updateSignals(result);
+        updateMatch(result);
+        updateDetails(result);
+        updateRawJson(result);
 
       } catch (err) {
-        status.className = 'status error';
-        status.textContent = 'Error: ' + err.message;
         console.error(err);
+        btn.textContent = 'Error — Try Again';
+        btn.classList.add('!bg-red-500');
+        setTimeout(() => {
+          btn.classList.remove('!bg-red-500');
+          btn.textContent = 'Analyze My Browser';
+        }, 2000);
       } finally {
         btn.disabled = false;
+        if (!btn.classList.contains('!bg-red-500')) {
+          btn.textContent = 'Analyze My Browser';
+        }
       }
     };
 
-    function updateIdentityCard(result, evercookie) {
-      const card = document.getElementById('identityCard');
-      const fpHash = result.fingerprint.hashes?.stable || result.fingerprint.hashes?.fuzzy || 'N/A';
-      // AR-66: Show first 32 chars of public key for display
-      const pubKeyShort = lastCryptoId?.publicKey ? lastCryptoId.publicKey.slice(0, 32) + '...' : 'N/A';
-      card.innerHTML = `
-        <div class="data-row"><span class="data-key">Stable Hash</span><span class="data-value hash truncate">${fpHash}</span></div>
-        <div class="data-row"><span class="data-key">Fuzzy Hash</span><span class="data-value hash truncate">${result.fingerprint.hashes?.fuzzy || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">Evercookie</span><span class="data-value hash truncate">${evercookie.id}</span></div>
-        <div class="data-row"><span class="data-key">Crypto ID</span><span class="data-value hash truncate" title="${lastCryptoId?.publicKey || ''}">${pubKeyShort}</span></div>
-        <div class="data-row"><span class="data-key">3rd Party Cookie</span><span class="data-value hash truncate">${result.sigint?.tlsFingerprint?.id || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">First Seen</span><span class="data-value">${new Date(evercookie.created).toLocaleString()}</span></div>
-      `;
-    }
+    function updateUniqueness(result) {
+      const scoreEl = document.getElementById('uniquenessScore');
+      const textEl = document.getElementById('uniquenessText');
 
-    function updateTlsCard(result) {
-      const card = document.getElementById('tlsCard');
-      const tls = result.sigint?.tlsFingerprint;
-      if (!tls) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
-      card.innerHTML = `
-        <div class="data-row"><span class="data-key">JA4</span><span class="data-value hash truncate">${tls.ja4 || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">JA3</span><span class="data-value hash truncate">${tls.ja3 || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">IP</span><span class="data-value">${tls.ip || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">Country</span><span class="data-value">${tls.country || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">ASN</span><span class="data-value">${tls.asn || 'N/A'}</span></div>
-      `;
-    }
+      const uniqueHash = miniHash(result.fingerprint.hashes?.stable || '');
+      scoreEl.textContent = uniqueHash;
 
-    function updateNetworkCard(result) {
-      const card = document.getElementById('networkCard');
-      const tcp = result.sigint?.tcpProbe;
-      if (!tcp) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
-      const rtt = tcp.rtt_fingerprint;
-      const h2 = tcp.http2_fingerprint;
-      // Simple hash of HTTP/2 fingerprint string
-      const h2Hash = h2?.fingerprint ? h2.fingerprint.split('').reduce((a,c) => (a*31+c.charCodeAt(0))>>>0, 0).toString(16).padStart(8,'0') : null;
-      card.innerHTML = `
-        <div class="data-row"><span class="data-key">TCP RTT</span><span class="data-value">${rtt ? (rtt.tcp_rtt_us / 1000).toFixed(1) + 'ms' : 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">TLS Handshake</span><span class="data-value">${rtt ? (rtt.tls_handshake_us / 1000).toFixed(1) + 'ms' : 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">MSS (Send)</span><span class="data-value">${rtt?.snd_mss || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">PMTU</span><span class="data-value">${rtt?.pmtu || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">HTTP/2 FP</span><span class="data-value hash truncate">${h2Hash || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">Protocol</span><span class="data-value">${h2?.protocol || 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">Proxy Score</span><span class="data-value">${rtt ? (rtt.proxy_score * 100).toFixed(0) + '%' : 'N/A'}</span></div>
-        <div class="data-row"><span class="data-key">VPN Score</span><span class="data-value">${rtt ? (rtt.vpn_score * 100).toFixed(0) + '%' : 'N/A'}</span></div>
-      `;
-    }
+      // Messaging based on match result
+      const matchTier = result.telemetry?.matchResult?.match_tier;
+      const confidence = result.telemetry?.matchResult?.confidence;
 
-    function updateBotCard(result) {
-      const card = document.getElementById('botCard');
-      const bot = result.fingerprint.botSignals;
-      if (!bot) { card.innerHTML = '<p style="color: var(--text-dim);">Not available</p>'; return; }
-      const isBot = bot.isBot || bot.isHeadless || bot.hasLies;
-      card.innerHTML = `
-        <div class="data-row"><span class="data-key">Is Bot</span><span class="data-value" style="color: ${bot.isBot ? 'var(--error)' : 'var(--success)'}">${bot.isBot ? 'Yes' : 'No'}</span></div>
-        <div class="data-row"><span class="data-key">Headless</span><span class="data-value" style="color: ${bot.isHeadless ? 'var(--error)' : 'var(--success)'}">${bot.isHeadless ? 'Yes' : 'No'}</span></div>
-        <div class="data-row"><span class="data-key">Has Lies</span><span class="data-value" style="color: ${bot.hasLies ? 'var(--warning)' : 'var(--success)'}">${bot.hasLies ? `Yes (${bot.lieCount})` : 'No'}</span></div>
-        <div class="data-row"><span class="data-key">Bad Bot</span><span class="data-value">${bot.badBot || 'None'}</span></div>
-        <div class="data-row"><span class="data-key">Engine Mismatch</span><span class="data-value" style="color: ${bot.engineMismatch ? 'var(--error)' : 'var(--success)'}">${bot.engineMismatch ? 'Yes' : 'No'}</span></div>
-      `;
-    }
-
-    function updateInconsistenciesCard(result) {
-      const card = document.getElementById('inconsistenciesCard');
-      const inc = result.fingerprint.inconsistencies;
-      if (!inc || !inc.inconsistencies) {
-        card.innerHTML = '<p style="color: var(--success);">No inconsistencies detected</p>';
-        return;
+      if (matchTier === -1) {
+        textEl.textContent = "This is a new fingerprint we haven't seen before.";
+      } else if (confidence && confidence > 0.95) {
+        textEl.textContent = "We recognized this device with very high confidence.";
+      } else if (confidence && confidence > 0.8) {
+        textEl.textContent = "This device has been seen before.";
+      } else {
+        textEl.textContent = "Your browser has a distinctive fingerprint.";
       }
-
-      const { inconsistencies, counts, riskScore } = inc;
-      const severityColor = { critical: 'var(--error)', high: 'var(--error)', medium: 'var(--warning)', low: 'var(--text-dim)' };
-
-      if (inconsistencies.length === 0) {
-        card.innerHTML = '<p style="color: var(--success);">✓ All checks passed - no inconsistencies detected</p>';
-        return;
-      }
-
-      let html = `
-        <div class="data-row"><span class="data-key">Risk Score</span><span class="data-value" style="color: ${riskScore > 50 ? 'var(--error)' : riskScore > 20 ? 'var(--warning)' : 'var(--success)'}">${riskScore}/100</span></div>
-        <div class="data-row"><span class="data-key">Critical</span><span class="data-value" style="color: ${counts.critical > 0 ? 'var(--error)' : 'var(--success)'}">${counts.critical}</span></div>
-        <div class="data-row"><span class="data-key">High</span><span class="data-value" style="color: ${counts.high > 0 ? 'var(--error)' : 'var(--success)'}">${counts.high}</span></div>
-        <div class="data-row"><span class="data-key">Medium</span><span class="data-value" style="color: ${counts.medium > 0 ? 'var(--warning)' : 'var(--success)'}">${counts.medium}</span></div>
-        <p style="margin-top: 0.75rem; font-size: 0.7rem; color: var(--text-dim);">Issues found:</p>
-      `;
-
-      for (const item of inconsistencies.slice(0, 8)) {
-        html += `
-          <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 4px; border-left: 3px solid ${severityColor[item.severity]};">
-            <div style="font-size: 0.75rem; color: ${severityColor[item.severity]}; text-transform: uppercase;">${item.severity} - ${item.category}</div>
-            <div style="font-size: 0.8rem; margin-top: 0.25rem;">${item.description}</div>
-            <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Expected: ${item.expected}</div>
-            <div style="font-size: 0.7rem; color: var(--text-dim);">Actual: ${item.actual}</div>
-          </div>
-        `;
-      }
-
-      if (inconsistencies.length > 8) {
-        html += `<p style="margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-dim);">... and ${inconsistencies.length - 8} more</p>`;
-      }
-
-      card.innerHTML = html;
     }
 
-    function updateModuleGrid(result) {
-      const grid = document.getElementById('moduleGrid');
-      grid.innerHTML = '';
-
+    function updateSummary(result) {
+      const grid = document.getElementById('summaryGrid');
       const loose = result.fingerprint.loose || {};
-      const modules = Object.keys(loose)
-        .filter(k => loose[k] && typeof loose[k] === 'object')
-        .sort((a, b) => {
-          // Sort alphabetically, but rename offlineAudioContext to "audio" for sorting
-          const nameA = a === 'offlineAudioContext' ? 'audio' : a;
-          const nameB = b === 'offlineAudioContext' ? 'audio' : b;
-          return nameA.localeCompare(nameB);
-        });
+      const ua = navigator.userAgent;
 
-      modules.forEach(rawModuleName => {
-        // Rename offlineAudioContext to audio for display
-        const displayName = rawModuleName === 'offlineAudioContext' ? 'audio' : rawModuleName;
-        const data = loose[rawModuleName];
-        const info = MODULE_INFO[displayName] || MODULE_INFO[rawModuleName] || { icon: '📦', desc: 'Module data' };
-        const hash = data.$hash || 'N/A';
-        const keys = Object.keys(data).filter(k => k !== '$hash');
+      const browser = getBrowserName(ua);
+      const os = getOSName(ua);
+      const screen = loose.screen ? `${loose.screen.width} × ${loose.screen.height}` : '—';
+      const gpu = loose.canvasWebgl?.gpu?.compressedGPU || loose.workerScope?.webglRenderer || '—';
+      const gpuShort = gpu.length > 35 ? gpu.slice(0, 35) + '…' : gpu;
+      const timezone = loose.timezone?.location || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const language = loose.navigator?.language || navigator.language;
+      const cores = loose.navigator?.hardwareConcurrency || navigator.hardwareConcurrency || '—';
+      const memory = loose.navigator?.deviceMemory || navigator.deviceMemory;
 
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="card-header" onclick="toggleCard(this)">
-            <span class="card-title"><span class="icon">${info.icon}</span> ${displayName}</span>
-            <div class="card-meta">
-              <span class="card-hash">${hash.slice(0, 8)}...</span>
-              <span class="card-badge">${keys.length} props</span>
-              <span class="expand-icon collapsed">▼</span>
+      // Network info if available
+      const ip = result.sigint?.tlsFingerprint?.ip;
+
+      grid.innerHTML = `
+        <div>
+          ${dataRow('Browser', browser)}
+          ${dataRow('Operating system', os)}
+          ${dataRow('Screen', screen)}
+          ${dataRow('Graphics', gpuShort)}
+        </div>
+        <div>
+          ${dataRow('Timezone', timezone)}
+          ${dataRow('Language', language)}
+          ${dataRow('CPU cores', cores)}
+          ${ip ? dataRow('IP address', ip) : dataRow('Memory', memory ? memory + ' GB' : '—')}
+        </div>
+      `;
+    }
+
+    function updateSignals(result) {
+      const grid = document.getElementById('signalsGrid');
+      const bot = result.fingerprint.botSignals || {};
+      const loose = result.fingerprint.loose || {};
+
+      const isPrivate = loose.incognito?.isPrivate;
+      const isHeadless = bot.isHeadless;
+      const hasLies = bot.hasLies;
+      const lieCount = bot.lieCount || 0;
+      const privacyBrowser = loose.resistance?.privacy;
+
+      // Proxy/VPN detection
+      const proxyScore = result.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score;
+      const vpnScore = result.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score;
+
+      const signalCard = (title, status, detail) => {
+        const bgColor = status === 'good' ? 'bg-green-50' : status === 'warning' ? 'bg-amber-50' : 'bg-red-50';
+        const textColor = status === 'good' ? 'text-green-700' : status === 'warning' ? 'text-amber-700' : 'text-red-700';
+        const iconColor = status === 'good' ? 'text-green-500' : status === 'warning' ? 'text-amber-500' : 'text-red-500';
+        const icon = status === 'good' ? '✓' : status === 'warning' ? '!' : '✗';
+        return `
+          <div class="signal-card ${bgColor}">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="${iconColor} text-lg">${icon}</span>
+              <span class="font-medium text-sm ${textColor}">${title}</span>
             </div>
-          </div>
-          <div class="card-content collapsed">
-            <p style="color: var(--text-dim); margin-bottom: 0.5rem; font-size: 0.75rem;">${info.desc}</p>
-            ${keys.slice(0, 10).map(k => `
-              <div class="data-row">
-                <span class="data-key">${k}</span>
-                <span class="data-value">${formatValue(data[k], k)}</span>
-              </div>
-            `).join('')}
-            ${keys.length > 10 ? `<p style="color: var(--text-dim); margin-top: 0.5rem; font-size: 0.7rem;">... and ${keys.length - 10} more properties</p>` : ''}
+            <p class="text-muted text-xs leading-relaxed">${detail}</p>
           </div>
         `;
-        grid.appendChild(card);
-      });
-    }
+      };
 
-    // Simple hash function for arrays
-    function simpleHash(val) {
-      const str = JSON.stringify(val);
-      return str.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) >>> 0, 0).toString(16).padStart(8, '0');
-    }
+      let signals = '';
 
-    // Generate unique ID for expandable elements
-    let expandId = 0;
-
-    function formatValue(val, key) {
-      if (val === null || val === undefined) return 'null';
-      if (typeof val === 'boolean') return val ? '✓' : '✗';
-      if (typeof val === 'number') return val.toLocaleString();
-      if (typeof val === 'string') return val.length > 50 ? val.slice(0, 50) + '...' : val;
-
-      // For wasm jitCurve and memGrowPattern, show hash instead of array
-      if (Array.isArray(val) && (key === 'jitCurve' || key === 'memGrowPattern')) {
-        return `#${simpleHash(val)}`;
+      // Bot detection
+      if (isHeadless) {
+        signals += signalCard('Automation detected', 'bad', 'Browser appears to be automated or headless.');
+      } else if (hasLies && lieCount > 5) {
+        signals += signalCard('Tampering detected', 'warning', `${lieCount} browser APIs appear to be modified.`);
+      } else {
+        signals += signalCard('Authentic browser', 'good', 'No signs of automation or tampering detected.');
       }
 
-      // Arrays and objects - make expandable
-      if (Array.isArray(val) || typeof val === 'object') {
-        const id = 'expand-' + (++expandId);
-        const label = Array.isArray(val) ? `[${val.length} items]` : `{${Object.keys(val).length} props}`;
-        const jsonStr = JSON.stringify(val, null, 2);
-        return `<span class="nested-value" onclick="toggleExpand('${id}')">${label}</span><div id="${id}" class="nested-expand" style="display:none;"><pre>${escapeHtml(jsonStr)}</pre></div>`;
+      // Privacy mode
+      if (isPrivate) {
+        signals += signalCard('Private mode', 'warning', 'Incognito or private browsing is active.');
+      } else if (privacyBrowser) {
+        signals += signalCard('Privacy browser', 'warning', `Detected: ${privacyBrowser}`);
+      } else {
+        signals += signalCard('Standard mode', 'good', 'Not using private or privacy-focused browsing.');
       }
-      return String(val);
+
+      // Network trust
+      if (proxyScore && proxyScore > 0.7) {
+        signals += signalCard('Proxy likely', 'warning', `${Math.round(proxyScore * 100)}% confidence of proxy usage.`);
+      } else if (vpnScore && vpnScore > 0.7) {
+        signals += signalCard('VPN likely', 'warning', `${Math.round(vpnScore * 100)}% confidence of VPN usage.`);
+      } else if (result.sigint?.tlsFingerprint) {
+        signals += signalCard('Direct connection', 'good', 'No proxy or VPN detected on this connection.');
+      } else {
+        signals += signalCard('Network unknown', 'warning', 'Network analysis was not available.');
+      }
+
+      grid.innerHTML = signals;
     }
 
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function updateMatch(result) {
+      const card = document.getElementById('matchCard');
+      const grid = document.getElementById('matchGrid');
+
+      if (!result.telemetry?.matchResult) {
+        card.classList.add('hidden');
+        return;
+      }
+
+      card.classList.remove('hidden');
+      const match = result.telemetry.matchResult;
+
+      const tierLabel = getMatchTierLabel(match.match_tier);
+      const confidence = (match.confidence * 100).toFixed(0) + '%';
+      const risk = (match.risk_score * 100).toFixed(0) + '%';
+
+      grid.innerHTML = `
+        <div>
+          ${dataRow('Device ID', miniHash(match.device_id), true)}
+          ${dataRow('Match type', tierLabel)}
+        </div>
+        <div>
+          ${dataRow('Confidence', confidence)}
+          ${dataRow('Risk score', risk)}
+        </div>
+      `;
     }
 
-    window.toggleExpand = function(id) {
-      const el = document.getElementById(id);
-      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    };
+    function updateDetails(result) {
+      const loose = result.fingerprint.loose || {};
+      const hashes = result.fingerprint.hashes || {};
 
-    function updateRawData(result, evercookie) {
-      // All data combined
-      const allData = {
+      // Hashes
+      document.getElementById('hashesDetail').innerHTML = `
+        ${dataRow('Stable fingerprint', hashes.stable?.slice(0, 16) + '…', true)}
+        ${dataRow('Fuzzy fingerprint', hashes.fuzzy?.slice(0, 16) + '…', true)}
+        ${dataRow('Canvas hash', miniHash(loose.canvas2d?.$hash), true)}
+        ${dataRow('WebGL hash', miniHash(loose.canvasWebgl?.$hash), true)}
+        ${dataRow('Audio hash', miniHash(loose.offlineAudioContext?.$hash), true)}
+        ${dataRow('Evercookie ID', miniHash(result.evercookie?.id), true)}
+        ${dataRow('Crypto ID', miniHash(result.cryptoId?.publicKey), true)}
+      `;
+
+      // Hardware
+      document.getElementById('hardwareDetail').innerHTML = `
+        ${dataRow('Screen', loose.screen ? `${loose.screen.width}×${loose.screen.height} @${loose.screen.pixelDepth}bit` : '—')}
+        ${dataRow('Color depth', loose.screen?.colorDepth)}
+        ${dataRow('Pixel ratio', loose.screen?.devicePixelRatio)}
+        ${dataRow('CPU cores', loose.navigator?.hardwareConcurrency)}
+        ${dataRow('Memory', loose.navigator?.deviceMemory ? loose.navigator.deviceMemory + ' GB' : '—')}
+        ${dataRow('GPU', loose.canvasWebgl?.gpu?.compressedGPU || '—')}
+        ${dataRow('Touch points', loose.navigator?.maxTouchPoints ?? '—')}
+      `;
+
+      // Browser
+      const uaShort = navigator.userAgent.length > 50 ? navigator.userAgent.slice(0, 50) + '…' : navigator.userAgent;
+      document.getElementById('browserDetail').innerHTML = `
+        ${dataRow('User agent', uaShort)}
+        ${dataRow('Platform', loose.navigator?.platform)}
+        ${dataRow('Vendor', loose.navigator?.vendor)}
+        ${dataRow('Language', loose.navigator?.language)}
+        ${dataRow('Timezone', loose.timezone?.location)}
+        ${dataRow('Fonts', loose.fonts?.fontFaceLoadFonts?.length ?? '—')}
+        ${dataRow('Plugins', loose.navigator?.plugins?.length ?? '—')}
+      `;
+
+      // Network
+      const tls = result.sigint?.tlsFingerprint;
+      const tcp = result.sigint?.tcpProbe;
+      document.getElementById('networkDetail').innerHTML = `
+        ${dataRow('IP address', tls?.ip || '—')}
+        ${dataRow('Country', tls?.country || '—')}
+        ${dataRow('ASN', tls?.asn || '—')}
+        ${dataRow('JA4', miniHash(tls?.ja4), true)}
+        ${dataRow('JA3', miniHash(tls?.ja3), true)}
+        ${dataRow('TCP RTT', tcp?.rtt_fingerprint?.tcp_rtt_us ? (tcp.rtt_fingerprint.tcp_rtt_us / 1000).toFixed(1) + ' ms' : '—')}
+        ${dataRow('HTTP/2 FP', tcp?.http2_fingerprint?.fingerprint ? miniHash(tcp.http2_fingerprint.fingerprint) : '—', true)}
+      `;
+    }
+
+    function updateRawJson(result) {
+      const data = {
         fingerprint: result.fingerprint,
-        evercookie: {
-          id: evercookie.id,
-          created: evercookie.created,
-          lastSeen: evercookie.lastSeen,
-          recoveredFrom: evercookie.recoveredFrom,
-        },
+        evercookie: result.evercookie,
+        cryptoId: result.cryptoId,
         sigint: result.sigint,
+        telemetry: result.telemetry,
         timing: result.timing,
       };
-      document.getElementById('fullData').textContent = JSON.stringify(allData, null, 2);
-
-      // Fingerprint only
-      document.getElementById('fpData').textContent = JSON.stringify(result.fingerprint, null, 2);
-
-      // Sigint only
-      document.getElementById('sigintData').textContent = JSON.stringify(result.sigint || {}, null, 2);
-
-      // Bot signals only
-      document.getElementById('botData').textContent = JSON.stringify({
-        botSignals: result.fingerprint.botSignals,
-        inconsistencies: result.fingerprint.inconsistencies,
-      }, null, 2);
+      document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
     }
+
+    // Copy functionality
+    window.copyData = async function(format) {
+      if (!lastResult) return;
+
+      const data = {
+        fingerprint: lastResult.fingerprint,
+        evercookie: lastResult.evercookie,
+        cryptoId: lastResult.cryptoId,
+        sigint: lastResult.sigint,
+        telemetry: lastResult.telemetry,
+        timing: lastResult.timing,
+      };
+
+      const text = format === 'pretty'
+        ? JSON.stringify(data, null, 2)
+        : JSON.stringify(data);
+
+      try {
+        await navigator.clipboard.writeText(text);
+        const toast = document.getElementById('copyToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+      } catch (err) {
+        console.error('Copy failed:', err);
+      }
+    };
   </script>
 </body>
 </html>
