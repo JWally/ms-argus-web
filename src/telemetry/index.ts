@@ -209,7 +209,13 @@ export async function submitTelemetry(
 		const submission = {
 			session_id: sessionId,
 			tenant_id: tenantId,
+			// Send full sigint object so API can extract sigint_id (third-party cookie)
+			sigint: data.sigint,
 			fingerprint: {
+				// AR-147: Include full loose object for ML training and signal analysis
+				// The API archives this to S3 and extracts hashes for matching
+				loose: data.fingerprint.loose,
+
 				// Primary hashes
 				stable_hash: data.fingerprint.hashes?.stable,
 				fuzzy_hash: data.fingerprint.hashes?.fuzzy,
