@@ -182,7 +182,7 @@ export interface SigintData {
 const DEFAULT_CONFIG: Required<SigintConfig> = {
   baseDomain: 'argus.pw',
   stagePrefix: '',
-  timeout: 5000,
+  timeout: 2000,
   enableCookie: true,
   enableTcpProbe: true,
   enableStun: false,

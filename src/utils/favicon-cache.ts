@@ -39,7 +39,7 @@ const FAVICON_BASE_PATH = '/argus-fav/';
 const CACHE_TIMING_THRESHOLD_MS = 50;
 
 /** Timeout for favicon probe requests */
-const PROBE_TIMEOUT_MS = 2000;
+const PROBE_TIMEOUT_MS = 1000;
 
 /* ─────────────────────────── Types ─────────────────────────── */
 

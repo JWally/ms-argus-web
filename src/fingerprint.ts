@@ -34,7 +34,6 @@ import getCanvasWebgl from './webgl'
 import getWebRTCData, { getWebRTCDevices } from './webrtc'
 import getWindowFeatures from './window'
 import getBestWorkerScope, { Scope, spawnWorker } from './worker'
-import getWasmFingerprint from './wasm'
 import getWebGpuCompute from './webgpu-compute'
 import getTimingFingerprint from './timing'
 import { analyzeInconsistencies } from './inconsistencies'
@@ -121,7 +120,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		resistanceComputed,
 		intlComputed,
 		webrtcComputed,
-		wasmComputed,
 		webgpuComputeComputed,
 		timingComputed,
 		proxyComputed,
@@ -147,7 +145,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		getResistance(),
 		getIntl(),
 		getWebRTCData(),
-		getWasmFingerprint({ fast: true }), // Use fast mode to avoid blocking too long
 		getWebGpuCompute(),
 		getTimingFingerprint(),
 		detectProxy(),
@@ -247,7 +244,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		intlHash,
 		featuresHash,
 		webrtcHash,
-		wasmHash,
 		webgpuComputeHash,
 		timingHash,
 		proxyHash,
@@ -301,7 +297,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 		hashify(intlComputed),
 		hashify(featuresComputed),
 		hashify(webrtcComputed),
-		hashify(wasmComputed),
 		hashify(webgpuComputeComputed),
 		hashify(timingComputed),
 		hashify(proxyComputed),
@@ -464,7 +459,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 			? undefined
 			: { ...featuresComputed, $hash: featuresHash },
 		webrtc: !webrtcComputed ? undefined : { ...webrtcComputed, $hash: webrtcHash },
-		wasm: !wasmComputed ? undefined : { ...wasmComputed, $hash: wasmHash },
 		webgpuCompute: !webgpuComputeComputed ? undefined : { ...webgpuComputeComputed, $hash: webgpuComputeHash },
 		timing: !timingComputed ? undefined : { ...timingComputed, $hash: timingHash },
 		proxy: !proxyComputed ? undefined : { ...proxyComputed, $hash: proxyHash },
@@ -661,14 +655,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 			!fontsComputed || fontsComputed.lied || LowerEntropy.FONTS
 				? undefined
 				: fontsComputed.fontFaceLoadFonts,
-		wasm: !wasmComputed || wasmComputed.lied
-			? undefined
-			: {
-					simdSupported: wasmComputed.simdSupported,
-					memCeiling: wasmComputed.memCeiling,
-					sharedArrayBuffer: wasmComputed.sharedArrayBuffer,
-					workerAvailable: wasmComputed.workerAvailable,
-			  },
 		forceRenew: 1737085481442,
 	}
 
@@ -750,7 +736,6 @@ export {
 	getWebRTCDevices,
 	getWindowFeatures,
 	getBestWorkerScope,
-	getWasmFingerprint,
 }
 
 // Export utilities
