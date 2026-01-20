@@ -45,6 +45,13 @@ export interface SimHashDetails {
 	bands_matched: number
 }
 
+export interface FuzzyMatchInfo {
+	incoming_hash: string
+	stored_hash: string
+	hamming_distance: number
+	similarity: number
+}
+
 export interface MatchResult {
 	device_id: string
 	confidence: number
@@ -54,6 +61,7 @@ export interface MatchResult {
 	flags?: string[]
 	evidence_codes?: string[]
 	simhash_details?: SimHashDetails
+	fuzzy_match_info?: FuzzyMatchInfo
 }
 
 export interface TelemetryResult {

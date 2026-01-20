@@ -736,6 +736,12 @@
                 <!-- Populated by JS when matched via Tier 1.5 SimHash LSH -->
               </div>
             </div>
+            <div id="fuzzyMatchInfoSection" class="hidden mt-4 pt-4 border-t border-divider/50">
+              <p class="text-xs uppercase tracking-widest text-subtle mb-2">Fuzzy Hash Drift Info</p>
+              <div id="fuzzyMatchInfoDetails">
+                <!-- Populated by JS when matched via Tier 0.5 or Tier 1 with stored fuzzy_hash -->
+              </div>
+            </div>
           </div>
 
           <!-- Identity Hashes - Always visible, clean grid -->
@@ -1860,6 +1866,27 @@
           `;
         } else if (simhashSection) {
           simhashSection.classList.add('hidden');
+        }
+
+        // Fuzzy Match Info - shown when matched via Tier 0.5/1 with drift info
+        const fuzzyMatchInfoSection = document.getElementById('fuzzyMatchInfoSection');
+        if (match.fuzzy_match_info && fuzzyMatchInfoSection) {
+          const fmi = match.fuzzy_match_info;
+          fuzzyMatchInfoSection.classList.remove('hidden');
+          document.getElementById('fuzzyMatchInfoDetails').innerHTML = `
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                ${dataRow('Incoming hash', fmi.incoming_hash?.toUpperCase() || '—', true)}
+                ${dataRow('Stored hash', fmi.stored_hash?.toUpperCase() || '—', true)}
+              </div>
+              <div>
+                ${dataRow('Hamming distance', fmi.hamming_distance + ' bits')}
+                ${dataRow('Similarity', (fmi.similarity * 100).toFixed(1) + '%')}
+              </div>
+            </div>
+          `;
+        } else if (fuzzyMatchInfoSection) {
+          fuzzyMatchInfoSection.classList.add('hidden');
         }
       }
 
