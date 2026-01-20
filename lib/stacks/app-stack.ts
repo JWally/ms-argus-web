@@ -33,7 +33,10 @@ export class TheStack extends cdk.Stack {
     /* --------------------------------------------------
      *  Static-site construct (S3 + CloudFront)
      * -------------------------------------------------- */
-    const constructName = `${stage}-argus-web-static-${siteDomain}`;
+    // Note: dev-jw uses legacy construct name for CloudFormation resource stability
+    const constructName = stage === 'dev-jw'
+      ? `${stage}-argus-web-static-multi`
+      : `${stage}-argus-web-static-${siteDomain}`;
     const stageLower = stage.toLowerCase();
     const customDomain =
       stageLower === 'prod'
