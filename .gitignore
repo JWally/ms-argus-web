@@ -8,6 +8,7 @@ notes.md
 # Build output
 dist/
 cdk.out/
+cdk.out2/
 
 # Baseline fingerprint (local testing)
 baseline.json
