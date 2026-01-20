@@ -210,6 +210,9 @@ export async function submitTelemetry(
 			session_id: sessionId,
 			tenant_id: tenantId,
 			fingerprint: {
+				// AR-147: Include full raw fingerprint data for training/analysis
+				loose: data.fingerprint.loose,
+
 				// Primary hashes
 				stable_hash: data.fingerprint.hashes?.stable,
 				fuzzy_hash: data.fingerprint.hashes?.fuzzy,
