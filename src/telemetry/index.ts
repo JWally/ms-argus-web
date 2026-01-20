@@ -37,6 +37,14 @@ export interface TelemetrySubmission {
 	cryptoId?: CryptoKeys
 }
 
+export interface SimHashDetails {
+	incoming_hash: string
+	matched_hash: string
+	hamming_distance: number
+	similarity: number
+	bands_matched: number
+}
+
 export interface MatchResult {
 	device_id: string
 	confidence: number
@@ -45,6 +53,7 @@ export interface MatchResult {
 	status: string
 	flags?: string[]
 	evidence_codes?: string[]
+	simhash_details?: SimHashDetails
 }
 
 export interface TelemetryResult {
@@ -375,6 +384,7 @@ export function getMatchTierLabel(tier: number): string {
 		'0': 'Cache Hit',
 		'0.5': 'Tier 0.5 (Evercookie/PublicKey)',
 		'1': 'Tier 1 (Hash Match)',
+		'1.5': 'Tier 1.5 (SimHash Match)',
 		'2': 'Tier 2 (Bucket Match)',
 		'3': 'Tier 3 (Soft Match)',
 	}

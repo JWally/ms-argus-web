@@ -730,6 +730,12 @@
                 <!-- Populated by JS -->
               </div>
             </div>
+            <div id="simhashSection" class="hidden mt-4 pt-4 border-t border-divider/50">
+              <p class="text-xs uppercase tracking-widest text-subtle mb-2">SimHash Match Details</p>
+              <div id="simhashDetails">
+                <!-- Populated by JS when matched via Tier 1.5 SimHash LSH -->
+              </div>
+            </div>
           </div>
 
           <!-- Identity Hashes - Always visible, clean grid -->
@@ -1832,6 +1838,28 @@
           `).join('');
         } else {
           evidenceSection.classList.add('hidden');
+        }
+
+        // SimHash details - shown when matched via Tier 1.5 SimHash LSH
+        const simhashSection = document.getElementById('simhashSection');
+        if (match.simhash_details && simhashSection) {
+          const sh = match.simhash_details;
+          simhashSection.classList.remove('hidden');
+          document.getElementById('simhashDetails').innerHTML = `
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                ${dataRow('Incoming hash', sh.incoming_hash?.toUpperCase() || '—', true)}
+                ${dataRow('Matched hash', sh.matched_hash?.toUpperCase() || '—', true)}
+              </div>
+              <div>
+                ${dataRow('Hamming distance', sh.hamming_distance + ' bits')}
+                ${dataRow('Similarity', (sh.similarity * 100).toFixed(1) + '%')}
+                ${dataRow('Bands matched', sh.bands_matched + '/4')}
+              </div>
+            </div>
+          `;
+        } else if (simhashSection) {
+          simhashSection.classList.add('hidden');
         }
       }
 
