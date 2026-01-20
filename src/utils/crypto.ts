@@ -142,233 +142,253 @@ const getBotHash = (fp, imports) => {
   };
 };
 
-const getFuzzyHash = async (fp) => {
-  // requires update log (below) when adding new keys to fp
-  const metricKeys = [
-    'canvas2d.dataURI',
-    'canvas2d.emojiSet',
-    'canvas2d.emojiURI',
-    'canvas2d.liedTextMetrics',
-    'canvas2d.mods',
-    'canvas2d.paintURI',
-    'canvas2d.paintCpuURI',
-    'canvas2d.textMetricsSystemSum',
-    'canvas2d.textURI',
-    'canvasWebgl.dataURI',
-    'canvasWebgl.dataURI2',
-    'canvasWebgl.extensions',
-    'canvasWebgl.gpu',
-    'canvasWebgl.parameterOrExtensionLie',
-    'canvasWebgl.parameters',
-    'canvasWebgl.pixels',
-    'canvasWebgl.pixels2',
-    'capturedErrors.data',
-    'clientRects.domrectSystemSum',
-    'clientRects.elementBoundingClientRect',
-    'clientRects.elementClientRects',
-    'clientRects.emojiSet',
-    'clientRects.rangeBoundingClientRect',
-    'clientRects.rangeClientRects',
-    'consoleErrors.errors',
-    'css.computedStyle',
-    'css.system',
-    'cssMedia.matchMediaCSS',
-    'cssMedia.mediaCSS',
-    'cssMedia.screenQuery',
-    'features.cssFeatures',
-    'features.cssVersion',
-    'features.jsFeatures',
-    'features.jsFeaturesKeys',
-    'features.jsVersion',
-    'features.version',
-    'features.versionRange',
-    'features.windowFeatures',
-    'features.windowVersion',
-    'fonts.apps',
-    'fonts.emojiSet',
-    'fonts.fontFaceLoadFonts',
-    'fonts.pixelSizeSystemSum',
-    'fonts.platformVersion',
-    'headless.chromium',
-    'headless.headless',
-    'headless.headlessRating',
-    'headless.likeHeadless',
-    'headless.likeHeadlessRating',
-    'headless.platformEstimate',
-    'headless.stealth',
-    'headless.stealthRating',
-    'headless.systemFonts',
-    'htmlElementVersion.keys',
-    'intl.dateTimeFormat',
-    'intl.displayNames',
-    'intl.listFormat',
-    'intl.locale',
-    'intl.numberFormat',
-    'intl.pluralRules',
-    'intl.relativeTimeFormat',
-    'lies.data',
-    'lies.totalLies',
-    'maths.data',
-    'media.mimeTypes',
-    'navigator.appVersion',
-    'navigator.bluetoothAvailability',
-    'navigator.device',
-    'navigator.deviceMemory',
-    'navigator.doNotTrack',
-    'navigator.globalPrivacyControl',
-    'navigator.hardwareConcurrency',
-    'navigator.language',
-    'navigator.maxTouchPoints',
-    'navigator.mimeTypes',
-    'navigator.oscpu',
-    'navigator.permissions',
-    'navigator.platform',
-    'navigator.plugins',
-    'navigator.properties',
-    'navigator.system',
-    'navigator.uaPostReduction',
-    'navigator.userAgent',
-    'navigator.userAgentData',
-    'navigator.userAgentParsed',
-    'navigator.vendor',
-    'navigator.webgpu',
-    'offlineAudioContext.binsSample',
-    'offlineAudioContext.compressorGainReduction',
-    'offlineAudioContext.copySample',
-    'offlineAudioContext.floatFrequencyDataSum',
-    'offlineAudioContext.floatTimeDomainDataSum',
-    'offlineAudioContext.noise',
-    'offlineAudioContext.sampleSum',
-    'offlineAudioContext.totalUniqueSamples',
-    'offlineAudioContext.values',
-    'resistance.engine',
-    'resistance.extension',
-    'resistance.extensionHashPattern',
-    'resistance.mode',
-    'resistance.privacy',
-    'resistance.security',
-    'screen.availHeight',
-    'screen.availWidth',
-    'screen.colorDepth',
-    'screen.height',
-    'screen.pixelDepth',
-    'screen.touch',
-    'screen.width',
-    'svg.bBox',
-    'svg.computedTextLength',
-    'svg.emojiSet',
-    'svg.extentOfChar',
-    'svg.subStringLength',
-    'svg.svgrectSystemSum',
-    'timezone.location',
-    'timezone.offset',
-    'timezone.offsetComputed',
-    'timezone.zone',
-    'trash.trashBin',
-    'voices.defaultVoiceLang',
-    'voices.defaultVoiceName',
-    'voices.languages',
-    'voices.local',
-    'voices.remote',
-    'windowFeatures.apple',
-    'windowFeatures.keys',
-    'windowFeatures.moz',
-    'windowFeatures.webkit',
-    'workerScope.device',
-    'workerScope.deviceMemory',
-    'workerScope.engineCurrencyLocale',
-    'workerScope.gpu',
-    'workerScope.hardwareConcurrency',
-    'workerScope.language',
-    'workerScope.languages',
-    'workerScope.lies',
-    'workerScope.locale',
-    'workerScope.localeEntropyIsTrusty',
-    'workerScope.localeIntlEntropyIsTrusty',
-    'workerScope.platform',
-    'workerScope.system',
-    'workerScope.systemCurrencyLocale',
-    'workerScope.timezoneLocation',
-    'workerScope.timezoneOffset',
-    'workerScope.uaPostReduction',
-    'workerScope.userAgent',
-    'workerScope.userAgentData',
-    'workerScope.userAgentDataVersion',
-    'workerScope.userAgentEngine',
-    'workerScope.userAgentVersion',
-    'workerScope.webglRenderer',
-    'workerScope.webglVendor',
-  ];
-  // construct map of all metrics
-  const metricsAll = Object.keys(fp)
-    .sort()
-    .reduce((acc, sectionKey) => {
-      const section = fp[sectionKey];
-      const sectionMetrics = Object.keys(section || {})
-        .sort()
-        .reduce((acc, key) => {
-          if (key == '$hash' || key == 'lied') {
-            return acc;
-          }
-          return { ...acc, [`${sectionKey}.${key}`]: section[key] };
-        }, {});
-      return { ...acc, ...sectionMetrics };
-    }, {});
+/**
+ * SimHash - Locality Sensitive Hash for fingerprint similarity matching
+ *
+ * Unlike cryptographic hashes (SHA-256), SimHash preserves locality:
+ * similar inputs produce similar outputs, enabling similarity comparison
+ * via Hamming distance.
+ *
+ * Algorithm:
+ * 1. Each feature contributes a weighted vote to each bit position
+ * 2. Feature value is hashed to determine vote direction (+/- weight)
+ * 3. Final bit = 1 if cumulative vote > 0, else 0
+ *
+ * Interpretation:
+ * - Hamming distance 0-3: Very likely same device
+ * - Hamming distance 4-8: Possibly same device (browser update, config change)
+ * - Hamming distance 9+: Likely different devices
+ *
+ * Feature weights derived from empirical analysis of fingerprint stability
+ * and discriminative power across device types.
+ */
 
-  // reduce to 64 bins
-  const maxBins = 64;
-  const metricKeysReported = Object.keys(metricsAll);
-  const binSize = Math.ceil(metricKeys.length / maxBins);
+// Feature weights based on empirical analysis:
+// Score = (within-group consistency) * (between-group discrimination) * sqrt(entropy)
+// Higher weight = more stable within same device, more discriminating between devices
+const SIMHASH_FEATURE_WEIGHTS: Record<string, number> = {
+  // TIER 1 (weight=8): Highly stable and discriminating
+  'workerScope.userAgentVersion': 8,
+  'canvas2d.paintCpuURI': 8,
+  'clientRects.domrectSystemSum': 8,
+  'fonts.pixelSizeSystemSum': 8,
+  'canvas2d.textURI': 8,
+  'windowFeatures.keys': 8,
+  'navigator.userAgentParsed': 8,
+  'navigator.properties': 8,
+  'htmlElementVersion.keys': 8,
+  'css.computedStyle': 8,
+  'css.system': 8,
+  'canvas2d.dataURI': 8,
+  'canvas2d.paintURI': 8,
+  'cssMedia.mediaCSS': 8,
+  'canvas2d.emojiURI': 8,
+  'canvasWebgl.extensions': 8,
+  'cssMedia.matchMediaCSS': 8,
+  'navigator.globalPrivacyControl': 8,
+  'workerScope.userAgentData': 8,
+  'workerScope.userAgentDataVersion': 8,
+  'headless.likeHeadless': 8,
+  'headless.likeHeadlessRating': 8,
+  'workerScope.webglRenderer': 8,
+  'navigator.oscpu': 8,
+  'canvas2d.textMetricsSystemSum': 8,
+  'svg.svgrectSystemSum': 8,
+  'svg.bBox': 8,
+  'workerScope.webglVendor': 8,
+  'fonts.emojiSet': 8,
+  'svg.emojiSet': 8,
+  'clientRects.emojiSet': 8,
+  'svg.extentOfChar': 8,
+  'svg.subStringLength': 8,
+  'svg.computedTextLength': 8,
+  'navigator.permissions': 8,
+  'media.mimeTypes': 8,
+  'canvas2d.mods': 8,
+  'maths.data': 8,
+  'canvas2d.emojiSet': 8,
+  'navigator.doNotTrack': 8,
+  'consoleErrors.errors': 8,
+  'screen.availHeight': 8,
+  'cssMedia.screenQuery': 8,
+  'screen.width': 8,
+  'screen.height': 8,
+  'screen.availWidth': 8,
+  'canvasWebgl.dataURI': 8,
+  'canvasWebgl.dataURI2': 8,
+  'navigator.userAgent': 8,
+  'navigator.appVersion': 8,
+  'workerScope.userAgent': 8,
+  'canvasWebgl.parameters': 8,
+  'workerScope.gpu': 8,
+  'navigator.userAgentData': 8,
 
-  // update log
-  const devMode = window.location.host != 'abrahamjuliot.github.io';
-  if (devMode && '' + metricKeysReported != '' + metricKeys) {
-    const newKeys = metricKeysReported.filter(
-      (key) => !metricKeys.includes(key),
-    );
-    const oldKeys = metricKeys.filter(
-      (key) => !metricKeysReported.includes(key),
-    );
+  // TIER 2 (weight=4): Good stability and discrimination
+  'workerScope.userAgentEngine': 4,
+  'canvasWebgl.gpu': 4,
+  'navigator.hardwareConcurrency': 4,
+  'navigator.plugins': 4,
+  'navigator.vendor': 4,
+  'windowFeatures.moz': 4,
+  'windowFeatures.webkit': 4,
+  'headless.chromium': 4,
+  'headless.systemFonts': 4,
+  'headless.platformEstimate': 4,
+  'offlineAudioContext.compressorGainReduction': 4,
+  'offlineAudioContext.floatFrequencyDataSum': 4,
+  'offlineAudioContext.floatTimeDomainDataSum': 4,
+  'offlineAudioContext.sampleSum': 4,
+  'offlineAudioContext.binsSample': 4,
+  'offlineAudioContext.copySample': 4,
+  'offlineAudioContext.values': 4,
+  'resistance.engine': 4,
+  'navigator.platform': 4,
+  'workerScope.hardwareConcurrency': 4,
+  'workerScope.system': 4,
+  'workerScope.device': 4,
+  'navigator.mimeTypes': 4,
+  'workerScope.platform': 4,
+  'clientRects.elementClientRects': 4,
+  'clientRects.elementBoundingClientRect': 4,
+  'clientRects.rangeClientRects': 4,
+  'clientRects.rangeBoundingClientRect': 4,
+  'fonts.fontFaceLoadFonts': 4,
+  'headless.headless': 4,
+  'headless.headlessRating': 4,
+  'canvasWebgl.pixels': 4,
+  'canvasWebgl.pixels2': 4,
+  'workerScope.locale': 4,
+  'workerScope.timezoneOffset': 4,
+  'trash.trashBin': 4,
+  'navigator.system': 4,
+  'navigator.device': 4,
+  'screen.colorDepth': 4,
+  'screen.pixelDepth': 4,
+  'navigator.language': 4,
+  'workerScope.languages': 4,
 
-    if (newKeys.length || oldKeys.length) {
-      newKeys.length &&
-        console.warn('added fuzzy key(s):\n', newKeys.join('\n'));
-      oldKeys.length &&
-        console.warn('removed fuzzy key(s):\n', oldKeys.join('\n'));
+  // TIER 3 (weight=2): Moderate usefulness
+  'headless.stealth': 2,
+  'headless.stealthRating': 2,
+  'canvasWebgl.parameterOrExtensionLie': 2,
+  'navigator.uaPostReduction': 2,
+  'resistance.extensionHashPattern': 2,
+  'lies.data': 2,
+  'lies.totalLies': 2,
+  'timezone.location': 2,
+  'timezone.offset': 2,
+  'timezone.zone': 2,
 
-      console.groupCollapsed('update keys for accurate fuzzy hashing:');
-      console.log(metricKeysReported.map((x) => `'${x}',`).join('\n'));
-      console.groupEnd();
+  // TIER 4 (weight=1): Lower usefulness but still contributory
+  'navigator.deviceMemory': 1,
+  'workerScope.deviceMemory': 1,
+  'navigator.maxTouchPoints': 1,
+  'screen.touch': 1,
+  'offlineAudioContext.noise': 1,
+  'offlineAudioContext.totalUniqueSamples': 1,
+};
+
+// 64-bit SimHash implementation
+const SIMHASH_BITS = 64;
+
+/**
+ * Generate a 64-bit SimHash from fingerprint data.
+ * Returns a 16-character hex string.
+ */
+const getFuzzyHash = async (fp): Promise<string> => {
+  // Extract all features from fingerprint
+  const features: Record<string, unknown> = {};
+  for (const [section, values] of Object.entries(fp)) {
+    if (typeof values !== 'object' || values === null) continue;
+    for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
+      if (key === '$hash' || key === 'lied') continue;
+      features[`${section}.${key}`] = value;
     }
   }
 
-  // compute fuzzy fingerprint master
-  const fuzzyFpMaster = metricKeys.reduce((acc, key, index) => {
-    if (!index || index % binSize == 0) {
-      const keySet = metricKeys.slice(index, index + binSize);
-      return { ...acc, ['' + keySet]: keySet.map((key) => metricsAll[key]) };
+  // Initialize vote accumulator for each bit position
+  const votes = new Array(SIMHASH_BITS).fill(0);
+
+  // Process each weighted feature
+  for (const [featureKey, weight] of Object.entries(SIMHASH_FEATURE_WEIGHTS)) {
+    const value = features[featureKey];
+    if (value === undefined || value === null) continue;
+
+    // Hash the feature key+value to get deterministic bit pattern
+    const featureString = JSON.stringify({ k: featureKey, v: value });
+    const hash = hashMini(featureString);
+
+    // Convert 8-char hex hash to 32 bits, then extend to 64 bits
+    // by also hashing with a salt for the upper 32 bits
+    const lower32 = parseInt(hash, 16) >>> 0;
+    const upper32 = parseInt(hashMini(featureString + ':upper'), 16) >>> 0;
+
+    // Vote on each bit position
+    for (let i = 0; i < SIMHASH_BITS; i++) {
+      const bitValue = i < 32
+        ? (lower32 >>> i) & 1
+        : (upper32 >>> (i - 32)) & 1;
+
+      // Add or subtract weight based on bit value
+      votes[i] += bitValue ? weight : -weight;
     }
-    return acc;
-  }, {});
+  }
 
-  // hash each bin
-  await Promise.all(
-    Object.keys(fuzzyFpMaster).map((key) =>
-      hashify(fuzzyFpMaster[key]).then((hash) => {
-        fuzzyFpMaster[key] = hash; // swap values for hash
-        return hash;
-      }),
-    ),
-  );
+  // Convert votes to binary: positive -> 1, non-positive -> 0
+  // Then pack into 64-bit value as hex string
+  let result = '';
+  for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
+    let byte = 0;
+    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+      const voteIdx = byteIdx * 8 + bitIdx;
+      if (votes[voteIdx] > 0) {
+        byte |= (1 << bitIdx);
+      }
+    }
+    result += ('0' + byte.toString(16)).slice(-2);
+  }
 
-  // create fuzzy hash
-  const fuzzyBits = 64;
-  const fuzzyFingerprint = Object.keys(fuzzyFpMaster)
-    .map((key) => fuzzyFpMaster[key][0])
-    .join('')
-    .padEnd(fuzzyBits, '0');
-
-  return fuzzyFingerprint;
+  return result;
 };
 
-export { hashMini, instanceId, hashify, getBotHash, getFuzzyHash, cipher };
+/**
+ * Calculate Hamming distance between two SimHash values.
+ * Lower distance = more similar fingerprints.
+ *
+ * @param hash1 - First SimHash (16-char hex string)
+ * @param hash2 - Second SimHash (16-char hex string)
+ * @returns Number of differing bits (0-64)
+ */
+const getSimHashDistance = (hash1: string, hash2: string): number => {
+  if (hash1.length !== 16 || hash2.length !== 16) {
+    throw new Error('SimHash values must be 16-character hex strings');
+  }
+
+  let distance = 0;
+  for (let i = 0; i < 16; i += 2) {
+    const byte1 = parseInt(hash1.slice(i, i + 2), 16);
+    const byte2 = parseInt(hash2.slice(i, i + 2), 16);
+    const xor = byte1 ^ byte2;
+    // Count set bits (popcount)
+    distance += popcount8(xor);
+  }
+  return distance;
+};
+
+// 8-bit popcount lookup
+const popcount8 = (n: number): number => {
+  n = n - ((n >> 1) & 0x55);
+  n = (n & 0x33) + ((n >> 2) & 0x33);
+  return (n + (n >> 4)) & 0x0f;
+};
+
+export {
+  hashMini,
+  instanceId,
+  hashify,
+  getBotHash,
+  getFuzzyHash,
+  getSimHashDistance,
+  cipher,
+  SIMHASH_FEATURE_WEIGHTS,
+};

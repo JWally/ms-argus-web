@@ -32,15 +32,18 @@
     /* Smooth page transitions */
     html { scroll-behavior: smooth; }
 
-    /* Primary button */
+    /* Primary button - iOS touch fixes */
     .btn-primary {
       background: #0071e3;
       transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      cursor: pointer;
     }
     .btn-primary:hover { background: #0077ed; box-shadow: 0 2px 8px rgba(0,113,227,0.3); }
-    .btn-primary:active { transform: scale(0.98); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-primary:active, .btn-primary.active { transform: scale(0.98); background: #005bb5; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; background: #0071e3; }
 
     /* Secondary link button */
     .btn-link {
@@ -149,11 +152,215 @@
       background: rgba(0,0,0,0.02);
     }
 
+    /* Anomaly severity bar */
+    .severity-bar {
+      height: 3px;
+      border-radius: 1.5px;
+      background: #e5e5ea;
+      overflow: hidden;
+    }
+    .severity-fill {
+      height: 100%;
+      border-radius: 1.5px;
+      transition: width 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    /* Anomaly card */
+    .anomaly-card {
+      transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .anomaly-card:hover {
+      transform: translateY(-1px);
+    }
+
+    /* Risk ring */
+    .risk-ring {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .risk-ring svg {
+      position: absolute;
+      transform: rotate(-90deg);
+    }
+    .risk-ring-track {
+      stroke: #f5f5f7;
+      fill: none;
+      stroke-width: 4;
+    }
+    .risk-ring-fill {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
     /* Header blur */
     .header-blur {
       backdrop-filter: saturate(180%) blur(20px);
       -webkit-backdrop-filter: saturate(180%) blur(20px);
       background: rgba(255,255,255,0.72);
+    }
+
+    /* Network Intelligence - TCP/TLS Ratio meter */
+    .ratio-meter {
+      height: 8px;
+      background: linear-gradient(to right, #34c759 0%, #34c759 15%, #ff9500 30%, #ff3b30 60%, #ff3b30 100%);
+      border-radius: 4px;
+      position: relative;
+    }
+    .ratio-meter::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.85);
+      border-radius: 0 4px 4px 0;
+      transition: width 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .ratio-indicator {
+      position: absolute;
+      top: -6px;
+      width: 2px;
+      height: 20px;
+      background: #1d1d1f;
+      border-radius: 1px;
+      transition: left 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .ratio-indicator::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      background: #1d1d1f;
+      border-radius: 50%;
+    }
+
+    /* Timing breakdown bar */
+    .timing-bar {
+      height: 24px;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      background: #f5f5f7;
+    }
+    .timing-segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 500;
+      color: white;
+      transition: width 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+      min-width: 0;
+    }
+    .timing-segment span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 4px;
+    }
+
+    /* Lie count ring */
+    .lie-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid #f5f5f7;
+      transition: border-color 0.3s ease;
+    }
+    .lie-ring.warning { border-color: #ff9500; }
+    .lie-ring.danger { border-color: #ff3b30; }
+    .lie-ring.clean { border-color: #34c759; }
+
+    /* Bot hash display */
+    .bot-hash {
+      font-family: 'SF Mono', monospace;
+      letter-spacing: 0.15em;
+      display: flex;
+      gap: 2px;
+    }
+    .bot-hash span {
+      width: 20px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .bot-hash span.on { background: #ff3b30; color: white; }
+    .bot-hash span.off { background: #f5f5f7; color: #86868b; }
+
+    /* Inconsistency cards */
+    .inconsistency-card {
+      border-left: 3px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .inconsistency-card.critical { border-left-color: #ff3b30; }
+    .inconsistency-card.high { border-left-color: #ff9500; }
+    .inconsistency-card.medium { border-left-color: #ffcc00; }
+    .inconsistency-card.low { border-left-color: #34c759; }
+
+    /* Stealth signals grid */
+    .stealth-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    .stealth-signal {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stealth-signal.detected { background: #fee2e2; color: #991b1b; }
+    .stealth-signal.clean { background: #f0fdf4; color: #166534; }
+
+    /* Metric card */
+    .metric-card {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.2s ease;
+    }
+    .metric-card:hover { background: #f5f5f7; }
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #86868b;
+      margin-bottom: 4px;
+    }
+    .metric-value {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .metric-unit {
+      font-size: 14px;
+      font-weight: 400;
+      color: #86868b;
+      margin-left: 2px;
+    }
+    .metric-detail {
+      font-size: 12px;
+      color: #86868b;
+      margin-top: 4px;
     }
 
     /* Footer accordion for mobile */
@@ -262,7 +469,7 @@
           Your device has a unique fingerprint. See exactly what websites can learn about you — no cookies required.
         </p>
         <div class="fade-in fade-in-delay-3">
-          <button id="collectBtn" onclick="collect()" class="btn-primary text-white px-8 py-3.5 rounded-full text-base font-medium">
+          <button id="collectBtn" class="btn-primary text-white px-8 py-3.5 rounded-full text-base font-medium">
             Analyze My Browser
           </button>
           <p class="text-subtle text-xs mt-4">Takes about 2 seconds · No data stored</p>
@@ -272,11 +479,27 @@
       <!-- Results Section (hidden until collection) -->
       <section id="resultsSection" class="hidden pb-16">
 
-        <!-- Uniqueness Statement -->
+        <!-- Device Identity Hero -->
         <div id="uniquenessCard" class="py-12 sm:py-16 text-center border-b border-divider fade-in">
-          <p class="text-subtle text-xs uppercase tracking-widest mb-4">Your Browser Fingerprint</p>
-          <p class="text-4xl sm:text-5xl font-semibold tracking-tight mb-3 font-mono" id="uniquenessScore">—</p>
-          <p class="text-subtle text-base sm:text-lg max-w-md mx-auto" id="uniquenessText">Calculating...</p>
+          <p class="text-subtle text-xs uppercase tracking-widest mb-4">Device Identity</p>
+          <p class="text-4xl sm:text-5xl font-semibold tracking-tight mb-3 font-mono" id="deviceIdDisplay">—</p>
+          <p class="text-subtle text-base sm:text-lg max-w-md mx-auto mb-4" id="uniquenessText">Calculating...</p>
+          <div id="matchBadge" class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium"></div>
+        </div>
+
+        <!-- Red Flags Section (if any issues detected) -->
+        <div id="redFlagsSection" class="hidden py-8 sm:py-10 border-b border-divider fade-in">
+          <div class="bg-red-50 border border-red-200 rounded-2xl p-6">
+            <div class="flex items-start gap-4">
+              <div class="text-red-500 text-2xl">⚠</div>
+              <div class="flex-1">
+                <h3 class="text-lg font-semibold text-red-800 mb-2">Issues Detected</h3>
+                <div id="redFlagsList" class="space-y-2">
+                  <!-- Populated by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- What We Know -->
@@ -287,12 +510,206 @@
           </div>
         </div>
 
-        <!-- Signals Section -->
+        <!-- Trust Analysis Section -->
         <div id="signalsCard" class="py-10 sm:py-12 fade-in fade-in-delay-2">
-          <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Trust signals</h2>
-          <p class="text-subtle text-sm sm:text-base mb-6 sm:mb-8">Indicators that distinguish real users from bots and fraudsters.</p>
-          <div class="grid sm:grid-cols-3 gap-4 sm:gap-6 stagger-in" id="signalsGrid">
+          <!-- Risk Overview -->
+          <div id="riskOverview" class="hidden mb-10 sm:mb-12">
+            <div class="flex items-center gap-8 sm:gap-12">
+              <div class="risk-ring" id="riskRing">
+                <svg width="72" height="72" viewBox="0 0 72 72">
+                  <circle class="risk-ring-track" cx="36" cy="36" r="32"/>
+                  <circle class="risk-ring-fill" cx="36" cy="36" r="32"
+                    stroke-dasharray="201" stroke-dashoffset="201" id="riskRingFill"/>
+                </svg>
+                <span class="text-lg font-semibold" id="riskValue">—</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-xs uppercase tracking-widest text-subtle mb-1">Risk Assessment</p>
+                <p class="text-2xl sm:text-3xl font-semibold tracking-tight mb-1" id="riskLabel">Analyzing</p>
+                <p class="text-subtle text-sm" id="riskDescription">Evaluating trust signals...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network Intelligence Section -->
+          <div id="networkIntelSection" class="hidden mb-12 pb-10 border-b border-divider">
+            <div class="flex items-baseline justify-between mb-6">
+              <div>
+                <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-1">Network intelligence</h2>
+                <p class="text-subtle text-sm">TCP/TLS timing analysis reveals proxy and VPN usage.</p>
+              </div>
+            </div>
+
+            <!-- TCP/TLS Ratio - The Hero Metric -->
+            <div class="mb-8">
+              <div class="flex items-end justify-between mb-3">
+                <div>
+                  <p class="metric-label">TLS/TCP Timing Ratio</p>
+                  <div class="flex items-baseline gap-2">
+                    <span class="metric-value" id="tlsRatioValue">—</span>
+                    <span class="metric-unit">×</span>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <p class="text-xs text-subtle mb-1">Normal range: 1.0 – 1.5×</p>
+                  <p class="text-sm font-medium" id="ratioVerdict">Analyzing...</p>
+                </div>
+              </div>
+              <div class="ratio-meter" id="ratioMeter">
+                <div class="ratio-indicator" id="ratioIndicator" style="left: 0%"></div>
+              </div>
+              <div class="flex justify-between text-xs text-subtle mt-2">
+                <span>Direct</span>
+                <span>1 hop</span>
+                <span>2+ hops</span>
+                <span>Many hops</span>
+              </div>
+            </div>
+
+            <!-- Timing Breakdown -->
+            <div class="mb-8">
+              <p class="metric-label mb-3">Connection timing breakdown</p>
+              <div class="timing-bar" id="timingBar">
+                <div class="timing-segment" id="tcpSegment" style="width: 33%; background: #0071e3;"><span>TCP</span></div>
+                <div class="timing-segment" id="tlsSegment" style="width: 33%; background: #5856d6;"><span>TLS</span></div>
+                <div class="timing-segment" id="httpSegment" style="width: 34%; background: #af52de;"><span>HTTP</span></div>
+              </div>
+              <div class="grid grid-cols-3 gap-4 mt-3 text-center text-xs">
+                <div><span class="font-mono" id="tcpTime">—</span><span class="text-subtle ml-1">TCP RTT</span></div>
+                <div><span class="font-mono" id="tlsTime">—</span><span class="text-subtle ml-1">TLS handshake</span></div>
+                <div><span class="font-mono" id="httpTime">—</span><span class="text-subtle ml-1">First byte</span></div>
+              </div>
+            </div>
+
+            <!-- Proxy Signals -->
+            <div id="proxySignalsSection" class="hidden">
+              <p class="metric-label mb-3">Detection signals</p>
+              <div class="flex flex-wrap gap-2" id="proxySignalsList">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- Scores Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+              <div class="metric-card text-center">
+                <p class="metric-label">Proxy score</p>
+                <p class="text-2xl font-semibold" id="proxyScoreValue">—</p>
+              </div>
+              <div class="metric-card text-center">
+                <p class="metric-label">VPN score</p>
+                <p class="text-2xl font-semibold" id="vpnScoreValue">—</p>
+              </div>
+              <div class="metric-card text-center">
+                <p class="metric-label">Total latency</p>
+                <p class="text-2xl font-semibold" id="totalLatency">—</p>
+              </div>
+              <div class="metric-card text-center">
+                <p class="metric-label">Path MTU</p>
+                <p class="text-2xl font-semibold" id="pathMtu">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bot Detection Section -->
+          <div id="botDetectionSection" class="hidden mb-12 pb-10 border-b border-divider">
+            <div class="flex items-baseline justify-between mb-6">
+              <div>
+                <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-1">Bot detection</h2>
+                <p class="text-subtle text-sm">API tampering, lies, and automation fingerprints.</p>
+              </div>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-6 mb-8">
+              <!-- Lie Count -->
+              <div class="flex items-center gap-6">
+                <div class="lie-ring" id="lieRing">
+                  <span class="text-2xl font-semibold" id="lieCountValue">0</span>
+                  <span class="text-xs text-subtle">lies</span>
+                </div>
+                <div>
+                  <p class="font-medium mb-1" id="lieVerdict">No tampering detected</p>
+                  <p class="text-sm text-subtle" id="lieDescription">All browser APIs behaving normally.</p>
+                </div>
+              </div>
+
+              <!-- Bot Hash -->
+              <div>
+                <p class="metric-label mb-2">Bot signature hash</p>
+                <div class="bot-hash" id="botHashDisplay">
+                  <span class="off">0</span><span class="off">0</span><span class="off">0</span><span class="off">0</span>
+                  <span class="off">0</span><span class="off">0</span><span class="off">0</span><span class="off">0</span>
+                </div>
+                <p class="text-xs text-subtle mt-2" id="botClassification">Clean browser profile</p>
+              </div>
+            </div>
+
+            <!-- Stealth Signals -->
+            <div id="stealthSignalsSection" class="mb-8">
+              <p class="metric-label mb-3">Stealth technique detection</p>
+              <div class="stealth-grid" id="stealthGrid">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- Headless Detection -->
+            <div class="grid sm:grid-cols-3 gap-3">
+              <div class="metric-card">
+                <p class="metric-label">Headless likelihood</p>
+                <p class="text-2xl font-semibold" id="headlessScore">—</p>
+              </div>
+              <div class="metric-card">
+                <p class="metric-label">Stealth rating</p>
+                <p class="text-2xl font-semibold" id="stealthRating">—</p>
+              </div>
+              <div class="metric-card">
+                <p class="metric-label">Platform estimate</p>
+                <p class="text-lg font-semibold" id="platformEstimate">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inconsistencies Section -->
+          <div id="inconsistenciesSection" class="hidden mb-12 pb-10 border-b border-divider">
+            <div class="flex items-baseline justify-between mb-6">
+              <div>
+                <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-1">Inconsistencies</h2>
+                <p class="text-subtle text-sm">Mismatches between claimed and detected values.</p>
+              </div>
+              <div class="text-right">
+                <div class="flex gap-2 text-xs" id="inconsistencyCounts">
+                  <!-- Populated by JS -->
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3" id="inconsistencyList">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Signals Header -->
+          <div class="flex items-baseline justify-between mb-6 sm:mb-8">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-semibold tracking-tight mb-1">Trust signals</h2>
+              <p class="text-subtle text-sm">Server-side analysis of your browser fingerprint.</p>
+            </div>
+            <p class="text-xs text-subtle hidden sm:block" id="signalCount"></p>
+          </div>
+
+          <!-- Signals Grid -->
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 stagger-in" id="signalsGrid">
             <!-- Populated by JS -->
+          </div>
+
+          <!-- Anomaly Details (expandable) -->
+          <div id="anomalyDetails" class="hidden mt-8 pt-6 border-t border-divider">
+            <details class="group">
+              <summary class="font-medium text-sm cursor-pointer text-subtle hover:text-neutral-900 transition-colors">
+                View detailed analysis
+              </summary>
+              <div class="details-content pt-4 space-y-3" id="anomalyDetailsList">
+                <!-- Populated by JS -->
+              </div>
+            </details>
           </div>
         </div>
 
@@ -306,6 +723,12 @@
             <p class="text-xs uppercase tracking-widest text-subtle mb-4">API Match Result</p>
             <div id="matchGrid" class="grid sm:grid-cols-2 gap-x-8 lg:gap-x-12">
               <!-- Populated by JS -->
+            </div>
+            <div id="evidenceCodesSection" class="hidden mt-4 pt-4 border-t border-divider/50">
+              <p class="text-xs uppercase tracking-widest text-subtle mb-2">Match Evidence</p>
+              <div class="flex flex-wrap gap-1.5" id="evidenceCodesList">
+                <!-- Populated by JS -->
+              </div>
             </div>
           </div>
 
@@ -360,7 +783,7 @@
 
         <!-- Collect Again -->
         <div class="py-8 text-center">
-          <button onclick="collect()" class="btn-link font-medium">
+          <button id="collectAgainBtn" class="btn-link font-medium">
             Analyze again
           </button>
         </div>
@@ -496,6 +919,22 @@
       document.getElementById('mobileMenu').classList.toggle('hidden');
     });
 
+    // Button event listeners with iOS touch support
+    const collectBtn = document.getElementById('collectBtn');
+    const collectAgainBtn = document.getElementById('collectAgainBtn');
+
+    function handleCollectClick(e) {
+      e.preventDefault();
+      collect();
+    }
+
+    // Add both click and touchend for iOS reliability
+    collectBtn.addEventListener('click', handleCollectClick);
+    collectBtn.addEventListener('touchstart', () => collectBtn.classList.add('active'), { passive: true });
+    collectBtn.addEventListener('touchend', () => collectBtn.classList.remove('active'), { passive: true });
+
+    collectAgainBtn.addEventListener('click', handleCollectClick);
+
     // Fast hash for display
     function miniHash(str) {
       if (!str || typeof str !== 'string') return '—';
@@ -551,7 +990,7 @@
     }
 
     // Main collection
-    window.collect = async function() {
+    async function collect() {
       const btn = document.getElementById('collectBtn');
       const heroSection = document.getElementById('heroSection');
       const resultsSection = document.getElementById('resultsSection');
@@ -589,6 +1028,9 @@
         // Update all sections
         updateUniqueness(result);
         updateSummary(result);
+        updateNetworkIntelligence(result);
+        updateBotDetection(result);
+        updateInconsistencies(result);
         updateSignals(result);
         updateMatch(result);
         updateDetails(result);
@@ -611,24 +1053,141 @@
     };
 
     function updateUniqueness(result) {
-      const scoreEl = document.getElementById('uniquenessScore');
+      const deviceIdEl = document.getElementById('deviceIdDisplay');
       const textEl = document.getElementById('uniquenessText');
+      const matchBadge = document.getElementById('matchBadge');
 
-      const uniqueHash = miniHash(result.fingerprint.hashes?.stable || '');
-      scoreEl.textContent = uniqueHash;
+      const match = result.telemetry?.matchResult;
+      const deviceId = match?.device_id;
+      const matchTier = match?.match_tier;
+      const confidence = match?.confidence;
 
-      // Messaging based on match result
-      const matchTier = result.telemetry?.matchResult?.match_tier;
-      const confidence = result.telemetry?.matchResult?.confidence;
+      // Show Device ID as hash (or fingerprint hash if no device ID yet)
+      if (deviceId) {
+        deviceIdEl.textContent = miniHash(deviceId);
+        deviceIdEl.title = deviceId;
+      } else {
+        deviceIdEl.textContent = miniHash(result.fingerprint.hashes?.stable || '');
+      }
 
+      // Match badge and messaging
       if (matchTier === -1) {
-        textEl.textContent = "This is a new fingerprint we haven't seen before.";
+        textEl.textContent = "First time seeing this device.";
+        matchBadge.classList.remove('hidden');
+        matchBadge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800';
+        matchBadge.innerHTML = '<span>●</span> New Device';
       } else if (confidence && confidence > 0.95) {
         textEl.textContent = "We recognized this device with very high confidence.";
+        matchBadge.classList.remove('hidden');
+        matchBadge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-green-100 text-green-800';
+        matchBadge.innerHTML = '<span>✓</span> Verified · ' + (confidence * 100).toFixed(0) + '% match';
       } else if (confidence && confidence > 0.8) {
         textEl.textContent = "This device has been seen before.";
+        matchBadge.classList.remove('hidden');
+        matchBadge.className = 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-amber-100 text-amber-800';
+        matchBadge.innerHTML = '<span>◐</span> Recognized · ' + (confidence * 100).toFixed(0) + '% match';
       } else {
         textEl.textContent = "Your browser has a distinctive fingerprint.";
+        matchBadge.classList.add('hidden');
+      }
+
+      // Update red flags section
+      updateRedFlags(result);
+    }
+
+    function updateRedFlags(result) {
+      const section = document.getElementById('redFlagsSection');
+      const list = document.getElementById('redFlagsList');
+      const flags = [];
+
+      const match = result.telemetry?.matchResult;
+      const anomalies = match?.anomalies || [];
+      const sigint = result.sigint || {};
+      const tls = sigint.tlsFingerprint || {};
+      const tcp = sigint.tcpProbe || {};
+      const stun = sigint.stun || {};
+
+      // Check for VPN/Proxy indicators
+      if (tls.is_vpn || tls.vpn_score > 0.5) {
+        flags.push({ severity: 'high', text: 'VPN connection detected', detail: `VPN score: ${((tls.vpn_score || 0) * 100).toFixed(0)}%` });
+      }
+      if (tls.is_proxy || tls.proxy_score > 0.5) {
+        flags.push({ severity: 'high', text: 'Proxy detected', detail: `Proxy score: ${((tls.proxy_score || 0) * 100).toFixed(0)}%` });
+      }
+      if (tls.is_datacenter) {
+        flags.push({ severity: 'medium', text: 'Datacenter IP', detail: 'Not a residential connection' });
+      }
+      if (tls.is_tor) {
+        flags.push({ severity: 'high', text: 'Tor exit node detected', detail: 'Anonymous network connection' });
+      }
+
+      // Check for IP mismatch (WebRTC leak detection)
+      const tlsIp = tls.ip;
+      const webrtcIp = stun.reflexiveIp;
+      if (tlsIp && webrtcIp && tlsIp !== webrtcIp) {
+        flags.push({ severity: 'high', text: 'IP address mismatch', detail: `TLS: ${tlsIp} vs WebRTC: ${webrtcIp}` });
+      }
+
+      // Check for low MSS (VPN/tunnel indicator)
+      const sndMss = tcp?.tcp_info?.snd_mss || tcp?.rtt_fingerprint?.snd_mss;
+      if (sndMss && sndMss < 1400) {
+        flags.push({ severity: 'medium', text: 'Low TCP MSS detected', detail: `MSS: ${sndMss} (indicates tunneling/VPN)` });
+      }
+
+      // Check for headless browser
+      const loose = result.fingerprint?.loose || {};
+      if (loose.headless?.isHeadless) {
+        flags.push({ severity: 'high', text: 'Headless browser detected', detail: 'Automated browser environment' });
+      }
+
+      // Check for navigator lies
+      if (loose.lies?.totalLies > 0) {
+        flags.push({ severity: 'high', text: 'Browser API tampering', detail: `${loose.lies.totalLies} lie(s) detected` });
+      }
+
+      // Check for worker mismatch
+      if (loose.workerScope?.hasMismatch) {
+        flags.push({ severity: 'medium', text: 'Worker capability mismatch', detail: 'Web Worker reports different values' });
+      }
+
+      // Add anomalies from API
+      for (const anomaly of anomalies) {
+        if (anomaly.severity > 0.5) {
+          const info = ANOMALY_INFO[anomaly.code] || { label: formatCode(anomaly.code), desc: 'Anomaly detected' };
+          flags.push({
+            severity: anomaly.severity > 0.7 ? 'high' : 'medium',
+            text: info.label,
+            detail: info.desc
+          });
+        }
+      }
+
+      // Timezone mismatch check
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const ipCountry = tls.country;
+      if (ipCountry && browserTz) {
+        // Simple heuristic: US timezone but non-US IP
+        const isUSTimezone = browserTz.startsWith('America/');
+        const isUSIP = ipCountry === 'US';
+        if (isUSTimezone && !isUSIP) {
+          flags.push({ severity: 'medium', text: 'Timezone/Location mismatch', detail: `Browser: ${browserTz}, IP: ${ipCountry}` });
+        }
+      }
+
+      // Display flags
+      if (flags.length > 0) {
+        section.classList.remove('hidden');
+        list.innerHTML = flags.map(f => `
+          <div class="flex items-start gap-3 ${f.severity === 'high' ? 'text-red-700' : 'text-amber-700'}">
+            <span class="mt-0.5">${f.severity === 'high' ? '●' : '○'}</span>
+            <div>
+              <span class="font-medium">${f.text}</span>
+              <span class="text-sm opacity-75 ml-2">${f.detail}</span>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        section.classList.add('hidden');
       }
     }
 
@@ -689,81 +1248,559 @@
       `;
     }
 
+    // Anomaly code to human-readable descriptions
+    const ANOMALY_INFO = {
+      'NAVIGATOR_LIES': {
+        label: 'API tampering',
+        desc: 'Navigator properties have been modified',
+        category: 'Fingerprint'
+      },
+      'HEADLESS_DETECTED': {
+        label: 'Headless browser',
+        desc: 'Automated browser environment detected',
+        category: 'Automation'
+      },
+      'HIGH_PROXY_SCORE': {
+        label: 'Proxy detected',
+        desc: 'Network characteristics suggest proxy usage',
+        category: 'Network'
+      },
+      'HIGH_VPN_SCORE': {
+        label: 'VPN detected',
+        desc: 'Network patterns indicate VPN connection',
+        category: 'Network'
+      },
+      'WORKER_MISMATCH': {
+        label: 'Worker mismatch',
+        desc: 'Web Worker reports different capabilities',
+        category: 'Fingerprint'
+      },
+      'SCREEN_CSS_MISMATCH': {
+        label: 'Screen mismatch',
+        desc: 'Screen dimensions inconsistent with CSS',
+        category: 'Fingerprint'
+      },
+      'FTL_VIOLATION': {
+        label: 'Impossible latency',
+        desc: 'Network timing contradicts claimed location',
+        category: 'Network'
+      },
+      'IP_TIMEZONE_MISMATCH': {
+        label: 'Timezone mismatch',
+        desc: 'IP location doesn\'t match browser timezone',
+        category: 'Network'
+      },
+      'SERVER_CLIENT_TZ_MISMATCH': {
+        label: 'Clock discrepancy',
+        desc: 'Server and client timezones differ',
+        category: 'Network'
+      },
+      'JA4_UA_MISMATCH': {
+        label: 'TLS mismatch',
+        desc: 'TLS fingerprint doesn\'t match User-Agent',
+        category: 'Network'
+      },
+      'MATH_ENGINE_MISMATCH': {
+        label: 'Engine mismatch',
+        desc: 'Math functions inconsistent with claimed browser',
+        category: 'Fingerprint'
+      },
+      'LIKELY_PROXY': {
+        label: 'Proxy likely',
+        desc: 'Connection appears to be proxied',
+        category: 'Network'
+      },
+      'LIKELY_VPN': {
+        label: 'VPN likely',
+        desc: 'Connection appears to use VPN',
+        category: 'Network'
+      },
+    };
+
+    // Flag to human-readable (for flags without full anomaly data)
+    const FLAG_INFO = {
+      'new_device': { label: 'New device', desc: 'First time seeing this fingerprint', severity: 0, good: true },
+      'returning_user': { label: 'Returning user', desc: 'Previously seen device', severity: 0, good: true },
+      'verified': { label: 'Verified', desc: 'Device has been verified', severity: 0, good: true },
+      'bot_detected': { label: 'Bot detected', desc: 'Automated behavior patterns', severity: 0.8 },
+      'headless_browser': { label: 'Headless browser', desc: 'Automated browser detected', severity: 0.9 },
+      'fingerprint_mismatch': { label: 'Fingerprint changed', desc: 'Device characteristics differ from history', severity: 0.5 },
+      'rapid_requests': { label: 'High velocity', desc: 'Unusually frequent requests', severity: 0.4 },
+      'navigator_lies': { label: 'API tampering', desc: 'Browser APIs have been modified', severity: 0.6 },
+      'likely_proxy': { label: 'Proxy likely', desc: 'Connection appears proxied', severity: 0.3 },
+      'likely_vpn': { label: 'VPN likely', desc: 'VPN connection detected', severity: 0.2 },
+      'worker_mismatch': { label: 'Worker mismatch', desc: 'Inconsistent worker capabilities', severity: 0.7 },
+      'screen_css_mismatch': { label: 'Screen mismatch', desc: 'Display inconsistencies', severity: 0.4 },
+      'ftl_violation': { label: 'Location impossible', desc: 'Network timing contradicts location', severity: 0.9 },
+      'ip_timezone_mismatch': { label: 'Timezone mismatch', desc: 'IP and timezone don\'t align', severity: 0.3 },
+      'server_client_tz_mismatch': { label: 'Clock mismatch', desc: 'Time discrepancy detected', severity: 0.3 },
+      'math_engine_mismatch': { label: 'Engine mismatch', desc: 'Browser engine inconsistency', severity: 0.6 },
+    };
+
     function updateSignals(result) {
       const grid = document.getElementById('signalsGrid');
-      const bot = result.fingerprint.botSignals || {};
-      const loose = result.fingerprint.loose || {};
+      const riskOverview = document.getElementById('riskOverview');
+      const anomalyDetails = document.getElementById('anomalyDetails');
+      const signalCount = document.getElementById('signalCount');
 
-      const isPrivate = loose.incognito?.isPrivate;
-      const isHeadless = bot.isHeadless;
-      const hasLies = bot.hasLies;
-      const lieCount = bot.lieCount || 0;
-      const privacyBrowser = loose.resistance?.privacy;
+      const match = result.telemetry?.matchResult;
+      const anomalies = match?.anomalies || [];
+      const flags = match?.flags || [];
+      const riskScore = match?.risk_score ?? 0.5;
 
-      // Proxy/VPN detection
-      const proxyScore = result.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score;
-      const vpnScore = result.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score;
+      // Update risk overview
+      if (match) {
+        riskOverview.classList.remove('hidden');
+        updateRiskRing(riskScore);
+      }
 
-      // IP mismatch detection (WebRTC vs TLS)
-      const tlsIp = result.sigint?.tlsFingerprint?.ip;
-      const webrtcIp = result.sigint?.stun?.reflexiveIp;
-      const ipMismatch = tlsIp && webrtcIp && tlsIp !== webrtcIp;
+      // Build signal cards from anomalies (detailed) or flags (fallback)
+      let signals = [];
 
-      const signalCard = (title, status, detail) => {
-        const bgColor = status === 'good' ? 'bg-green-50' : status === 'warning' ? 'bg-amber-50' : 'bg-red-50';
-        const textColor = status === 'good' ? 'text-green-700' : status === 'warning' ? 'text-amber-700' : 'text-red-700';
-        const iconColor = status === 'good' ? 'text-green-500' : status === 'warning' ? 'text-amber-500' : 'text-red-500';
-        const icon = status === 'good' ? '✓' : status === 'warning' ? '!' : '✗';
-        return `
-          <div class="signal-card ${bgColor}">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="${iconColor} text-lg">${icon}</span>
-              <span class="font-medium text-sm ${textColor}">${title}</span>
+      // First, add anomalies with full detail
+      for (const anomaly of anomalies) {
+        const info = ANOMALY_INFO[anomaly.code] || {
+          label: formatCode(anomaly.code),
+          desc: 'Anomaly detected',
+          category: anomaly.type
+        };
+        signals.push({
+          code: anomaly.code,
+          label: info.label,
+          desc: info.desc,
+          category: info.category,
+          severity: anomaly.severity,
+          evidence: anomaly.evidence,
+          isAnomaly: true
+        });
+      }
+
+      // Add flags that aren't already covered by anomalies
+      const anomalyCodes = new Set(anomalies.map(a => a.code.toLowerCase()));
+      for (const flag of flags) {
+        if (anomalyCodes.has(flag)) continue;
+        const info = FLAG_INFO[flag] || { label: formatCode(flag), desc: 'Signal detected', severity: 0.3 };
+        if (info.good) {
+          signals.push({
+            code: flag,
+            label: info.label,
+            desc: info.desc,
+            severity: 0,
+            isGood: true
+          });
+        } else {
+          signals.push({
+            code: flag,
+            label: info.label,
+            desc: info.desc,
+            severity: info.severity
+          });
+        }
+      }
+
+      // If no signals, show positive state
+      if (signals.length === 0) {
+        signals.push({
+          code: 'clean',
+          label: 'No issues detected',
+          desc: 'Your browser passed all verification checks',
+          severity: 0,
+          isGood: true
+        });
+      }
+
+      // Sort: issues first (by severity), then good signals
+      signals.sort((a, b) => {
+        if (a.isGood && !b.isGood) return 1;
+        if (!a.isGood && b.isGood) return -1;
+        return b.severity - a.severity;
+      });
+
+      // Update count
+      const issueCount = signals.filter(s => !s.isGood && s.severity > 0).length;
+      signalCount.textContent = issueCount > 0
+        ? `${issueCount} issue${issueCount !== 1 ? 's' : ''} found`
+        : 'All clear';
+
+      // Render signal cards
+      grid.innerHTML = signals.map(signal => renderSignalCard(signal)).join('');
+
+      // Render detailed analysis (only for anomalies with evidence)
+      const detailedAnomalies = signals.filter(s => s.isAnomaly && s.evidence);
+      if (detailedAnomalies.length > 0) {
+        anomalyDetails.classList.remove('hidden');
+        document.getElementById('anomalyDetailsList').innerHTML =
+          detailedAnomalies.map(a => renderAnomalyDetail(a)).join('');
+      } else {
+        anomalyDetails.classList.add('hidden');
+      }
+    }
+
+    function renderSignalCard(signal) {
+      const { label, desc, severity, isGood, category } = signal;
+
+      // Color based on severity
+      let bgClass, textClass, iconClass, icon;
+      if (isGood) {
+        bgClass = 'bg-green-50/70';
+        textClass = 'text-green-800';
+        iconClass = 'text-green-500';
+        icon = '✓';
+      } else if (severity >= 0.7) {
+        bgClass = 'bg-red-50/70';
+        textClass = 'text-red-800';
+        iconClass = 'text-red-500';
+        icon = '✗';
+      } else if (severity >= 0.3) {
+        bgClass = 'bg-amber-50/70';
+        textClass = 'text-amber-800';
+        iconClass = 'text-amber-500';
+        icon = '!';
+      } else {
+        bgClass = 'bg-neutral-50';
+        textClass = 'text-neutral-700';
+        iconClass = 'text-neutral-400';
+        icon = '○';
+      }
+
+      // Severity bar (only for non-good signals)
+      const severityBar = !isGood && severity > 0 ? `
+        <div class="severity-bar mt-2">
+          <div class="severity-fill ${severity >= 0.7 ? 'bg-red-400' : severity >= 0.3 ? 'bg-amber-400' : 'bg-neutral-300'}"
+               style="width: ${Math.round(severity * 100)}%"></div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="anomaly-card ${bgClass} rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <span class="${iconClass} text-base mt-0.5">${icon}</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-sm ${textClass}">${label}</p>
+              <p class="text-xs text-muted mt-0.5 leading-relaxed">${desc}</p>
+              ${severityBar}
             </div>
-            <p class="text-muted text-xs leading-relaxed">${detail}</p>
           </div>
-        `;
+        </div>
+      `;
+    }
+
+    function renderAnomalyDetail(anomaly) {
+      const { label, evidence, severity, category } = anomaly;
+      return `
+        <div class="p-4 bg-neutral-50 rounded-xl">
+          <div class="flex items-baseline justify-between mb-2">
+            <p class="font-medium text-sm">${label}</p>
+            <span class="text-xs text-subtle">${category || ''}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-xs">
+            <div>
+              <p class="text-subtle mb-0.5">Expected</p>
+              <p class="font-mono text-neutral-700 truncate" title="${evidence.expected}">${evidence.expected || '—'}</p>
+            </div>
+            <div>
+              <p class="text-subtle mb-0.5">Actual</p>
+              <p class="font-mono text-neutral-700 truncate" title="${evidence.actual}">${evidence.actual || '—'}</p>
+            </div>
+          </div>
+          ${evidence.fields?.length ? `
+            <p class="text-xs text-subtle mt-2">Affected: ${evidence.fields.join(', ')}</p>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function updateRiskRing(riskScore) {
+      const ringFill = document.getElementById('riskRingFill');
+      const riskValue = document.getElementById('riskValue');
+      const riskLabel = document.getElementById('riskLabel');
+      const riskDescription = document.getElementById('riskDescription');
+
+      // Circumference = 2 * π * r = 2 * 3.14159 * 32 ≈ 201
+      const circumference = 201;
+      const offset = circumference - (riskScore * circumference);
+
+      // Color based on risk
+      let color, label, desc;
+      if (riskScore < 0.3) {
+        color = '#34c759'; // green
+        label = 'Low risk';
+        desc = 'This device shows strong trust indicators.';
+      } else if (riskScore < 0.6) {
+        color = '#ff9500'; // amber
+        label = 'Medium risk';
+        desc = 'Some signals warrant attention.';
+      } else {
+        color = '#ff3b30'; // red
+        label = 'High risk';
+        desc = 'Multiple risk indicators detected.';
+      }
+
+      ringFill.style.stroke = color;
+      ringFill.style.strokeDashoffset = offset;
+      riskValue.textContent = Math.round(riskScore * 100);
+      riskValue.style.color = color;
+      riskLabel.textContent = label;
+      riskDescription.textContent = desc;
+    }
+
+    function formatCode(code) {
+      return code.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function updateNetworkIntelligence(result) {
+      const section = document.getElementById('networkIntelSection');
+      const tcp = result.sigint?.tcpProbe;
+      const rtt = tcp?.rtt_fingerprint;
+
+      if (!rtt || !rtt.tcp_rtt_us) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+
+      // TCP/TLS Ratio - The killer metric
+      const ratio = rtt.tls_to_tcp_ratio || 0;
+      document.getElementById('tlsRatioValue').textContent = ratio.toFixed(2);
+
+      // Position the indicator (scale: 1.0 = 0%, 5.0 = 100%)
+      const normalizedRatio = Math.min(Math.max((ratio - 1) / 4, 0), 1);
+      document.getElementById('ratioIndicator').style.left = `${normalizedRatio * 100}%`;
+
+      // Verdict based on ratio
+      const verdictEl = document.getElementById('ratioVerdict');
+      if (ratio <= 1.3) {
+        verdictEl.textContent = 'Direct connection';
+        verdictEl.className = 'text-sm font-medium text-green-600';
+      } else if (ratio <= 2.0) {
+        verdictEl.textContent = 'Likely 1 network hop';
+        verdictEl.className = 'text-sm font-medium text-amber-600';
+      } else if (ratio <= 3.5) {
+        verdictEl.textContent = 'Multiple hops detected';
+        verdictEl.className = 'text-sm font-medium text-orange-600';
+      } else {
+        verdictEl.textContent = 'Heavy proxying detected';
+        verdictEl.className = 'text-sm font-medium text-red-600';
+      }
+
+      // Timing breakdown
+      const tcpTime = rtt.tcp_rtt_us || 0;
+      const tlsTime = rtt.tls_handshake_us || 0;
+      const httpTime = rtt.http_first_byte_us || 0;
+      const totalTime = rtt.total_connection_us || (tcpTime + tlsTime + httpTime);
+
+      // Calculate percentages for the bar
+      const tcpPct = totalTime > 0 ? (tcpTime / totalTime) * 100 : 33;
+      const tlsPct = totalTime > 0 ? (tlsTime / totalTime) * 100 : 33;
+      const httpPct = totalTime > 0 ? (httpTime / totalTime) * 100 : 34;
+
+      document.getElementById('tcpSegment').style.width = `${tcpPct}%`;
+      document.getElementById('tlsSegment').style.width = `${tlsPct}%`;
+      document.getElementById('httpSegment').style.width = `${httpPct}%`;
+
+      document.getElementById('tcpTime').textContent = (tcpTime / 1000).toFixed(1) + 'ms';
+      document.getElementById('tlsTime').textContent = (tlsTime / 1000).toFixed(1) + 'ms';
+      document.getElementById('httpTime').textContent = (httpTime / 1000).toFixed(1) + 'ms';
+
+      // Proxy signals
+      const signals = rtt.proxy_signals || [];
+      const signalsSection = document.getElementById('proxySignalsSection');
+      const signalsList = document.getElementById('proxySignalsList');
+
+      if (signals.length > 0 && signals[0] !== 'none') {
+        signalsSection.classList.remove('hidden');
+        signalsList.innerHTML = signals.map(s => `
+          <span class="px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">${s}</span>
+        `).join('');
+      } else {
+        signalsSection.classList.add('hidden');
+      }
+
+      // Scores
+      const proxyScore = rtt.proxy_score || 0;
+      const vpnScore = rtt.vpn_score || 0;
+
+      const proxyEl = document.getElementById('proxyScoreValue');
+      proxyEl.textContent = (proxyScore * 100).toFixed(0) + '%';
+      proxyEl.className = proxyScore > 0.5 ? 'text-2xl font-semibold text-red-600' :
+                          proxyScore > 0.2 ? 'text-2xl font-semibold text-amber-600' :
+                          'text-2xl font-semibold text-green-600';
+
+      const vpnEl = document.getElementById('vpnScoreValue');
+      vpnEl.textContent = (vpnScore * 100).toFixed(0) + '%';
+      vpnEl.className = vpnScore > 0.5 ? 'text-2xl font-semibold text-red-600' :
+                        vpnScore > 0.2 ? 'text-2xl font-semibold text-amber-600' :
+                        'text-2xl font-semibold text-green-600';
+
+      document.getElementById('totalLatency').textContent = (totalTime / 1000).toFixed(0) + 'ms';
+      document.getElementById('pathMtu').textContent = rtt.pmtu || tcp?.tcp_info?.pmtu || '—';
+    }
+
+    function updateBotDetection(result) {
+      const section = document.getElementById('botDetectionSection');
+      const loose = result.fingerprint?.loose || {};
+      const botSignals = result.fingerprint?.botSignals || {};
+      const headless = loose.headless || {};
+
+      const lieCount = loose.lies?.totalLies || botSignals.lieCount || 0;
+      const hasData = lieCount > 0 || botSignals.botHash || headless.likeHeadlessRating;
+
+      if (!hasData && !botSignals.stealthSignals) {
+        // Still show section but with clean state
+      }
+
+      section.classList.remove('hidden');
+
+      // Lie count ring
+      const lieRing = document.getElementById('lieRing');
+      const lieCountEl = document.getElementById('lieCountValue');
+      const lieVerdict = document.getElementById('lieVerdict');
+      const lieDesc = document.getElementById('lieDescription');
+
+      lieCountEl.textContent = lieCount;
+      lieRing.className = 'lie-ring ' + (lieCount > 100 ? 'danger' : lieCount > 0 ? 'warning' : 'clean');
+
+      if (lieCount > 100) {
+        lieVerdict.textContent = 'Extreme API tampering';
+        lieVerdict.className = 'font-medium mb-1 text-red-600';
+        lieDesc.textContent = `${lieCount} lies detected across multiple APIs. Likely using stealth plugin.`;
+      } else if (lieCount > 10) {
+        lieVerdict.textContent = 'Significant tampering';
+        lieVerdict.className = 'font-medium mb-1 text-amber-600';
+        lieDesc.textContent = `${lieCount} API modifications detected. Spoofing attempt likely.`;
+      } else if (lieCount > 0) {
+        lieVerdict.textContent = 'Minor tampering';
+        lieVerdict.className = 'font-medium mb-1 text-amber-600';
+        lieDesc.textContent = `${lieCount} API irregularities found.`;
+      } else {
+        lieVerdict.textContent = 'No tampering detected';
+        lieVerdict.className = 'font-medium mb-1 text-green-600';
+        lieDesc.textContent = 'All browser APIs behaving normally.';
+      }
+
+      // Bot hash display
+      const botHash = botSignals.botHash || '00000000';
+      const hashDisplay = document.getElementById('botHashDisplay');
+      hashDisplay.innerHTML = botHash.split('').map(c =>
+        `<span class="${c !== '0' ? 'on' : 'off'}">${c}</span>`
+      ).join('');
+
+      // Bot classification
+      const classificationEl = document.getElementById('botClassification');
+      const badBot = botSignals.badBot;
+      if (badBot) {
+        classificationEl.textContent = `Classified: ${formatCode(badBot)}`;
+        classificationEl.className = 'text-xs text-red-600 font-medium mt-2';
+      } else if (botHash !== '00000000') {
+        classificationEl.textContent = 'Bot signature detected';
+        classificationEl.className = 'text-xs text-amber-600 mt-2';
+      } else {
+        classificationEl.textContent = 'Clean browser profile';
+        classificationEl.className = 'text-xs text-subtle mt-2';
+      }
+
+      // Stealth signals
+      const stealthSignals = botSignals.stealthSignals || headless.stealth || {};
+      const stealthGrid = document.getElementById('stealthGrid');
+      const signalLabels = {
+        hasIframeProxy: 'Iframe Proxy',
+        hasHighChromeIndex: 'High Chrome Index',
+        hasBadChromeRuntime: 'Bad Chrome Runtime',
+        hasToStringProxy: 'toString Proxy',
+        hasBadWebGL: 'Bad WebGL'
       };
 
-      let signals = '';
+      stealthGrid.innerHTML = Object.entries(signalLabels).map(([key, label]) => {
+        const detected = stealthSignals[key];
+        return `
+          <div class="stealth-signal ${detected ? 'detected' : 'clean'}">
+            <span>${detected ? '✗' : '✓'}</span>
+            <span>${label}</span>
+          </div>
+        `;
+      }).join('');
 
-      // Bot detection
-      if (isHeadless) {
-        signals += signalCard('Automation detected', 'bad', 'Browser appears to be automated or headless.');
-      } else if (hasLies && lieCount > 5) {
-        signals += signalCard('Tampering detected', 'warning', `${lieCount} browser APIs appear to be modified.`);
-      } else {
-        signals += signalCard('Authentic browser', 'good', 'No signs of automation or tampering detected.');
+      // Headless detection scores
+      const headlessScore = headless.likeHeadlessRating || 0;
+      const stealthRating = headless.stealthRating || 0;
+
+      const headlessEl = document.getElementById('headlessScore');
+      headlessEl.textContent = headlessScore + '%';
+      headlessEl.className = headlessScore > 50 ? 'text-2xl font-semibold text-red-600' :
+                             headlessScore > 20 ? 'text-2xl font-semibold text-amber-600' :
+                             'text-2xl font-semibold text-green-600';
+
+      document.getElementById('stealthRating').textContent = stealthRating + '%';
+
+      // Platform estimate
+      const platformEst = headless.platformEstimate;
+      if (platformEst && Array.isArray(platformEst) && platformEst[0]) {
+        const platforms = platformEst[0];
+        const sorted = Object.entries(platforms).sort((a, b) => b[1] - a[1]);
+        if (sorted.length > 0) {
+          const [topPlatform, confidence] = sorted[0];
+          document.getElementById('platformEstimate').textContent =
+            `${topPlatform} (${(confidence * 100).toFixed(0)}%)`;
+        }
+      }
+    }
+
+    function updateInconsistencies(result) {
+      const section = document.getElementById('inconsistenciesSection');
+      const inconsistencies = result.fingerprint?.inconsistencies?.inconsistencies || [];
+      const counts = result.fingerprint?.inconsistencies?.counts || {};
+
+      if (inconsistencies.length === 0) {
+        section.classList.add('hidden');
+        return;
       }
 
-      // Privacy mode
-      if (isPrivate) {
-        signals += signalCard('Private mode', 'warning', 'Incognito or private browsing is active.');
-      } else if (privacyBrowser) {
-        signals += signalCard('Privacy browser', 'warning', `Detected: ${privacyBrowser}`);
-      } else {
-        signals += signalCard('Standard mode', 'good', 'Not using private or privacy-focused browsing.');
-      }
+      section.classList.remove('hidden');
 
-      // Network trust
-      if (ipMismatch) {
-        signals += signalCard('IP mismatch', 'bad', `WebRTC IP (${webrtcIp}) differs from TLS IP (${tlsIp}).`);
-      } else if (proxyScore && proxyScore > 0.7) {
-        signals += signalCard('Proxy likely', 'warning', `${Math.round(proxyScore * 100)}% confidence of proxy usage.`);
-      } else if (vpnScore && vpnScore > 0.7) {
-        signals += signalCard('VPN likely', 'warning', `${Math.round(vpnScore * 100)}% confidence of VPN usage.`);
-      } else if (result.sigint?.tlsFingerprint) {
-        signals += signalCard('Direct connection', 'good', 'No proxy or VPN detected on this connection.');
-      } else {
-        signals += signalCard('Network unknown', 'warning', 'Network analysis was not available.');
-      }
+      // Counts badges
+      const countsEl = document.getElementById('inconsistencyCounts');
+      const countBadges = [];
+      if (counts.critical > 0) countBadges.push(`<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700">${counts.critical} critical</span>`);
+      if (counts.high > 0) countBadges.push(`<span class="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">${counts.high} high</span>`);
+      if (counts.medium > 0) countBadges.push(`<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">${counts.medium} medium</span>`);
+      if (counts.low > 0) countBadges.push(`<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700">${counts.low} low</span>`);
+      countsEl.innerHTML = countBadges.join('');
 
-      grid.innerHTML = signals;
+      // Inconsistency cards
+      const listEl = document.getElementById('inconsistencyList');
+      listEl.innerHTML = inconsistencies.map(inc => `
+        <div class="inconsistency-card ${inc.severity} bg-neutral-50 rounded-xl p-4">
+          <div class="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wide
+                ${inc.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                  inc.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                  inc.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
+                  'bg-green-100 text-green-700'}">${inc.category}</span>
+            </div>
+            <span class="text-xs text-subtle">${inc.severity}</span>
+          </div>
+          <p class="text-sm font-medium mb-3">${inc.description}</p>
+          <div class="grid sm:grid-cols-2 gap-4 text-xs">
+            <div class="p-3 bg-white rounded-lg">
+              <p class="text-subtle mb-1">Expected</p>
+              <p class="font-mono text-neutral-700">${inc.expected}</p>
+            </div>
+            <div class="p-3 bg-white rounded-lg">
+              <p class="text-subtle mb-1">Actual</p>
+              <p class="font-mono text-neutral-700">${inc.actual}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
     }
 
     function updateMatch(result) {
       const matchResults = document.getElementById('matchResults');
       const grid = document.getElementById('matchGrid');
+      const evidenceSection = document.getElementById('evidenceCodesSection');
+      const evidenceList = document.getElementById('evidenceCodesList');
 
       if (!result.telemetry?.matchResult) {
         matchResults.classList.add('hidden');
@@ -785,6 +1822,17 @@
             ${dataRow('Risk score', risk)}
           </div>
         `;
+
+        // Evidence codes - how the match happened
+        const evidenceCodes = match.evidence_codes || [];
+        if (evidenceCodes.length > 0) {
+          evidenceSection.classList.remove('hidden');
+          evidenceList.innerHTML = evidenceCodes.map(code => `
+            <span class="px-2 py-1 rounded text-xs font-mono bg-blue-50 text-blue-700">${code}</span>
+          `).join('');
+        } else {
+          evidenceSection.classList.add('hidden');
+        }
       }
 
       // Update identity grid (always shown)
@@ -798,7 +1846,7 @@
         </div>
         <div>
           ${dataRow('Stable fingerprint', miniHash(hashes.stable), true)}
-          ${dataRow('Fuzzy fingerprint', miniHash(hashes.fuzzy), true)}
+          ${dataRow('SimHash', hashes.fuzzy?.toUpperCase() || '—', true)}
         </div>
       `;
 

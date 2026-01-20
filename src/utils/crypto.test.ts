@@ -6,6 +6,8 @@ import {
   instanceId,
   getBotHash,
   getFuzzyHash,
+  getSimHashDistance,
+  SIMHASH_FEATURE_WEIGHTS,
 } from './crypto';
 
 describe('crypto utils', () => {
@@ -343,9 +345,8 @@ describe('getBotHash()', () => {
   });
 });
 
-describe('getFuzzyHash()', () => {
-  it('returns 64-character hex string', async () => {
-    // Create minimal fingerprint with expected structure
+describe('getFuzzyHash() - SimHash implementation', () => {
+  it('returns 16-character hex string (64-bit SimHash)', async () => {
     const fp = {
       canvas2d: { dataURI: 'data:image/png;base64,...' },
       maths: { data: { sin: 0.123 } },
@@ -353,8 +354,8 @@ describe('getFuzzyHash()', () => {
     };
 
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(64);
-    expect(result).toMatch(/^[0-9a-f]+$/);
+    expect(result.length).toBe(16);
+    expect(result).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it('produces consistent hashes for same input', async () => {
@@ -386,7 +387,9 @@ describe('getFuzzyHash()', () => {
   it('handles empty fingerprint', async () => {
     const fp = {};
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(64);
+    // Empty fp produces all-zero votes, so all bits are 0
+    expect(result.length).toBe(16);
+    expect(result).toBe('0000000000000000');
   });
 
   it('ignores $hash and lied properties', async () => {
@@ -399,11 +402,10 @@ describe('getFuzzyHash()', () => {
     };
 
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(64);
+    expect(result.length).toBe(16);
   });
 
   it('handles full fingerprint structure', async () => {
-    // Simulate a more complete fingerprint
     const fp = {
       canvas2d: {
         dataURI: 'data:image/png;base64,abc',
@@ -437,7 +439,126 @@ describe('getFuzzyHash()', () => {
     };
 
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(64);
-    expect(result).toMatch(/^[0-9a-f]+$/);
+    expect(result.length).toBe(16);
+    expect(result).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('produces similar hashes for similar fingerprints (locality-sensitive)', async () => {
+    // Two fingerprints that differ only in one low-weight feature
+    const fp1 = {
+      canvas2d: { dataURI: 'same-canvas' },
+      canvasWebgl: { dataURI: 'same-webgl', gpu: 'NVIDIA GeForce RTX 3080' },
+      navigator: { userAgent: 'Mozilla/5.0 Chrome/120', platform: 'Win32' },
+      screen: { width: 1920, height: 1080 },
+    };
+    const fp2 = {
+      ...fp1,
+      // Small change - different timezone (weight=2)
+      timezone: { offset: -300 },
+    };
+
+    const hash1 = await getFuzzyHash(fp1);
+    const hash2 = await getFuzzyHash(fp2);
+    const distance = getSimHashDistance(hash1, hash2);
+
+    // Small change should result in small Hamming distance
+    expect(distance).toBeLessThan(20);
+  });
+
+  it('produces very different hashes for very different fingerprints', async () => {
+    const chromeWindows = {
+      canvas2d: { dataURI: 'chrome-canvas-hash' },
+      canvasWebgl: { dataURI: 'nvidia-webgl', gpu: 'NVIDIA GeForce RTX 3080' },
+      navigator: { userAgent: 'Chrome/120', platform: 'Win32', vendor: 'Google Inc.' },
+      screen: { width: 1920, height: 1080 },
+      workerScope: { userAgentVersion: '120.0.0.0' },
+    };
+    const firefoxMac = {
+      canvas2d: { dataURI: 'firefox-canvas-hash' },
+      canvasWebgl: { dataURI: 'amd-webgl', gpu: 'AMD Radeon Pro 5500M' },
+      navigator: { userAgent: 'Firefox/121', platform: 'MacIntel', vendor: '' },
+      screen: { width: 2560, height: 1600 },
+      workerScope: { userAgentVersion: '121.0' },
+    };
+
+    const hash1 = await getFuzzyHash(chromeWindows);
+    const hash2 = await getFuzzyHash(firefoxMac);
+    const distance = getSimHashDistance(hash1, hash2);
+
+    // Very different fingerprints should have high Hamming distance
+    expect(distance).toBeGreaterThan(15);
+  });
+});
+
+describe('getSimHashDistance()', () => {
+  it('returns 0 for identical hashes', () => {
+    const hash = 'abcdef0123456789';
+    expect(getSimHashDistance(hash, hash)).toBe(0);
+  });
+
+  it('returns 64 for completely opposite hashes', () => {
+    const hash1 = '0000000000000000';
+    const hash2 = 'ffffffffffffffff';
+    expect(getSimHashDistance(hash1, hash2)).toBe(64);
+  });
+
+  it('returns correct distance for known bit differences', () => {
+    // Differ by 1 bit (last hex char: 0 vs 1)
+    const hash1 = '0000000000000000';
+    const hash2 = '0000000000000001';
+    expect(getSimHashDistance(hash1, hash2)).toBe(1);
+
+    // Differ by 4 bits (last hex char: 0 vs f)
+    const hash3 = '000000000000000f';
+    expect(getSimHashDistance(hash1, hash3)).toBe(4);
+  });
+
+  it('is symmetric', () => {
+    const hash1 = 'abcd1234efgh5678'.replace(/[gh]/g, 'a');
+    const hash2 = '1234abcd5678efab';
+    expect(getSimHashDistance(hash1, hash2)).toBe(getSimHashDistance(hash2, hash1));
+  });
+
+  it('throws for invalid hash lengths', () => {
+    expect(() => getSimHashDistance('abc', 'def')).toThrow();
+    expect(() => getSimHashDistance('abcdef0123456789', 'short')).toThrow();
+  });
+
+  it('handles real-world distance thresholds', () => {
+    // Simulate "same device" scenario (very similar hashes)
+    const sameDevice1 = 'a1b2c3d4e5f60718';
+    const sameDevice2 = 'a1b2c3d4e5f60719'; // 1 bit different
+    expect(getSimHashDistance(sameDevice1, sameDevice2)).toBeLessThanOrEqual(3);
+
+    // Simulate "different device" scenario
+    const device1 = 'a1b2c3d4e5f60718';
+    const device2 = '5e4d3c2b1a098765';
+    expect(getSimHashDistance(device1, device2)).toBeGreaterThan(20);
+  });
+});
+
+describe('SIMHASH_FEATURE_WEIGHTS', () => {
+  it('contains expected high-weight features', () => {
+    expect(SIMHASH_FEATURE_WEIGHTS['canvas2d.dataURI']).toBe(8);
+    expect(SIMHASH_FEATURE_WEIGHTS['canvasWebgl.dataURI']).toBe(8);
+    expect(SIMHASH_FEATURE_WEIGHTS['navigator.userAgent']).toBe(8);
+  });
+
+  it('contains expected low-weight features', () => {
+    expect(SIMHASH_FEATURE_WEIGHTS['navigator.deviceMemory']).toBe(1);
+    expect(SIMHASH_FEATURE_WEIGHTS['screen.touch']).toBe(1);
+  });
+
+  it('has weights in valid range (1-8)', () => {
+    for (const [key, weight] of Object.entries(SIMHASH_FEATURE_WEIGHTS)) {
+      expect(weight).toBeGreaterThanOrEqual(1);
+      expect(weight).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('has reasonable number of features', () => {
+    const featureCount = Object.keys(SIMHASH_FEATURE_WEIGHTS).length;
+    expect(featureCount).toBeGreaterThan(50);
+    expect(featureCount).toBeLessThan(200);
   });
 });
