@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Argus Simple Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #eee; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+    pre { background: #2a2a2a; padding: 15px; overflow: auto; max-height: 600px; font-size: 12px; }
+    .section { margin: 20px 0; }
+    h2 { color: #88f; }
+  </style>
+</head>
+<body>
+  <h1>Argus Simple Test Page</h1>
+  <p>Uses local build from <code>/dist/argus.esm.js</code></p>
+
+  <button id="runBtn">Collect & Submit</button>
+
+  <div class="section">
+    <h2>Status</h2>
+    <pre id="status">Ready. Click "Collect & Submit" to start.</pre>
+  </div>
+
+  <div class="section">
+    <h2>API Response</h2>
+    <pre id="response">--</pre>
+  </div>
+
+  <script type="module">
+    import { load } from '/dist/argus.esm.js';
+
+    document.getElementById('runBtn').addEventListener('click', async () => {
+      const status = document.getElementById('status');
+      const responseEl = document.getElementById('response');
+
+      status.textContent = 'Collecting fingerprint and submitting...';
+
+      try {
+        const result = await load({
+          enableTelemetry: true,
+          telemetry: {
+            baseDomain: 'argus.pw'
+          }
+        });
+
+        status.textContent = `Done!\n\nSession ID: ${result.telemetry?.sessionId}\nDevice ID: ${result.telemetry?.matchResult?.device_id || 'pending'}\nSubmitted: ${result.telemetry?.submitted}`;
+
+        if (result.telemetry?.apiResponse) {
+          responseEl.textContent = JSON.stringify(result.telemetry.apiResponse, null, 2);
+        } else {
+          responseEl.textContent = JSON.stringify(result.telemetry, null, 2);
+        }
+
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

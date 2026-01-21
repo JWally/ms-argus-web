@@ -300,7 +300,9 @@ const getFuzzyHash = async (fp): Promise<string> => {
   const features: Record<string, unknown> = {};
   for (const [section, values] of Object.entries(fp)) {
     if (typeof values !== 'object' || values === null) continue;
-    for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(
+      values as Record<string, unknown>,
+    )) {
       if (key === '$hash' || key === 'lied') continue;
       features[`${section}.${key}`] = value;
     }
@@ -325,9 +327,8 @@ const getFuzzyHash = async (fp): Promise<string> => {
 
     // Vote on each bit position
     for (let i = 0; i < SIMHASH_BITS; i++) {
-      const bitValue = i < 32
-        ? (lower32 >>> i) & 1
-        : (upper32 >>> (i - 32)) & 1;
+      const bitValue =
+        i < 32 ? (lower32 >>> i) & 1 : (upper32 >>> (i - 32)) & 1;
 
       // Add or subtract weight based on bit value
       votes[i] += bitValue ? weight : -weight;
@@ -342,7 +343,7 @@ const getFuzzyHash = async (fp): Promise<string> => {
     for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
       const voteIdx = byteIdx * 8 + bitIdx;
       if (votes[voteIdx] > 0) {
-        byte |= (1 << bitIdx);
+        byte |= 1 << bitIdx;
       }
     }
     result += ('0' + byte.toString(16)).slice(-2);

@@ -469,7 +469,11 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     const chromeWindows = {
       canvas2d: { dataURI: 'chrome-canvas-hash' },
       canvasWebgl: { dataURI: 'nvidia-webgl', gpu: 'NVIDIA GeForce RTX 3080' },
-      navigator: { userAgent: 'Chrome/120', platform: 'Win32', vendor: 'Google Inc.' },
+      navigator: {
+        userAgent: 'Chrome/120',
+        platform: 'Win32',
+        vendor: 'Google Inc.',
+      },
       screen: { width: 1920, height: 1080 },
       workerScope: { userAgentVersion: '120.0.0.0' },
     };
@@ -516,7 +520,9 @@ describe('getSimHashDistance()', () => {
   it('is symmetric', () => {
     const hash1 = 'abcd1234efgh5678'.replace(/[gh]/g, 'a');
     const hash2 = '1234abcd5678efab';
-    expect(getSimHashDistance(hash1, hash2)).toBe(getSimHashDistance(hash2, hash1));
+    expect(getSimHashDistance(hash1, hash2)).toBe(
+      getSimHashDistance(hash2, hash1),
+    );
   });
 
   it('throws for invalid hash lengths', () => {

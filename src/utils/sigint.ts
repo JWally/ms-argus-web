@@ -468,9 +468,11 @@ export async function performStunBinding(config: SigintConfig): Promise<{
 /**
  * Collect favicon cache ID with timing
  */
-async function collectFaviconCache(
-  config: SigintConfig,
-): Promise<{ data: FaviconCacheData | null; error: string | null; durationMs: number }> {
+async function collectFaviconCache(config: SigintConfig): Promise<{
+  data: FaviconCacheData | null;
+  error: string | null;
+  durationMs: number;
+}> {
   const start = performance.now();
   try {
     const faviconConfig = getFaviconCacheConfig(config);
