@@ -16,6 +16,9 @@ import {
   CacheHeaderBehavior,
   CacheCookieBehavior,
   CacheQueryStringBehavior,
+  ResponseHeadersPolicy,
+  HeadersFrameOption,
+  HeadersReferrerPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { OriginAccessIdentity } from "aws-cdk-lib/aws-cloudfront";
 import { S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
@@ -141,6 +144,40 @@ export class StaticSiteConstruct extends Construct {
       queryStringBehavior: CacheQueryStringBehavior.none(),
     });
 
+    // Response headers policy with CORS for cross-origin script loading
+    const corsResponseHeadersPolicy = new ResponseHeadersPolicy(
+      this,
+      "CorsResponseHeadersPolicy",
+      {
+        responseHeadersPolicyName: `${props.stage}-argus-cors-policy`,
+        comment: "CORS headers for cross-origin script loading",
+        corsBehavior: {
+          accessControlAllowCredentials: false,
+          accessControlAllowHeaders: ["*"],
+          accessControlAllowMethods: ["GET", "HEAD", "OPTIONS"],
+          accessControlAllowOrigins: ["*"],
+          accessControlMaxAge: Duration.seconds(86400),
+          originOverride: true,
+        },
+        securityHeadersBehavior: {
+          contentTypeOptions: { override: true },
+          frameOptions: {
+            frameOption: HeadersFrameOption.DENY,
+            override: true,
+          },
+          referrerPolicy: {
+            referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+            override: true,
+          },
+          strictTransportSecurity: {
+            accessControlMaxAge: Duration.seconds(31536000),
+            includeSubdomains: true,
+            override: true,
+          },
+        },
+      },
+    );
+
     this.distribution = new Distribution(this, "SiteDistribution", {
       defaultBehavior: {
         origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
@@ -149,10 +186,11 @@ export class StaticSiteConstruct extends Construct {
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
       },
       additionalBehaviors: {
-        // JavaScript files - cached and compressed
+        // JavaScript files - cached, compressed, with CORS headers
         "*.js": {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
+          responseHeadersPolicy: corsResponseHeadersPolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
         // CSS files - cached and compressed
