@@ -265,9 +265,12 @@ function detectApiBaseFromHostname(baseDomain: string): string {
 	if (hostname.includes('argus.pw')) {
 		const hostParts = hostname.split('.')
 		let stage = hostParts.length > 2 ? hostParts[0] : ''
+		// Strip static- or demo- prefix to get the stage name
 		if (stage.startsWith('static-')) {
 			stage = stage.replace('static-', '')
-		} else if (stage === 'static') {
+		} else if (stage.startsWith('demo-')) {
+			stage = stage.replace('demo-', '')
+		} else if (stage === 'static' || stage === 'demo') {
 			stage = ''
 		}
 		return stage ? `https://api-${stage}.argus.pw` : `https://api.argus.pw`
