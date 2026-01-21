@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 // Bad fingerprints left always on
 export async function exile() {
@@ -37,7 +36,7 @@ export async function exile() {
   (function (W, i) {
     const k = G;
     const V = W();
-    while (!![]) {
+    while ([]) {
       try {
         const t =
           parseInt(k('0xf9')) / 0x1 +
@@ -121,7 +120,6 @@ export function getStackBytes(): string {
     try {
       counter = 0;
       const fn = () => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const local = 1;
         counter += 1;
         fn();

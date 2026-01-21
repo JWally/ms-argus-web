@@ -51,7 +51,7 @@ function enumerateHTMLElementProperties(): string[] {
   const keys: string[] = [];
 
   // Use for...in to capture all enumerable properties including inherited
-  // eslint-disable-next-line guard-for-in
+
   for (const key in document.documentElement) {
     keys.push(key);
   }

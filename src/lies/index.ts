@@ -29,8 +29,6 @@
  * @module lies
  */
 
-/* eslint-disable new-cap */
-/* eslint-disable no-unused-vars */
 import { captureError } from '../errors';
 import {
   IS_BLINK,

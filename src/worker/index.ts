@@ -454,7 +454,7 @@ export async function spawnWorker() {
 
     // timezone & locale
     const timezoneOffset = computeTimezoneOffset();
-    // eslint-disable-next-line new-cap
+
     const timezoneLocation = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const locale = getLocale();
 
