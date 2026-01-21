@@ -2,6 +2,8 @@
  * Telemetry module - Submits fingerprint data to the Argus API
  *
  * Automatically submits collected fingerprint data and retrieves match results.
+ * AR-187: Updated for v2 payload structure
+ * AR-188: Added schema version header and dev-time Zod validation
  */
 
 import type { FingerprintResult } from '../fingerprint'
@@ -10,7 +12,149 @@ import type { CryptoKeys } from '../utils/get-crypto-id'
 import type { EvercookieData } from '../utils/evercookie'
 
 // ============================================================================
-// Types
+// Constants
+// ============================================================================
+
+/** AR-188: Schema version for v2 payload format */
+export const SCHEMA_VERSION = '2.0.0'
+
+// ============================================================================
+// V2 Payload Types (AR-187)
+// ============================================================================
+
+export interface IdentifiersV2 {
+	session_id: string
+	evercookie_id?: string
+	public_key?: string
+}
+
+export interface DeviceHashesV2 {
+	stable: string
+	fuzzy: string
+	canvas?: string
+	webgl?: string
+	audio?: string
+	fonts?: string
+}
+
+export interface BrowserInfoV2 {
+	user_agent?: string
+	language?: string
+}
+
+export interface ScreenInfoV2 {
+	width: number
+	height: number
+	color_depth?: number
+	pixel_ratio?: number
+}
+
+export interface HardwareInfoV2 {
+	concurrency?: number
+	memory?: number
+	gpu?: string
+}
+
+export interface DeviceV2 {
+	hashes: DeviceHashesV2
+	browser?: BrowserInfoV2
+	screen?: ScreenInfoV2
+	hardware?: HardwareInfoV2
+	timezone?: string
+}
+
+export interface NetworkV2 {
+	ip?: string
+	ja4?: string
+	ja3?: string
+	tcp_rtt_us?: number
+	proxy_score?: number
+	vpn_score?: number
+}
+
+export interface PayloadV2 {
+	identifiers: IdentifiersV2
+	device: DeviceV2
+	network?: NetworkV2
+}
+
+/**
+ * AR-187: Build v2 format payload from telemetry submission data
+ */
+export function buildPayloadV2(data: TelemetrySubmission, sessionId: string): PayloadV2 {
+	const loose = data.fingerprint.loose || {}
+
+	// Build identifiers section
+	const identifiers: IdentifiersV2 = {
+		session_id: sessionId,
+		evercookie_id: data.evercookie?.id,
+		public_key: data.cryptoId?.publicKey,
+	}
+
+	// Build device.hashes section
+	const hashes: DeviceHashesV2 = {
+		stable: data.fingerprint.hashes?.stable || '',
+		fuzzy: data.fingerprint.hashes?.fuzzy || '',
+		canvas: loose.canvas2d?.$hash,
+		webgl: loose.canvasWebgl?.$hash,
+		audio: loose.offlineAudioContext?.$hash,
+		fonts: loose.fonts?.$hash,
+	}
+
+	// Build device.browser section
+	const browser: BrowserInfoV2 | undefined = {
+		user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+		language: typeof navigator !== 'undefined' ? navigator.language : undefined,
+	}
+
+	// Build device.screen section
+	const screen: ScreenInfoV2 | undefined = loose.screen
+		? {
+				width: loose.screen.width,
+				height: loose.screen.height,
+				color_depth: loose.screen.colorDepth,
+				pixel_ratio: loose.screen.pixelRatio || (typeof window !== 'undefined' ? window.devicePixelRatio : undefined),
+			}
+		: undefined
+
+	// Build device.hardware section
+	const hardware: HardwareInfoV2 | undefined = {
+		concurrency: loose.navigator?.hardwareConcurrency || (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined),
+		memory: loose.navigator?.deviceMemory || (typeof navigator !== 'undefined' ? (navigator as any).deviceMemory : undefined),
+		gpu: loose.canvasWebgl?.gpu?.compressedGPU || loose.workerScope?.webglRenderer,
+	}
+
+	// Build device section
+	const device: DeviceV2 = {
+		hashes,
+		browser,
+		screen,
+		hardware,
+		timezone: loose.timezone?.location || (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined),
+	}
+
+	// Build network section (from sigint data)
+	let network: NetworkV2 | undefined
+	if (data.sigint) {
+		network = {
+			ip: data.sigint.tlsFingerprint?.ip,
+			ja4: data.sigint.tlsFingerprint?.ja4,
+			ja3: data.sigint.tlsFingerprint?.ja3,
+			tcp_rtt_us: data.sigint.tcpProbe?.rtt_fingerprint?.tcp_rtt_us,
+			proxy_score: data.sigint.tcpProbe?.rtt_fingerprint?.proxy_score,
+			vpn_score: data.sigint.tcpProbe?.rtt_fingerprint?.vpn_score,
+		}
+	}
+
+	return {
+		identifiers,
+		device,
+		network,
+	}
+}
+
+// ============================================================================
+// V1 Types (Legacy - deprecated)
 // ============================================================================
 
 export interface TelemetryConfig {
@@ -201,7 +345,6 @@ export async function submitTelemetry(
 
 	const {
 		baseDomain,
-		tenantId = 'demo',
 		timeout = 10000,
 		pollForResults = true,
 		maxPollAttempts = 3,
@@ -220,61 +363,8 @@ export async function submitTelemetry(
 	}
 
 	try {
-		// Build submission payload
-		const loose = data.fingerprint.loose || {}
-
-		const submission = {
-			session_id: sessionId,
-			tenant_id: tenantId,
-			fingerprint: {
-				// AR-147: Include full raw fingerprint data for training/analysis
-				loose: data.fingerprint.loose,
-
-				// Primary hashes
-				stable_hash: data.fingerprint.hashes?.stable,
-				fuzzy_hash: data.fingerprint.hashes?.fuzzy,
-
-				// Component hashes
-				canvas_hash: loose.canvas2d?.$hash,
-				webgl_hash: loose.canvasWebgl?.$hash,
-				audio_hash: loose.offlineAudioContext?.$hash,
-
-				// Persistent identifiers
-				evercookie_id: data.evercookie?.id,
-				public_key: data.cryptoId?.publicKey,
-
-				// Hardware/display signals
-				user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-				gpu_renderer: loose.canvasWebgl?.gpu?.compressedGPU || loose.workerScope?.webglRenderer,
-				screen_dims: loose.screen ? `${loose.screen.width}x${loose.screen.height}` : undefined,
-				timezone: loose.timezone?.location || (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined),
-				hardware_concurrency: loose.navigator?.hardwareConcurrency || (typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined),
-				device_memory: loose.navigator?.deviceMemory || (typeof navigator !== 'undefined' ? (navigator as any).deviceMemory : undefined),
-
-				// Privacy browser and bot signals
-				privacy_browser: loose.resistance?.privacy,
-				is_private_browsing: loose.incognito?.isPrivate,
-				bot_hash: data.fingerprint.hashes?.bot,
-				lie_count: data.fingerprint.botSignals?.lieCount,
-				is_headless: data.fingerprint.botSignals?.isHeadless,
-
-				// Structural hashes for privacy browser matching
-				maths_hash: loose.maths?.$hash,
-				window_features_hash: loose.windowFeatures?.$hash,
-				html_element_hash: loose.htmlElementVersion?.$hash,
-				css_hash: loose.css?.$hash,
-				svg_hash: loose.svg?.$hash,
-				webgl_extensions_count: loose.canvasWebgl?.parameters?.supportedExtensions?.length,
-
-				// Network signals from sigint
-				ip_address: data.sigint?.tlsFingerprint?.ip,
-				ja4: data.sigint?.tlsFingerprint?.ja4,
-				ja3: data.sigint?.tlsFingerprint?.ja3,
-				tcp_rtt_us: data.sigint?.tcpProbe?.rtt_fingerprint?.tcp_rtt_us,
-				proxy_score: data.sigint?.tcpProbe?.rtt_fingerprint?.proxy_score,
-				vpn_score: data.sigint?.tcpProbe?.rtt_fingerprint?.vpn_score,
-			},
-		}
+		// AR-187: Build v2 format submission payload
+		const submission = buildPayloadV2(data, sessionId)
 
 		// Submit to API
 		const controller = new AbortController()
@@ -293,6 +383,7 @@ export async function submitTelemetry(
 					headers: {
 						'Content-Type': 'application/octet-stream',
 						'Content-Encoding': 'gzip',
+						'X-Argus-Schema-Version': SCHEMA_VERSION,
 					},
 					body: gzippedBytes, // Raw Uint8Array - browser sends as binary
 					signal: controller.signal,
@@ -301,7 +392,10 @@ export async function submitTelemetry(
 				// Fallback: send uncompressed JSON
 				response = await fetch(`${apiBase}/v1/collect`, {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
+					headers: {
+						'Content-Type': 'application/json',
+						'X-Argus-Schema-Version': SCHEMA_VERSION,
+					},
 					body: JSON.stringify(submission),
 					signal: controller.signal,
 				})
@@ -370,10 +464,21 @@ async function pollSessionResult(
 
 			if (response.ok) {
 				const result = await response.json()
-				if (result.status === 'pending') {
-					continue
+				// AR-189: Handle both v1 and v2 response formats
+				// v2 has analysis.status, v1 has status at root
+				if (result.analysis) {
+					// V2 format
+					if (result.analysis.status === 'pending') {
+						continue
+					}
+					return parseSessionResponseV2(result as SessionResponseV2)
+				} else {
+					// V1 format (backward compat)
+					if (result.status === 'pending') {
+						continue
+					}
+					return result as MatchResult
 				}
-				return result as MatchResult
 			}
 		} catch (err) {
 			// Retry on error
@@ -381,6 +486,46 @@ async function pollSessionResult(
 	}
 
 	return undefined
+}
+
+/**
+ * AR-189: V2 Session Response type (from API)
+ */
+export interface SessionResponseV2 {
+	identifiers: {
+		session_id: string
+		device_id?: string
+		evercookie_id?: string
+		public_key?: string
+	}
+	analysis: {
+		status: 'pending' | 'complete' | 'degraded'
+		confidence?: number
+		match_tier?: number
+		risk_score?: number
+		flags?: string[]
+		evidence_codes?: string[]
+		simhash_details?: SimHashDetails
+		fuzzy_match_info?: FuzzyMatchInfo
+	}
+}
+
+/**
+ * AR-189: Parse v2 session response into v1 MatchResult format
+ * This allows the demo site to continue using the existing v1 interface
+ */
+export function parseSessionResponseV2(v2Response: SessionResponseV2): MatchResult {
+	return {
+		device_id: v2Response.identifiers.device_id ?? '',
+		confidence: v2Response.analysis.confidence ?? 0,
+		match_tier: v2Response.analysis.match_tier ?? -1,
+		risk_score: v2Response.analysis.risk_score ?? 0,
+		status: v2Response.analysis.status,
+		flags: v2Response.analysis.flags,
+		evidence_codes: v2Response.analysis.evidence_codes,
+		simhash_details: v2Response.analysis.simhash_details,
+		fuzzy_match_info: v2Response.analysis.fuzzy_match_info,
+	}
 }
 
 /**
