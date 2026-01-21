@@ -212,6 +212,8 @@ export interface TelemetryResult {
 	sessionId: string
 	submitted: boolean
 	matchResult?: MatchResult
+	/** Full API response from GET /v1/session/{session_id} */
+	apiResponse?: SessionResponseV2
 	error?: string
 	timing: {
 		submitMs: number
@@ -420,7 +422,11 @@ export async function submitTelemetry(
 		// Poll for match results
 		if (pollForResults) {
 			const pollStart = performance.now()
-			result.matchResult = await pollSessionResult(apiBase, sessionId, maxPollAttempts, pollDelayMs, timeout)
+			const pollResult = await pollSessionResult(apiBase, sessionId, maxPollAttempts, pollDelayMs, timeout)
+			if (pollResult) {
+				result.matchResult = pollResult.matchResult
+				result.apiResponse = pollResult.apiResponse
+			}
 			result.timing.pollMs = performance.now() - pollStart
 		}
 
@@ -432,6 +438,11 @@ export async function submitTelemetry(
 	return result
 }
 
+interface PollResult {
+	matchResult: MatchResult
+	apiResponse: SessionResponseV2
+}
+
 /**
  * Poll for session match results
  */
@@ -441,7 +452,7 @@ async function pollSessionResult(
 	maxAttempts: number,
 	delayMs: number,
 	timeout: number
-): Promise<MatchResult | undefined> {
+): Promise<PollResult | undefined> {
 	for (let i = 0; i < maxAttempts; i++) {
 		// Don't wait on first attempt
 		if (i > 0) {
@@ -471,13 +482,31 @@ async function pollSessionResult(
 					if (result.analysis.status === 'pending') {
 						continue
 					}
-					return parseSessionResponseV2(result as SessionResponseV2)
+					const apiResponse = result as SessionResponseV2
+					return {
+						matchResult: parseSessionResponseV2(apiResponse),
+						apiResponse,
+					}
 				} else {
-					// V1 format (backward compat)
+					// V1 format (backward compat) - wrap in v2 structure
 					if (result.status === 'pending') {
 						continue
 					}
-					return result as MatchResult
+					const matchResult = result as MatchResult
+					return {
+						matchResult,
+						apiResponse: {
+							identifiers: { session_id: sessionId, device_id: matchResult.device_id },
+							analysis: {
+								status: matchResult.status as 'complete',
+								confidence: matchResult.confidence,
+								match_tier: matchResult.match_tier,
+								risk_score: matchResult.risk_score,
+								flags: matchResult.flags,
+								evidence_codes: matchResult.evidence_codes,
+							},
+						},
+					}
 				}
 			}
 		} catch (err) {
@@ -490,6 +519,7 @@ async function pollSessionResult(
 
 /**
  * AR-189: V2 Session Response type (from API)
+ * This is the full API response from GET /v1/session/{session_id}
  */
 export interface SessionResponseV2 {
 	identifiers: {
@@ -497,6 +527,48 @@ export interface SessionResponseV2 {
 		device_id?: string
 		evercookie_id?: string
 		public_key?: string
+	}
+	device?: {
+		hashes?: {
+			stable?: string
+			fuzzy?: string
+			canvas?: string
+			webgl?: string
+			audio?: string
+			fonts?: string
+		}
+		user_agent?: string
+		platform?: string
+		language?: string
+		languages?: string[]
+		hardware_concurrency?: number
+		device_memory?: number
+		max_touch_points?: number
+		screen_width?: number
+		screen_height?: number
+		color_depth?: number
+		pixel_ratio?: number
+		gpu_vendor?: string
+		gpu_renderer?: string
+		timezone_offset?: number
+		timezone_name?: string
+		webdriver?: boolean
+		headless_signals?: string[]
+	}
+	network?: {
+		ip?: string
+		geo?: {
+			country?: string
+			city?: string
+			asn?: string
+		}
+		is_proxy?: boolean
+		is_vpn?: boolean
+		ja3?: string
+		ja4?: string
+		headers?: Record<string, string>
+		webrtc_local_ip?: string
+		webrtc_public_ip?: string
 	}
 	analysis: {
 		status: 'pending' | 'complete' | 'degraded'

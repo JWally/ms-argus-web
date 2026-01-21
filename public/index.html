@@ -922,7 +922,7 @@
   <div id="copyToast" class="copy-toast">Copied to clipboard</div>
 
   <script type="module">
-    import { load, getMatchTierLabel } from '/dist/argus.esm.js';
+    import { load, getMatchTierLabel } from '/argus.esm.js';
 
     let lastResult = null;
 
@@ -1971,22 +1971,31 @@
     }
 
     function updateRawJson(result) {
-      const data = {
-        fingerprint: result.fingerprint,
-        evercookie: result.evercookie,
-        cryptoId: result.cryptoId,
-        sigint: result.sigint,
-        telemetry: result.telemetry,
-        timing: result.timing,
-      };
-      document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+      // Display the full API response from GET /v1/session/{session_id}
+      const apiResponse = result.telemetry?.apiResponse;
+      if (apiResponse) {
+        document.getElementById('rawJson').textContent = JSON.stringify(apiResponse, null, 2);
+      } else {
+        // Fallback to client-side data if no API response
+        const data = {
+          fingerprint: result.fingerprint,
+          evercookie: result.evercookie,
+          cryptoId: result.cryptoId,
+          sigint: result.sigint,
+          telemetry: result.telemetry,
+          timing: result.timing,
+        };
+        document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+      }
     }
 
     // Copy functionality
     window.copyData = async function(format) {
       if (!lastResult) return;
 
-      const data = {
+      // Copy the full API response if available
+      const apiResponse = lastResult.telemetry?.apiResponse;
+      const data = apiResponse || {
         fingerprint: lastResult.fingerprint,
         evercookie: lastResult.evercookie,
         cryptoId: lastResult.cryptoId,
