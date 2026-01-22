@@ -28,6 +28,7 @@ import {
   EVERCOOKIE_CACHE_URL,
   BROADCAST_CHANNEL_NAME,
 } from './constants';
+import { expectFailure } from './expected-failure';
 
 import {
   getFaviconCacheId,
@@ -98,7 +99,7 @@ function deserialize(str: string | null | undefined): EvercookieData | null {
       return parsed as EvercookieData;
     }
   } catch {
-    // Invalid JSON
+    expectFailure('JSON.parse', 'Invalid or corrupted stored data');
   }
   return null;
 }
@@ -145,6 +146,7 @@ async function readFromIndexedDB(): Promise<EvercookieData | null> {
       };
     });
   } catch {
+    expectFailure('indexedDB.read', 'Private browsing or storage blocked');
     return null;
   }
 }
@@ -167,6 +169,7 @@ async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
       };
     });
   } catch {
+    expectFailure('indexedDB.write', 'Private browsing or storage blocked');
     return false;
   }
 }
@@ -178,6 +181,10 @@ function readFromLocalStorage(): EvercookieData | null {
     const stored = localStorage.getItem(EVERCOOKIE_KEY);
     return deserialize(stored);
   } catch {
+    expectFailure(
+      'localStorage.getItem',
+      'Private browsing or storage blocked',
+    );
     return null;
   }
 }
@@ -187,6 +194,7 @@ function writeToLocalStorage(data: EvercookieData): boolean {
     localStorage.setItem(EVERCOOKIE_KEY, serialize(data));
     return true;
   } catch {
+    expectFailure('localStorage.setItem', 'Quota exceeded or private browsing');
     return false;
   }
 }
@@ -198,6 +206,10 @@ function readFromSessionStorage(): EvercookieData | null {
     const stored = sessionStorage.getItem(EVERCOOKIE_KEY);
     return deserialize(stored);
   } catch {
+    expectFailure(
+      'sessionStorage.getItem',
+      'Private browsing or storage blocked',
+    );
     return null;
   }
 }
@@ -207,6 +219,10 @@ function writeToSessionStorage(data: EvercookieData): boolean {
     sessionStorage.setItem(EVERCOOKIE_KEY, serialize(data));
     return true;
   } catch {
+    expectFailure(
+      'sessionStorage.setItem',
+      'Quota exceeded or private browsing',
+    );
     return false;
   }
 }
@@ -224,7 +240,7 @@ function readFromCookie(): EvercookieData | null {
       }
     }
   } catch {
-    // Cookie access might be blocked
+    expectFailure('document.cookie', 'Cookie access blocked or disabled');
   }
   return null;
 }
