@@ -28,6 +28,7 @@
 
 import { captureError } from '../errors';
 import { createTimer, logTestResult } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 import type { ConsoleErrorsFingerprint, JSEngine, LayoutEngine } from './types';
 
 /**
@@ -57,6 +58,7 @@ function detectJSEngineFromStack(): JSEngine {
 
     return 'unknown';
   } catch {
+    expectFailure('Error.stack', 'Stack trace unavailable in this environment');
     return 'unknown';
   }
 }
@@ -98,6 +100,10 @@ function detectFromStackPropertyDescriptor(): JSEngine | null {
 
     return null;
   } catch {
+    expectFailure(
+      'Error.stack descriptor',
+      'Property descriptor access failed',
+    );
     return null;
   }
 }
@@ -129,6 +135,7 @@ function detectFromErrorMessages(): JSEngine {
     }
     return 'unknown';
   } catch {
+    expectFailure('error.message detection', 'Error pattern detection failed');
     return 'unknown';
   }
 }
@@ -148,6 +155,7 @@ function detectFromMathQuirks(): JSEngine | null {
     // This is more of a validation than primary detection
     return null;
   } catch {
+    expectFailure('Math.asinh', 'Math operation failed');
     return null;
   }
 }
@@ -225,6 +233,7 @@ function detectLayoutEngine(): LayoutEngine {
 
     return 'unknown';
   } catch {
+    expectFailure('layout engine detection', 'DOM style access failed');
     return 'unknown';
   }
 }
