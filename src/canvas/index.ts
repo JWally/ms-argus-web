@@ -46,6 +46,7 @@ import {
   LowerEntropy,
   IS_GECKO,
 } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 import {
   KNOWN_IMAGE_DATA,
   PICASSO_COLORS,
@@ -749,7 +750,8 @@ function collectEmojiMetrics(context: CanvasRenderingContext2D): {
     try {
       context.font = font;
     } catch {
-      continue; // Font not available
+      expectFailure('collectEmojiMetrics', `Font not available: ${font}`);
+      continue;
     }
 
     for (const str of TEXT_METRICS_TEST_STRINGS) {
@@ -757,7 +759,10 @@ function collectEmojiMetrics(context: CanvasRenderingContext2D): {
         const metrics = context.measureText(str);
         allMetrics.push(...extractAllMetrics(metrics));
       } catch {
-        // Ignore measurement errors
+        expectFailure(
+          'collectEmojiMetrics',
+          `Text measurement failed for: ${str.slice(0, 10)}`,
+        );
       }
     }
   }

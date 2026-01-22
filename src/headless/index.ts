@@ -35,6 +35,7 @@ import {
   IS_BLINK,
   logTestResult,
 } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 
 import { HEADLESS_ACTIVE_TEXT_COLOR, CHROME_INDEX_RANGE } from './constants';
 import getPlatformEstimate from './getPlatformEstimate';
@@ -79,6 +80,7 @@ async function hasPermissionsBug(): Promise<boolean> {
       Notification.permission === 'denied'
     );
   } catch {
+    expectFailure('hasPermissionsBug', 'permissions.query failed');
     return false;
   }
 }
@@ -173,6 +175,10 @@ async function hasBlankUaData(): Promise<boolean> {
     ]);
     return highEntropy.platform === '';
   } catch {
+    expectFailure(
+      'hasBlankUaData',
+      'userAgentData.getHighEntropyValues failed',
+    );
     return false;
   }
 }
@@ -306,6 +312,7 @@ function hasIframeProxy(): boolean {
     // contentWindow should be null before insertion
     return !!iframe.contentWindow;
   } catch {
+    expectFailure('hasIframeProxy', 'iframe creation failed');
     return true;
   }
 }

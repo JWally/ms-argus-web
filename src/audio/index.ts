@@ -36,6 +36,7 @@ import { attempt, caniuse, captureError } from '../errors';
 import { documentLie, lieProps } from '../lies';
 import { sendToTrash } from '../trash';
 import { createTimer, logTestResult, queueEvent } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 
 import { AUDIO_CONFIG, AUDIO_TRAP } from './constants';
 import type {
@@ -195,7 +196,10 @@ function renderAudioBuffer(
       dynamicsCompressor.knee.value = AUDIO_CONFIG.COMPRESSOR_KNEE;
       dynamicsCompressor.attack.value = 0;
     } catch {
-      // Some browsers may not support all settings
+      expectFailure(
+        'renderAudioBuffer',
+        'Browser does not support all compressor settings',
+      );
     }
 
     // Connect the audio graph
@@ -231,6 +235,7 @@ function renderAudioBuffer(
             dynamicsCompressor.reduction.value ?? dynamicsCompressor.reduction,
         });
       } catch {
+        expectFailure('renderAudioBuffer', 'Audio data extraction failed');
         resolve(null);
       }
     });
@@ -393,7 +398,10 @@ export default async function getOfflineAudioContext(): Promise<
       window.OfflineAudioContext =
         OfflineAudioContext || webkitOfflineAudioContext;
     } catch {
-      // Not available
+      expectFailure(
+        'getOfflineAudioContext',
+        'OfflineAudioContext not available',
+      );
     }
 
     if (!window.OfflineAudioContext) {

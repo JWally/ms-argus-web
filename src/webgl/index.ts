@@ -40,6 +40,7 @@ import {
   getGpuBrand,
   Analysis,
 } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 
 import {
   WEBGL_PARAMS,
@@ -180,6 +181,7 @@ function getContext(
       (canvas.getContext('webkit-3d') as WebGLRenderingContext)
     );
   } catch {
+    expectFailure('getContext', 'WebGL context creation failed');
     return undefined;
   }
 }
@@ -413,6 +415,7 @@ function getWebGLData(
     try {
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     } catch {
+      expectFailure('getWebGLData', 'gl.readPixels failed');
       return { dataURI, pixels: undefined };
     }
 

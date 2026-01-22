@@ -9,6 +9,7 @@
  */
 
 import { loadTimezoneCities } from '../utils/data-loader';
+import { expectFailure } from '../utils/expected-failure';
 
 /**
  * Historical year used for timezone offset calculations.
@@ -37,7 +38,10 @@ export async function getTimezoneCities(): Promise<string[]> {
     _timezoneCities = await loadTimezoneCities();
     return _timezoneCities;
   } catch {
-    // Fall back to inline data if external load fails
+    expectFailure(
+      'loadTimezoneCities',
+      'External timezone data load failed, using inline',
+    );
     return TIMEZONE_CITIES_INLINE;
   }
 }

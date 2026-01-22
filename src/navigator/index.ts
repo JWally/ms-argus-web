@@ -44,6 +44,7 @@ import {
   PLATFORM_OS,
   Analysis,
 } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 import {
   VALID_DEVICE_MEMORY,
   VALID_DO_NOT_TRACK,
@@ -345,6 +346,10 @@ async function getPermissions(): Promise<PermissionStates | undefined> {
         } as PermissionDescriptor);
         return { name, state: res.state };
       } catch {
+        expectFailure(
+          'getPermissionState',
+          `Permission query failed for ${name}`,
+        );
         return { name, state: 'unknown' };
       }
     };

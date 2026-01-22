@@ -56,7 +56,8 @@ export interface LoaderResult {
 
 const DEFAULT_TIMEOUT = 15_000;
 const MSG_TYPE = '__argus_result__';
-const SRCDOC = '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
+const SRCDOC =
+  '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
 
 const IFRAME_CSS = `
 .argus-frame{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;opacity:0;border:none}
@@ -76,6 +77,7 @@ function injectStyles(): void {
     document.head.appendChild(style);
   } catch {
     // CSP may block inline styles - iframe will still work, just visible briefly
+    // No expectFailure needed - this is non-critical and the page will still function
   }
 }
 
@@ -196,21 +198,29 @@ export async function load(config: LoaderConfig): Promise<LoaderResult> {
     iframe.setAttribute('tabindex', '-1');
     iframe.setAttribute('aria-hidden', 'true');
 
-    iframe.addEventListener('load', () => {
-      if (settled || !iframe?.contentDocument) return;
+    iframe.addEventListener(
+      'load',
+      () => {
+        if (settled || !iframe?.contentDocument) return;
 
-      // Inject our script into the iframe
-      const script = iframe.contentDocument.createElement('script');
-      script.textContent = buildIframeScript(config);
-      iframe.contentDocument.body.appendChild(script);
-    }, { once: true });
+        // Inject our script into the iframe
+        const script = iframe.contentDocument.createElement('script');
+        script.textContent = buildIframeScript(config);
+        iframe.contentDocument.body.appendChild(script);
+      },
+      { once: true },
+    );
 
-    iframe.addEventListener('error', () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error('Failed to create iframe'));
-    }, { once: true });
+    iframe.addEventListener(
+      'error',
+      () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error('Failed to create iframe'));
+      },
+      { once: true },
+    );
 
     document.body.appendChild(iframe);
   });
@@ -251,26 +261,37 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
           endpoint: url.searchParams.get('endpoint') || undefined,
           sessionId: url.searchParams.get('sessionId') || undefined,
           timeout: parseInt(url.searchParams.get('timeout') || '') || undefined,
-        }).then((result) => {
-          // Store result globally for access
-          (window as unknown as Record<string, unknown>).__argusResult__ = result;
+        })
+          .then((result) => {
+            // Store result globally for access
+            (window as unknown as Record<string, unknown>).__argusResult__ =
+              result;
 
-          // Send to endpoint if configured
-          const endpoint = url.searchParams.get('endpoint');
-          if (endpoint) {
-            const body = JSON.stringify(result);
-            if (navigator.sendBeacon) {
-              navigator.sendBeacon(endpoint, new Blob([body], { type: 'application/json' }));
-            } else {
-              fetch(endpoint, { method: 'POST', body, keepalive: true }).catch(() => {});
+            // Send to endpoint if configured
+            const endpoint = url.searchParams.get('endpoint');
+            if (endpoint) {
+              const body = JSON.stringify(result);
+              if (navigator.sendBeacon) {
+                navigator.sendBeacon(
+                  endpoint,
+                  new Blob([body], { type: 'application/json' }),
+                );
+              } else {
+                fetch(endpoint, {
+                  method: 'POST',
+                  body,
+                  keepalive: true,
+                }).catch(() => {});
+              }
             }
-          }
-        }).catch((err) => {
-          console.warn('[Argus] Load failed:', err);
-        });
+          })
+          .catch((err) => {
+            console.warn('[Argus] Load failed:', err);
+          });
       }
     }
   } catch {
-    // Ignore auto-run errors
+    // Ignore auto-run errors - this is initialization code that may fail in some environments
+    // No expectFailure needed - this is non-critical startup code
   }
 }

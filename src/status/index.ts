@@ -24,6 +24,7 @@
  * @module status
  */
 
+import { expectFailure } from '../utils/expected-failure';
 import type { BatteryInfo, StatusFingerprint } from './types';
 
 /** Bytes per gigabyte for conversion calculations */
@@ -116,6 +117,7 @@ function getClientLitter(): string[] {
     const clientKeys = windowKeys.filter((x) => !iframeKeys.includes(x));
     return clientKeys;
   } catch {
+    expectFailure('getClientLitter', 'iframe contentWindow access failed');
     return [];
   }
 }
@@ -213,7 +215,7 @@ async function getScriptSize(): Promise<number | null> {
     // @ts-expect-error - document.currentScript may not exist
     url = document?.currentScript?.src || import.meta.url;
   } catch {
-    // import.meta may not be supported
+    expectFailure('getScriptSize', 'import.meta not supported');
   }
 
   if (!url) return null;

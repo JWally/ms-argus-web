@@ -20,6 +20,7 @@
 import { captureError } from '../errors';
 import { lieProps } from '../lies';
 import { createTimer, logTestResult } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 
 import { MS_PER_MINUTE } from './constants';
 import type { TimezoneFingerprint } from './types';
@@ -67,6 +68,7 @@ function formatLocation(location: string): string {
   try {
     return location.replace(/_/g, ' ').split('/').join(', ');
   } catch {
+    expectFailure('formatLocation', 'String manipulation failed');
     return location;
   }
 }

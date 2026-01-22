@@ -20,7 +20,10 @@ import {
   type SigintConfig,
   type SigintData,
 } from './utils/sigint';
-import { setCustomStunServers, clearCustomStunServers } from './webrtc/constants';
+import {
+  setCustomStunServers,
+  clearCustomStunServers,
+} from './webrtc/constants';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -87,7 +90,8 @@ export interface LoaderResult {
 const DEFAULT_TIMEOUT = 10_000;
 
 /** Minimal HTML for srcdoc iframe - clean environment */
-const SRCDOC_HTML = '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
+const SRCDOC_HTML =
+  '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>';
 
 /** CSS to hide the iframe completely */
 const IFRAME_STYLES = `
@@ -110,10 +114,7 @@ const IFRAME_STYLES = `
  * Select a variant based on device hash or random assignment.
  * Can be seeded with a stable identifier for consistent assignment.
  */
-export function selectVariant(
-  variants: string[],
-  seed?: string
-): string {
+export function selectVariant(variants: string[], seed?: string): string {
   if (variants.length === 0) return 'control';
   if (variants.length === 1) return variants[0];
 
@@ -132,7 +133,7 @@ export function selectVariant(
  */
 export function isFeatureEnabled(
   feature: string,
-  config: LoaderConfig
+  config: LoaderConfig,
 ): boolean {
   // Explicit feature flag takes precedence
   if (config.features?.[feature] !== undefined) {
@@ -187,16 +188,24 @@ function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
       reject(new Error('Iframe load timeout'));
     }, 5000);
 
-    iframe.addEventListener('load', () => {
-      clearTimeout(timeout);
-      // Small delay to ensure contentDocument is fully ready
-      requestAnimationFrame(() => resolve());
-    }, { once: true });
+    iframe.addEventListener(
+      'load',
+      () => {
+        clearTimeout(timeout);
+        // Small delay to ensure contentDocument is fully ready
+        requestAnimationFrame(() => resolve());
+      },
+      { once: true },
+    );
 
-    iframe.addEventListener('error', () => {
-      clearTimeout(timeout);
-      reject(new Error('Iframe load error'));
-    }, { once: true });
+    iframe.addEventListener(
+      'error',
+      () => {
+        clearTimeout(timeout);
+        reject(new Error('Iframe load error'));
+      },
+      { once: true },
+    );
   });
 }
 
@@ -236,7 +245,9 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
       // Run fingerprint and sigint collection in parallel if enabled
       const [fingerprint, sigintData] = await Promise.all([
         collectFingerprint(),
-        config.enableSigint ? collectSigintData(config.sigint || {}) : Promise.resolve(undefined),
+        config.enableSigint
+          ? collectSigintData(config.sigint || {})
+          : Promise.resolve(undefined),
       ]);
       const endTime = performance.now();
 
@@ -269,7 +280,9 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
     // Set up timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
-        reject(new Error(`Fingerprint collection timed out after ${timeout}ms`));
+        reject(
+          new Error(`Fingerprint collection timed out after ${timeout}ms`),
+        );
       }, timeout);
     });
 
@@ -297,13 +310,18 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
       // providing a clean DOM to query if needed.
       const [fingerprint, sigintData] = await Promise.all([
         collectFingerprint(),
-        config.enableSigint ? collectSigintData(config.sigint || {}) : Promise.resolve(undefined),
+        config.enableSigint
+          ? collectSigintData(config.sigint || {})
+          : Promise.resolve(undefined),
       ]);
       return { fingerprint, sigintData };
     })();
 
     // Race between collection and timeout
-    const { fingerprint, sigintData } = await Promise.race([collectionPromise, timeoutPromise]);
+    const { fingerprint, sigintData } = await Promise.race([
+      collectionPromise,
+      timeoutPromise,
+    ]);
 
     const endTime = performance.now();
 
@@ -351,7 +369,7 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
 async function sendToEndpoint(
   endpoint: string,
   result: LoaderResult,
-  config: LoaderConfig
+  config: LoaderConfig,
 ): Promise<void> {
   const payload = {
     fingerprint: result.fingerprint,
@@ -417,8 +435,11 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
       const script = document.currentScript as HTMLScriptElement | null;
       if (!script?.src) return false;
       const url = new URL(script.src);
-      return url.searchParams.has('autorun') || url.searchParams.has('endpoint');
+      return (
+        url.searchParams.has('autorun') || url.searchParams.has('endpoint')
+      );
     } catch {
+      // URL parsing failed - auto-run not applicable
       return false;
     }
   })();
@@ -429,8 +450,9 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
 
     // Parse sigint config from URL params
     const sigintConfig = parseSigintConfigFromUrl(url);
-    const enableSigint = url.searchParams.has('sigintDomain') ||
-                         url.searchParams.get('enableSigint') === 'true';
+    const enableSigint =
+      url.searchParams.has('sigintDomain') ||
+      url.searchParams.get('enableSigint') === 'true';
 
     load({
       endpoint: url.searchParams.get('endpoint') || undefined,

@@ -21,6 +21,7 @@
 import { captureError } from '../errors';
 import { hashMini } from '../utils/crypto';
 import { createTimer, logTestResult } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 
 /**
  * Timing sample with multiple clock sources.
@@ -164,6 +165,10 @@ async function getHighPrecisionTime(): Promise<number | null> {
         resolve(count);
       }, 10);
     } catch {
+      expectFailure(
+        'getHighPrecisionTime',
+        'SharedArrayBuffer/Atomics worker failed',
+      );
       resolve(null);
     }
   });

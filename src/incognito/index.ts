@@ -15,6 +15,7 @@
  */
 
 import { createTimer, logTestResult } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 
 /**
  * Result of incognito detection
@@ -97,6 +98,7 @@ async function testChromeFileSystem(): Promise<TestResult> {
       );
     });
   } catch {
+    expectFailure('webkitRequestFileSystem', 'API not supported or blocked');
     return { ...result, weight: 0 };
   }
 }
@@ -127,6 +129,10 @@ async function testStorageEstimate(): Promise<TestResult> {
 
     return result;
   } catch {
+    expectFailure(
+      'navigator.storage.estimate',
+      'StorageManager API not supported',
+    );
     return { ...result, weight: 0 };
   }
 }
@@ -160,6 +166,10 @@ async function testFirefoxIndexedDB(): Promise<TestResult> {
       setTimeout(() => resolve({ ...result, weight: 0 }), 500);
     });
   } catch {
+    expectFailure(
+      'indexedDB.open',
+      'IndexedDB blocked in Firefox private mode',
+    );
     return { ...result, isPrivate: true };
   }
 }
@@ -181,6 +191,10 @@ function testSafariLocalStorage(): TestResult {
     localStorage.removeItem(testKey);
     return result;
   } catch {
+    expectFailure(
+      'localStorage.setItem',
+      'Safari private mode throws on storage',
+    );
     return { ...result, isPrivate: true };
   }
 }
@@ -206,6 +220,10 @@ function testSafariOpenDatabase(): TestResult {
     const db = window.openDatabase('test', '1.0', 'Test', 1);
     return { ...result, isPrivate: !db };
   } catch {
+    expectFailure(
+      'window.openDatabase',
+      'WebSQL disabled in Safari private mode',
+    );
     return { ...result, isPrivate: true };
   }
 }
@@ -231,6 +249,7 @@ async function testCacheStorage(): Promise<TestResult> {
     await caches.delete(cacheName);
     return result;
   } catch {
+    expectFailure('caches.open', 'CacheStorage blocked in private mode');
     return { ...result, isPrivate: true };
   }
 }
@@ -255,6 +274,10 @@ async function testServiceWorker(): Promise<TestResult> {
     await navigator.serviceWorker.getRegistrations();
     return result;
   } catch {
+    expectFailure(
+      'serviceWorker.getRegistrations',
+      'ServiceWorker restricted in private mode',
+    );
     return { ...result, isPrivate: true };
   }
 }
@@ -285,10 +308,12 @@ function testSharedWorker(): TestResult {
       URL.revokeObjectURL(url);
       return result;
     } catch {
+      expectFailure('new SharedWorker', 'SharedWorker blocked in private mode');
       URL.revokeObjectURL(url);
       return { ...result, isPrivate: true };
     }
   } catch {
+    expectFailure('SharedWorker', 'SharedWorker API not supported');
     return { ...result, weight: 0 };
   }
 }
@@ -311,6 +336,7 @@ function testFileSystemSync(): TestResult {
     }
     return result;
   } catch {
+    expectFailure('requestFileSystemSync', 'FileSystem Sync API not available');
     return { ...result, isPrivate: true };
   }
 }
@@ -340,6 +366,10 @@ function testPerformanceMemory(): TestResult {
 
     return result;
   } catch {
+    expectFailure(
+      'performance.memory',
+      'Memory API not available in this browser',
+    );
     return { ...result, weight: 0 };
   }
 }
@@ -364,6 +394,10 @@ async function testCredentials(): Promise<TestResult> {
     await navigator.credentials.preventSilentAccess();
     return result;
   } catch {
+    expectFailure(
+      'navigator.credentials',
+      'Credentials API restricted in private mode',
+    );
     return { ...result, isPrivate: true };
   }
 }

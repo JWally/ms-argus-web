@@ -23,6 +23,7 @@
  */
 
 import { DATABASE_NAME, EVERCOOKIE_KEY } from './constants';
+import { expectFailure } from './expected-failure';
 
 /* ─────────────────────────── Constants ─────────────────────────── */
 
@@ -143,6 +144,7 @@ async function storeInCacheAPI(bits: string): Promise<boolean> {
     await Promise.all(promises);
     return true;
   } catch {
+    expectFailure('caches.open', 'Cache API not available or blocked');
     return false;
   }
 }
@@ -172,6 +174,7 @@ async function readFromCacheAPI(
 
     return bits;
   } catch {
+    expectFailure('caches.match', 'Cache API read failed');
     return null;
   }
 }
@@ -185,7 +188,7 @@ async function clearCacheAPI(): Promise<void> {
       await caches.delete(FAVICON_CACHE_NAME);
     }
   } catch {
-    // Ignore errors
+    expectFailure('caches.delete', 'Cache API delete failed');
   }
 }
 
@@ -292,6 +295,7 @@ async function readWithTiming(
 
     return bitString;
   } catch {
+    expectFailure('probeAllWithTiming', 'Timing-based cache detection failed');
     return null;
   }
 }
@@ -313,7 +317,10 @@ function getMetadataFromStorage(): FaviconMetadata | null {
       return JSON.parse(stored);
     }
   } catch {
-    // Ignore
+    expectFailure(
+      'localStorage.getItem',
+      'localStorage read failed or blocked',
+    );
   }
   return null;
 }
@@ -322,7 +329,10 @@ function setMetadataToStorage(meta: FaviconMetadata): void {
   try {
     localStorage.setItem(METADATA_KEY, JSON.stringify(meta));
   } catch {
-    // Ignore
+    expectFailure(
+      'localStorage.setItem',
+      'localStorage write failed or quota exceeded',
+    );
   }
 }
 
@@ -330,7 +340,7 @@ function clearMetadataFromStorage(): void {
   try {
     localStorage.removeItem(METADATA_KEY);
   } catch {
-    // Ignore
+    expectFailure('localStorage.removeItem', 'localStorage delete failed');
   }
 }
 
@@ -572,7 +582,7 @@ export async function getFaviconCacheDiagnostics(): Promise<{
         }
       }
     } catch {
-      // Ignore
+      expectFailure('caches.match', 'Cache API diagnostics failed');
     }
   }
 

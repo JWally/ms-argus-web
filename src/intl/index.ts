@@ -25,6 +25,7 @@
 import { caniuse, captureError } from '../errors';
 import { lieProps } from '../lies';
 import { createTimer, queueEvent, logTestResult } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 import { INTL_CONSTRUCTORS, REFERENCE_TIMESTAMP } from './constants';
 import type { IntlFingerprint } from './types';
 
@@ -52,6 +53,7 @@ function getLocale(intl: typeof Intl): string[] {
         const { locale } = obj.resolvedOptions() || {};
         return locale ? [...acc, locale] : acc;
       } catch {
+        expectFailure('getLocale', `Intl.${name} constructor failed`);
         return acc;
       }
     },

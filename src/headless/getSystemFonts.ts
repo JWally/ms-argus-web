@@ -19,6 +19,7 @@
  * either installing the correct fonts or modifying CSS resolution.
  */
 
+import { expectFailure } from '../utils/expected-failure';
 import { Platform, SYSTEM_FONTS, GECKO_FONT_PLATFORMS } from './constants';
 
 /**
@@ -62,6 +63,7 @@ export function getSystemFonts(): string {
     // Return with platform suffix if detected, otherwise just the font string
     return geckoPlatform ? `${systemFonts}:${geckoPlatform}` : systemFonts;
   } catch {
+    expectFailure('getSystemFonts', 'Font detection failed');
     return '';
   } finally {
     // Always clean up the temporary element

@@ -255,6 +255,7 @@ function writeToCookie(data: EvercookieData): boolean {
     document.cookie = `${EVERCOOKIE_KEY}=${value}; expires=${expires}; path=/; SameSite=Lax`;
     return true;
   } catch {
+    expectFailure('document.cookie write', 'Cookie write blocked or disabled');
     return false;
   }
 }
@@ -273,7 +274,7 @@ async function readFromCacheAPI(): Promise<EvercookieData | null> {
       return deserialize(text);
     }
   } catch {
-    // Cache API might not be available
+    expectFailure('caches.match', 'Cache API read failed or unavailable');
   }
   return null;
 }
@@ -293,6 +294,7 @@ async function writeToCacheAPI(data: EvercookieData): Promise<boolean> {
     await cache.put(EVERCOOKIE_CACHE_URL, response);
     return true;
   } catch {
+    expectFailure('caches.put', 'Cache API write failed or unavailable');
     return false;
   }
 }
@@ -317,7 +319,7 @@ function initBroadcastChannel(): void {
       }
     };
   } catch {
-    // BroadcastChannel not available
+    expectFailure('BroadcastChannel', 'BroadcastChannel not available');
   }
 }
 
@@ -326,7 +328,10 @@ function broadcastData(data: EvercookieData): void {
     try {
       broadcastChannel.postMessage(serialize(data));
     } catch {
-      // Channel closed or unavailable
+      expectFailure(
+        'broadcastChannel.postMessage',
+        'Channel closed or unavailable',
+      );
     }
   }
 }
@@ -542,15 +547,21 @@ export async function clearEvercookieId(): Promise<void> {
   // Synchronous clears
   try {
     localStorage.removeItem(EVERCOOKIE_KEY);
-  } catch {}
+  } catch {
+    expectFailure('localStorage.removeItem', 'localStorage clear failed');
+  }
 
   try {
     sessionStorage.removeItem(EVERCOOKIE_KEY);
-  } catch {}
+  } catch {
+    expectFailure('sessionStorage.removeItem', 'sessionStorage clear failed');
+  }
 
   try {
     document.cookie = `${EVERCOOKIE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-  } catch {}
+  } catch {
+    expectFailure('document.cookie clear', 'Cookie clear failed');
+  }
 
   await Promise.all(clearPromises);
 }

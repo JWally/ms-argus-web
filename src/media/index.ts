@@ -23,6 +23,7 @@
 
 import { captureError } from '../errors';
 import { createTimer, logTestResult } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 import { MIME_TYPE_TEST_LIST } from './constants';
 import type { MimeTypeSupport, MediaFingerprint } from './types';
 
@@ -80,6 +81,7 @@ function getMimeTypes(): MimeTypeSupport[] | undefined {
 
     return types;
   } catch {
+    expectFailure('testMimeTypes', 'MIME type testing failed');
     return undefined;
   }
 }

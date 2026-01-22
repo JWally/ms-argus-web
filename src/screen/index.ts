@@ -29,6 +29,7 @@ import {
   logTestResult,
   LowerEntropy,
 } from '../utils/helpers';
+import { expectFailure } from '../utils/expected-failure';
 import { TASKBAR_DETECTION_THRESHOLD } from './constants';
 import type { ScreenFingerprint } from './types';
 
@@ -48,6 +49,7 @@ function hasTouch(): boolean {
   try {
     return 'ontouchstart' in window && !!document.createEvent('TouchEvent');
   } catch {
+    expectFailure('hasTouch', 'TouchEvent creation failed');
     return false;
   }
 }
