@@ -1,151 +1,52 @@
+/**
+ * Helpers Module
+ *
+ * Re-exports and remaining utilities. Most functionality has been
+ * moved to focused modules - import directly from those instead.
+ *
+ * @module utils/helpers
+ * @see ./platform - OS detection
+ * @see ./engine - JS engine detection
+ * @see ./brave - Brave browser detection
+ * @see ./timing - Performance timing
+ */
+
 import { PlatformClassifier } from './types';
 import { getOS as getOSFromPlatform } from './platform';
-import { EngineId, ENGINE_NAMES } from '../constants/engine';
+
+// Re-export from focused modules with deprecation notices
+export { IS_BLINK, IS_GECKO, IS_WEBKIT, JS_ENGINE } from './engine';
+
+export {
+  LIKE_BRAVE,
+  braveBrowser,
+  getBraveMode,
+  getBraveUnprotectedParameters,
+} from './brave';
+
+export {
+  createTimer,
+  queueEvent,
+  logTestResult,
+  performanceLogger,
+  getPromiseRaceFulfilled,
+} from './timing';
 
 // @ts-expect-error
 export const IS_WORKER_SCOPE = !self.document && self.WorkerGlobalScope;
-
-// Detect Browser
-function getEngine() {
-  const x = [].constructor;
-  try {
-    (-1).toFixed(-1);
-  } catch (err) {
-    return err.message.length + (x + '').split(x.name).join('').length;
-  }
-}
-
-const ENGINE_IDENTIFIER = getEngine();
-const IS_BLINK = ENGINE_IDENTIFIER === EngineId.V8_BLINK;
-const IS_GECKO = ENGINE_IDENTIFIER === EngineId.SPIDERMONKEY_GECKO;
-const IS_WEBKIT = ENGINE_IDENTIFIER === EngineId.JAVASCRIPTCORE_WEBKIT;
-const JS_ENGINE = ENGINE_NAMES[ENGINE_IDENTIFIER] || null;
-
-const LIKE_BRAVE =
-  IS_BLINK &&
-  'flat' in Array.prototype /* Chrome 69 */ &&
-  !(('ReportingObserver' in self) /* Brave */);
-
-function braveBrowser() {
-  const brave =
-    'brave' in navigator &&
-    // @ts-ignore
-    Object.getPrototypeOf(navigator.brave).constructor.name == 'Brave' &&
-    // @ts-ignore
-    navigator.brave.isBrave.toString() ==
-      'function isBrave() { [native code] }';
-  return brave;
-}
-
-function getBraveMode() {
-  const mode = {
-    unknown: false,
-    allow: false,
-    standard: false,
-    strict: false,
-  };
-  try {
-    // strict mode adds float frequency data AnalyserNode
-    const strictMode = () => {
-      try {
-        window.OfflineAudioContext =
-          // @ts-ignore
-          OfflineAudioContext || webkitOfflineAudioContext;
-      } catch (err) {}
-
-      if (!window.OfflineAudioContext) {
-        return false;
-      }
-      const context = new OfflineAudioContext(1, 1, 44100);
-      const analyser = context.createAnalyser();
-      const data = new Float32Array(analyser.frequencyBinCount);
-      analyser.getFloatFrequencyData(data);
-      const strict = new Set(data).size > 1; // native only has -Infinity
-      return strict;
-    };
-
-    if (strictMode()) {
-      mode.strict = true;
-      return mode;
-    }
-    // standard and strict mode do not have chrome plugins
-    const chromePlugins = /(Chrom(e|ium)|Microsoft Edge) PDF (Plugin|Viewer)/;
-    const pluginsList = [...navigator.plugins];
-    const hasChromePlugins =
-      pluginsList.filter((plugin) => chromePlugins.test(plugin.name)).length ==
-      2;
-    if (pluginsList.length && !hasChromePlugins) {
-      mode.standard = true;
-      return mode;
-    }
-    mode.allow = true;
-    return mode;
-  } catch (e) {
-    mode.unknown = true;
-    return mode;
-  }
-}
-
-const getBraveUnprotectedParameters = (parameters) => {
-  const blocked = new Set([
-    'FRAGMENT_SHADER.HIGH_FLOAT.precision',
-    'FRAGMENT_SHADER.HIGH_FLOAT.rangeMax',
-    'FRAGMENT_SHADER.HIGH_FLOAT.rangeMin',
-    'FRAGMENT_SHADER.HIGH_INT.precision',
-    'FRAGMENT_SHADER.HIGH_INT.rangeMax',
-    'FRAGMENT_SHADER.HIGH_INT.rangeMin',
-    'FRAGMENT_SHADER.LOW_FLOAT.precision',
-    'FRAGMENT_SHADER.LOW_FLOAT.rangeMax',
-    'FRAGMENT_SHADER.LOW_FLOAT.rangeMin',
-    'FRAGMENT_SHADER.MEDIUM_FLOAT.precision',
-    'FRAGMENT_SHADER.MEDIUM_FLOAT.rangeMax',
-    'FRAGMENT_SHADER.MEDIUM_FLOAT.rangeMin',
-    'MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS',
-    'MAX_COMBINED_UNIFORM_BLOCKS',
-    'MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS',
-    'MAX_DRAW_BUFFERS_WEBGL',
-    'MAX_FRAGMENT_INPUT_COMPONENTS',
-    'MAX_FRAGMENT_UNIFORM_BLOCKS',
-    'MAX_FRAGMENT_UNIFORM_COMPONENTS',
-    'MAX_TEXTURE_MAX_ANISOTROPY_EXT',
-    'MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS',
-    'MAX_UNIFORM_BUFFER_BINDINGS',
-    'MAX_VARYING_COMPONENTS',
-    'MAX_VERTEX_OUTPUT_COMPONENTS',
-    'MAX_VERTEX_UNIFORM_BLOCKS',
-    'MAX_VERTEX_UNIFORM_COMPONENTS',
-    'SHADING_LANGUAGE_VERSION',
-    'UNMASKED_RENDERER_WEBGL',
-    'UNMASKED_VENDOR_WEBGL',
-    'VERSION',
-    'VERTEX_SHADER.HIGH_FLOAT.precision',
-    'VERTEX_SHADER.HIGH_FLOAT.rangeMax',
-    'VERTEX_SHADER.HIGH_FLOAT.rangeMin',
-    'VERTEX_SHADER.HIGH_INT.precision',
-    'VERTEX_SHADER.HIGH_INT.rangeMax',
-    'VERTEX_SHADER.HIGH_INT.rangeMin',
-    'VERTEX_SHADER.LOW_FLOAT.precision',
-    'VERTEX_SHADER.LOW_FLOAT.rangeMax',
-    'VERTEX_SHADER.LOW_FLOAT.rangeMin',
-    'VERTEX_SHADER.MEDIUM_FLOAT.precision',
-    'VERTEX_SHADER.MEDIUM_FLOAT.rangeMax',
-    'VERTEX_SHADER.MEDIUM_FLOAT.rangeMin',
-  ]);
-  const safeParameters = Object.keys(parameters).reduce((acc, curr) => {
-    if (blocked.has(curr)) {
-      return acc;
-    }
-    acc[curr] = parameters[curr];
-    return acc;
-  }, {});
-  return safeParameters;
-};
 
 /**
  * @deprecated Import from './platform' instead
  */
 const getOS = getOSFromPlatform;
+export { getOS };
 
+// Import IS_BLINK for use in this file
+import { IS_BLINK } from './engine';
+
+/**
+ * Classify platform from user agent and platform strings.
+ */
 function getReportedPlatform(
   userAgent: string,
   platform?: string,
@@ -180,7 +81,15 @@ const [USER_AGENT_OS, PLATFORM_OS] = getReportedPlatform(
   navPlatform,
 );
 
-const decryptUserAgent = ({ ua, os, isBrave }) => {
+const decryptUserAgent = ({
+  ua,
+  os,
+  isBrave,
+}: {
+  ua: string;
+  os: string;
+  isBrave: boolean;
+}): string => {
   const apple = /ipad|iphone|ipod|ios|mac/gi.test(os);
   const isOpera = /OPR\//g.test(ua);
   const isVivaldi = /Vivaldi/g.test(ua);
@@ -217,8 +126,8 @@ const decryptUserAgent = ({ ua, os, isBrave }) => {
                 : '';
     return `${browser} ${version}${like}`;
   } else if (edgios) {
-    const browser = edge[1];
-    const version = edge[2];
+    const browser = edge![1];
+    const version = edge![2];
     return `${browser} ${version}`;
   } else if (firefox) {
     const browser = paleMoon ? paleMoon[1] : firefox[1];
@@ -232,7 +141,13 @@ const decryptUserAgent = ({ ua, os, isBrave }) => {
   return 'unknown';
 };
 
-const getUserAgentPlatform = ({ userAgent, excludeBuild = true }) => {
+const getUserAgentPlatform = ({
+  userAgent,
+  excludeBuild = true,
+}: {
+  userAgent: string;
+  excludeBuild?: boolean;
+}): string => {
   if (!userAgent) {
     return 'unknown';
   }
@@ -266,7 +181,8 @@ const getUserAgentPlatform = ({ userAgent, excludeBuild = true }) => {
   const otherOS =
     /((symbianos|nokia|blackberry|morphos|mac).+)|\/linux|freebsd|symbos|series \d+|win\d+|unix|hp-ux|bsdi|bsd|x86_64/i;
 
-  const isDevice = (list, device) => list.filter((x) => device.test(x)).length;
+  const isDevice = (list: string[], device: RegExp) =>
+    list.filter((x) => device.test(x)).length;
 
   userAgent = userAgent
     .trim()
@@ -274,7 +190,7 @@ const getUserAgentPlatform = ({ userAgent, excludeBuild = true }) => {
     .replace(nonPlatformParenthesis, '');
 
   if (parenthesis.test(userAgent)) {
-    const platformSection = userAgent.match(parenthesis)[0];
+    const platformSection = userAgent.match(parenthesis)![0];
     const identifiers = platformSection
       .slice(1, -1)
       .replace(/,/g, ';')
@@ -282,20 +198,17 @@ const getUserAgentPlatform = ({ userAgent, excludeBuild = true }) => {
       .map((x) => x.trim());
 
     if (isDevice(identifiers, android)) {
-      return (
-        identifiers
-          // @ts-ignore
-          .map((x) =>
-            androidRelease.test(x)
-              ? androidRelease.exec(x)[0].replace('-', ' ')
-              : x,
-          )
-          .filter((x) => !androidNoise.test(x))
-          .join(' ')
-          .replace(excludeBuild ? androidBuild : '', '')
-          .trim()
-          .replace(/\s{2,}/, ' ')
-      );
+      return identifiers
+        .map((x) =>
+          androidRelease.test(x)
+            ? androidRelease.exec(x)![0].replace('-', ' ')
+            : x,
+        )
+        .filter((x) => !androidNoise.test(x))
+        .join(' ')
+        .replace(excludeBuild ? androidBuild : '', '')
+        .trim()
+        .replace(/\s{2,}/, ' ');
     } else if (isDevice(identifiers, windows)) {
       return identifiers
         .filter((x) => !windowsNoise.test(x))
@@ -341,9 +254,8 @@ const getUserAgentPlatform = ({ userAgent, excludeBuild = true }) => {
       return identifiers
         .map((x) => {
           if (appleRelease.test(x)) {
-            // @ts-ignore
-            const release = appleRelease.exec(x)[0];
-            const versionMap = {
+            const release = appleRelease.exec(x)![0];
+            const versionMap: Record<string, string> = {
               '10_7': 'Lion',
               '10_8': 'Mountain Lion',
               '10_9': 'Mavericks',
@@ -391,7 +303,11 @@ const computeWindowsRelease = ({
   platform,
   platformVersion,
   fontPlatformVersion,
-}) => {
+}: {
+  platform: string;
+  platformVersion: string;
+  fontPlatformVersion: string;
+}): string | undefined => {
   if (
     platform != 'Windows' ||
     !(IS_BLINK && CSS.supports('accent-color', 'initial'))
@@ -432,75 +348,17 @@ const computeWindowsRelease = ({
 };
 
 // attempt restore from User-Agent Reduction
-const isUAPostReduction = (userAgent) => {
+const isUAPostReduction = (userAgent: string): boolean => {
   const matcher =
     /Mozilla\/5\.0 \((Macintosh; Intel Mac OS X 10_15_7|Windows NT 10\.0; Win64; x64|(X11; (CrOS|Linux) x86_64)|(Linux; Android 10(; K|)))\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\d+\.0\.0\.0( Mobile|) Safari\/537\.36/;
   const unifiedPlatform = (matcher.exec(userAgent) || [])[1];
   return IS_BLINK && !!unifiedPlatform;
 };
 
-const createPerformanceLogger = () => {
-  const log: Record<string, string> = {};
-  let total = 0;
-  return {
-    logTestResult: ({ test, passed, time = 0 }) => {
-      total += time;
-      const timeString = `${time.toFixed(2)}ms`;
-      log[test] = timeString;
-      const color = passed ? '#4cca9f' : 'lightcoral';
-      const result = passed ? 'passed' : 'failed';
-      const symbol = passed ? '✔' : '-';
-      return console.log(
-        `%c${symbol}${time ? ` (${timeString})` : ''} ${test} ${result}`,
-        `color:${color}`,
-      );
-    },
-    getLog: () => log,
-    getTotal: () => total,
-  };
-};
-const performanceLogger = createPerformanceLogger();
-const { logTestResult } = performanceLogger;
-
-const getPromiseRaceFulfilled = async ({
-  promise,
-  responseType,
-  limit = 1000,
-}) => {
-  const slowPromise = new Promise((resolve) => setTimeout(resolve, limit));
-  const response = await Promise.race([slowPromise, promise])
-    .then((response) =>
-      response instanceof responseType ? response : 'pending',
-    )
-    .catch((error) => 'rejected');
-  return response == 'rejected' || response == 'pending' ? undefined : response;
-};
-
-const createTimer = () => {
-  let start = 0;
-  const log = [];
-  return {
-    stop: () => {
-      if (start) {
-        log.push(performance.now() - start);
-        return log.reduce((acc, n) => (acc += n), 0);
-      }
-      return start;
-    },
-    start: () => {
-      start = performance.now();
-      return start;
-    },
-  };
-};
-
-const queueEvent = (timer, delay = 0) => {
-  timer.stop();
-  return new Promise((resolve) =>
-    setTimeout(() => resolve(timer.start()), delay),
-  ).catch((e) => {});
-};
-
+/**
+ * Emoji codepoints for fingerprinting.
+ * Different platforms render these differently.
+ */
 const EMOJIS = [
   [128512],
   [9786],
@@ -601,6 +459,10 @@ const EMOJIS = [
   [127359],
 ].map((emojiCode) => String.fromCodePoint(...emojiCode));
 
+/**
+ * CSS font stack for font fingerprinting.
+ * Includes platform-specific fonts for Windows, macOS, and Linux.
+ */
 const CSS_FONT_FAMILY = `
 	'Segoe Fluent Icons',
 	'Ink Free',
@@ -653,6 +515,9 @@ const CSS_FONT_FAMILY = `
 	sans-serif !important
 `;
 
+/**
+ * Extract GPU brand from renderer string.
+ */
 function getGpuBrand(gpu: string): string | null {
   if (!gpu) return null;
   const gpuBrandMatcher =
@@ -667,10 +532,10 @@ function getGpuBrand(gpu: string): string | null {
   return brand;
 }
 
-// collect fingerprints for analysis
+/** Collect fingerprints for analysis */
 const Analysis: Record<string, unknown> = {};
 
-// use if needed to stable fingerprint
+/** Lower entropy mode flags */
 const LowerEntropy: Record<string, boolean> = {
   AUDIO: false,
   CANVAS: false,
@@ -681,15 +546,6 @@ const LowerEntropy: Record<string, boolean> = {
 };
 
 export {
-  IS_BLINK,
-  IS_GECKO,
-  IS_WEBKIT,
-  JS_ENGINE,
-  LIKE_BRAVE,
-  braveBrowser,
-  getBraveMode,
-  getBraveUnprotectedParameters,
-  getOS,
   getReportedPlatform,
   USER_AGENT_OS,
   PLATFORM_OS,
@@ -697,11 +553,6 @@ export {
   getUserAgentPlatform,
   computeWindowsRelease,
   isUAPostReduction,
-  logTestResult,
-  performanceLogger,
-  getPromiseRaceFulfilled,
-  queueEvent,
-  createTimer,
   EMOJIS,
   CSS_FONT_FAMILY,
   Analysis,
