@@ -17,6 +17,11 @@
  */
 
 import { hashMini } from '../utils/crypto';
+import {
+  getOSFromUserAgent,
+  getOSFromPlatform,
+  osCompatible,
+} from '../utils/platform';
 
 /**
  * Severity levels for inconsistencies.
@@ -67,61 +72,6 @@ interface PlatformSignals {
   workerPlatform?: string;
   fontOS?: string;
   cssOS?: string;
-}
-
-/**
- * Extracts OS from user agent string.
- */
-function getOSFromUserAgent(ua: string): string {
-  if (!ua) return 'unknown';
-  const uaLower = ua.toLowerCase();
-  if (uaLower.includes('windows')) return 'windows';
-  if (uaLower.includes('mac os') || uaLower.includes('macintosh'))
-    return 'macos';
-  if (uaLower.includes('iphone') || uaLower.includes('ipad')) return 'ios';
-  if (uaLower.includes('android')) return 'android';
-  if (uaLower.includes('linux')) return 'linux';
-  if (uaLower.includes('cros')) return 'chromeos';
-  return 'unknown';
-}
-
-/**
- * Extracts OS from navigator.platform.
- */
-function getOSFromPlatform(platform: string): string {
-  if (!platform) return 'unknown';
-  const platLower = platform.toLowerCase();
-  if (platLower.includes('win')) return 'windows';
-  if (platLower.includes('mac')) return 'macos';
-  if (platLower.includes('iphone') || platLower.includes('ipad')) return 'ios';
-  if (platLower.includes('linux') && !platLower.includes('android'))
-    return 'linux';
-  if (platLower.includes('android')) return 'android';
-  return 'unknown';
-}
-
-/**
- * Checks if two OS identifiers are compatible.
- */
-function osCompatible(os1: string, os2: string): boolean {
-  if (os1 === 'unknown' || os2 === 'unknown') return true;
-  if (os1 === os2) return true;
-  // iOS and macOS are related (Apple ecosystem)
-  if ((os1 === 'ios' && os2 === 'macos') || (os1 === 'macos' && os2 === 'ios'))
-    return true;
-  // Android runs on Linux kernel - navigator.platform reports "Linux" on Android
-  if (
-    (os1 === 'android' && os2 === 'linux') ||
-    (os1 === 'linux' && os2 === 'android')
-  )
-    return true;
-  // ChromeOS is Linux-based
-  if (
-    (os1 === 'chromeos' && os2 === 'linux') ||
-    (os1 === 'linux' && os2 === 'chromeos')
-  )
-    return true;
-  return false;
 }
 
 /**

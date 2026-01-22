@@ -1,4 +1,5 @@
 import { PlatformClassifier } from './types';
+import { getOS as getOSFromPlatform } from './platform';
 
 // @ts-expect-error
 export const IS_WORKER_SCOPE = !self.document && self.WorkerGlobalScope;
@@ -144,33 +145,10 @@ const getBraveUnprotectedParameters = (parameters) => {
   return safeParameters;
 };
 
-// system
-const getOS = (userAgent) => {
-  const os =
-    // order is important
-    /windows phone/gi.test(userAgent)
-      ? 'Windows Phone'
-      : /win(dows|16|32|64|95|98|nt)|wow64/gi.test(userAgent)
-        ? 'Windows'
-        : /android/gi.test(userAgent)
-          ? 'Android'
-          : /cros/gi.test(userAgent)
-            ? 'Chrome OS'
-            : /linux/gi.test(userAgent)
-              ? 'Linux'
-              : /ipad/gi.test(userAgent)
-                ? 'iPad'
-                : /iphone/gi.test(userAgent)
-                  ? 'iPhone'
-                  : /ipod/gi.test(userAgent)
-                    ? 'iPod'
-                    : /ios/gi.test(userAgent)
-                      ? 'iOS'
-                      : /mac/gi.test(userAgent)
-                        ? 'Mac'
-                        : 'Other';
-  return os;
-};
+/**
+ * @deprecated Import from './platform' instead
+ */
+const getOS = getOSFromPlatform;
 
 function getReportedPlatform(
   userAgent: string,
