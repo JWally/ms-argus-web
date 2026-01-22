@@ -1,5 +1,6 @@
 import { PlatformClassifier } from './types';
 import { getOS as getOSFromPlatform } from './platform';
+import { EngineId, ENGINE_NAMES } from '../constants/engine';
 
 // @ts-expect-error
 export const IS_WORKER_SCOPE = !self.document && self.WorkerGlobalScope;
@@ -15,15 +16,10 @@ function getEngine() {
 }
 
 const ENGINE_IDENTIFIER = getEngine();
-const IS_BLINK = ENGINE_IDENTIFIER == 80;
-const IS_GECKO = ENGINE_IDENTIFIER == 58;
-const IS_WEBKIT = ENGINE_IDENTIFIER == 77;
-const JS_ENGINE =
-  {
-    80: 'V8',
-    58: 'SpiderMonkey',
-    77: 'JavaScriptCore',
-  }[ENGINE_IDENTIFIER] || null;
+const IS_BLINK = ENGINE_IDENTIFIER === EngineId.V8_BLINK;
+const IS_GECKO = ENGINE_IDENTIFIER === EngineId.SPIDERMONKEY_GECKO;
+const IS_WEBKIT = ENGINE_IDENTIFIER === EngineId.JAVASCRIPTCORE_WEBKIT;
+const JS_ENGINE = ENGINE_NAMES[ENGINE_IDENTIFIER] || null;
 
 const LIKE_BRAVE =
   IS_BLINK &&
