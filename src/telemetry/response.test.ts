@@ -111,7 +111,7 @@ describe('parseSessionResponseV2', () => {
 });
 
 describe('SCHEMA_VERSION', () => {
-  it('should be 2.0.0', () => {
-    expect(SCHEMA_VERSION).toBe('2.0.0');
+  it('should be 3.0.0', () => {
+    expect(SCHEMA_VERSION).toBe('3.0.0');
   });
 });

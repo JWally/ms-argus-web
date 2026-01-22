@@ -10,7 +10,7 @@ import type {
   MatchResult,
   SessionResponseV2,
 } from './types';
-import { buildPayloadV2 } from './payload';
+import { buildPayloadV3 } from './payload';
 import {
   detectApiBaseFromHostname,
   generateSessionId,
@@ -18,8 +18,8 @@ import {
   gzipCompress,
 } from './helpers';
 
-/** AR-188: Schema version for v2 payload format */
-export const SCHEMA_VERSION = '2.0.0';
+/** AR-188: Schema version for v3 payload format */
+export const SCHEMA_VERSION = '3.0.0';
 
 /**
  * Submit fingerprint data to the Argus API and optionally poll for match results.
@@ -51,8 +51,8 @@ export async function submitTelemetry(
   };
 
   try {
-    // AR-187: Build v2 format submission payload
-    const submission = buildPayloadV2(data, sessionId);
+    // AR-187: Build v3 format submission payload
+    const submission = buildPayloadV3(data, sessionId);
 
     // Submit to API
     const controller = new AbortController();

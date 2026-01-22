@@ -1,7 +1,7 @@
 /**
  * Telemetry module types
- * AR-187: V2 payload types
- * AR-189: V2 session response types
+ * AR-187: V3 payload types (updated from V2)
+ * AR-189: V3 session response types
  */
 
 import type { FingerprintResult } from '../fingerprint';
@@ -10,10 +10,10 @@ import type { CryptoKeys } from '../utils/get-crypto-id';
 import type { EvercookieData } from '../utils/evercookie';
 
 // ============================================================================
-// V2 Payload Types (AR-187)
+// V3 Payload Types (AR-187, updated from V2)
 // ============================================================================
 
-export interface IdentifiersV2 {
+export interface IdentifiersV3 {
   session_id: string;
   evercookie_id?: string;
   public_key?: string;
@@ -22,7 +22,7 @@ export interface IdentifiersV2 {
 /**
  * Hashes section - stable, fuzzy, plus all module hashes from loose
  */
-export interface HashesV2 {
+export interface HashesV3 {
   stable: string;
   fuzzy: string;
   [moduleKey: string]: string; // Dynamic module hashes (canvas2d, canvasWebgl, etc.)
@@ -31,19 +31,26 @@ export interface HashesV2 {
 /**
  * Device section - full loose fingerprint data
  */
-export type DeviceV2 = Record<string, unknown>;
+export type DeviceV3 = Record<string, unknown>;
 
 /**
- * Network section - full sigint data
+ * Sigint section - full sigint data (renamed from "network" in V2)
  */
-export type NetworkV2 = Record<string, unknown>;
+export type SigintV3 = Record<string, unknown>;
 
-export interface PayloadV2 {
-  identifiers: IdentifiersV2;
-  hashes: HashesV2;
-  device: DeviceV2;
-  network?: NetworkV2;
+export interface PayloadV3 {
+  identifiers: IdentifiersV3;
+  hashes: HashesV3;
+  device: DeviceV3;
+  sigint?: SigintV3;
 }
+
+// Keep V2 aliases for backward compatibility during transition
+export type IdentifiersV2 = IdentifiersV3;
+export type HashesV2 = HashesV3;
+export type DeviceV2 = DeviceV3;
+export type NetworkV2 = SigintV3;
+export type PayloadV2 = PayloadV3;
 
 // ============================================================================
 // Config & Submission Types

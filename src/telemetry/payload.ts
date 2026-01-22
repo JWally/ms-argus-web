@@ -1,9 +1,10 @@
 /**
- * V2 Payload builder
- * AR-187: Build v2 format payload from telemetry submission data
+ * V3 Payload builder
+ * AR-187: Build v3 format payload from telemetry submission data
+ * Updated from V2: "network" renamed to "sigint"
  */
 
-import type { TelemetrySubmission, PayloadV2, IdentifiersV2 } from './types';
+import type { TelemetrySubmission, PayloadV3, IdentifiersV3 } from './types';
 
 /**
  * Extract all $hash values from loose fingerprint modules
@@ -21,16 +22,17 @@ function extractHashes(loose: Record<string, any>): Record<string, string> {
 }
 
 /**
- * Build v2 format payload from telemetry submission data
+ * Build v3 format payload from telemetry submission data
+ * V3 uses "sigint" instead of "network"
  */
-export function buildPayloadV2(
+export function buildPayloadV3(
   data: TelemetrySubmission,
   sessionId: string,
-): PayloadV2 {
+): PayloadV3 {
   const loose = data.fingerprint.loose || {};
 
   // Build identifiers section
-  const identifiers: IdentifiersV2 = {
+  const identifiers: IdentifiersV3 = {
     session_id: sessionId,
     evercookie_id: data.evercookie?.id,
     public_key: data.cryptoId?.publicKey,
@@ -43,12 +45,12 @@ export function buildPayloadV2(
     ...extractHashes(loose),
   };
 
-  // Build payload
-  const payload: PayloadV2 = {
+  // Build payload (V3: uses "sigint" instead of "network")
+  const payload: PayloadV3 = {
     identifiers,
     hashes,
     device: { ...loose },
-    network: data.sigint ? { ...data.sigint } : undefined,
+    sigint: data.sigint ? { ...data.sigint } : undefined,
   };
 
   // Log what we're sending (before gzip)

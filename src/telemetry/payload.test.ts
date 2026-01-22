@@ -1,9 +1,9 @@
 /**
  * Payload builder tests
- * AR-187: Tests for v2 payload structure
+ * AR-187: Tests for v3 payload structure (updated from v2)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { buildPayloadV2 } from './payload';
+import { buildPayloadV3 } from './payload';
 import type { TelemetrySubmission } from './types';
 import type { FingerprintResult } from '../fingerprint';
 
@@ -69,7 +69,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('buildPayloadV2', () => {
+describe('buildPayloadV3', () => {
   it('should create payload with identifiers section', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = {
@@ -78,7 +78,7 @@ describe('buildPayloadV2', () => {
       cryptoId: { publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...' },
     };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
     expect(payload.identifiers).toBeDefined();
     expect(payload.identifiers.session_id).toBe('test-session-id');
@@ -92,7 +92,7 @@ describe('buildPayloadV2', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = { fingerprint };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
     expect(payload.hashes).toBeDefined();
     expect(payload.hashes.stable).toBe('stable-hash-abc123');
@@ -113,7 +113,7 @@ describe('buildPayloadV2', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = { fingerprint };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
     expect(payload.device).toBeDefined();
     // Full loose data should be spread
@@ -133,7 +133,7 @@ describe('buildPayloadV2', () => {
     expect((payload.device.navigator as any).hardwareConcurrency).toBe(8);
   });
 
-  it('should spread full sigint into network section', () => {
+  it('should spread full sigint into sigint section (V3 uses sigint instead of network)', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = {
       fingerprint,
@@ -158,35 +158,36 @@ describe('buildPayloadV2', () => {
       },
     };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
-    expect(payload.network).toBeDefined();
+    // V3 uses "sigint" instead of "network"
+    expect(payload.sigint).toBeDefined();
     // Full sigint data should be spread
-    expect((payload.network as any).tlsFingerprint.ip).toBe('192.168.1.1');
-    expect((payload.network as any).tlsFingerprint.ja4).toBe(
+    expect((payload.sigint as any).tlsFingerprint.ip).toBe('192.168.1.1');
+    expect((payload.sigint as any).tlsFingerprint.ja4).toBe(
       't13d1516h2_8daaf6152771_e5627efa2ab1',
     );
-    expect((payload.network as any).tlsFingerprint.asn).toBe('AS12345');
-    expect((payload.network as any).tcpProbe.rtt_fingerprint.tcp_rtt_us).toBe(
+    expect((payload.sigint as any).tlsFingerprint.asn).toBe('AS12345');
+    expect((payload.sigint as any).tcpProbe.rtt_fingerprint.tcp_rtt_us).toBe(
       15000,
     );
-    expect((payload.network as any).stunProbe.localIp).toBe('10.0.0.1');
+    expect((payload.sigint as any).stunProbe.localIp).toBe('10.0.0.1');
   });
 
   it('should handle missing sigint gracefully', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = { fingerprint };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
-    expect(payload.network).toBeUndefined();
+    expect(payload.sigint).toBeUndefined();
   });
 
   it('should handle missing optional identifiers', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = { fingerprint };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
     expect(payload.identifiers.session_id).toBe('test-session-id');
     expect(payload.identifiers.evercookie_id).toBeUndefined();
@@ -205,7 +206,7 @@ describe('buildPayloadV2', () => {
     });
     const submission: TelemetrySubmission = { fingerprint };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
     expect(payload.hashes.stable).toBe('stable-only');
     expect(payload.hashes.fuzzy).toBe('fuzzy-only');
@@ -217,7 +218,7 @@ describe('buildPayloadV2', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = { fingerprint };
 
-    const payload = buildPayloadV2(submission, 'test-session-id');
+    const payload = buildPayloadV3(submission, 'test-session-id');
 
     expect(consoleSpy).toHaveBeenCalledWith(
       '[Argus] Payload to server:',
