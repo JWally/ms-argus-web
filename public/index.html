@@ -1030,6 +1030,9 @@
 
         lastResult = result;
 
+        // Expose for golden tests
+        window.FingerprintResult = result.fingerprint;
+
         // Hide hero, show results
         heroSection.classList.add('hidden');
         resultsSection.classList.remove('hidden');

@@ -73,16 +73,20 @@ function compareFingerprints(baseline, current) {
 async function main() {
   // Check if baseline exists
   if (!fs.existsSync(baselinePath)) {
-    console.error('ERROR: baseline.json not found. Run npm run baseline:capture first.');
+    console.error(
+      'ERROR: baseline.json not found. Run npm run baseline:capture first.',
+    );
     process.exit(1);
   }
 
   const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
   console.log('Loaded baseline fingerprint');
 
-  // Launch browser
+  // Launch browser with same viewport as capture
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    viewport: { width: 1920, height: 1080 },
+  });
   const page = await context.newPage();
 
   // Suppress console noise
@@ -98,10 +102,15 @@ async function main() {
     process.exit(1);
   }
 
+  console.log('Clicking collect button...');
+  await page.click('#collectBtn');
+
   console.log('Waiting for fingerprint collection...');
 
   // Wait for fingerprint to complete
-  await page.waitForFunction(() => window.FingerprintResult, { timeout: 30000 });
+  await page.waitForFunction(() => window.FingerprintResult, {
+    timeout: 30000,
+  });
 
   const result = await page.evaluate(() => window.FingerprintResult);
 
@@ -155,7 +164,7 @@ async function main() {
   console.log('\n✓ All deterministic fields match baseline!');
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Error:', err);
   process.exit(1);
 });

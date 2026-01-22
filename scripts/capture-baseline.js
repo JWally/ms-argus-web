@@ -30,7 +30,7 @@ async function waitForServer(url, maxAttempts = 30) {
     } catch (e) {
       // Server not ready yet
     }
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
   }
   throw new Error('Server failed to start');
 }
@@ -43,11 +43,11 @@ async function captureBaseline() {
     console.log('Building project...');
     // Build first
     await new Promise((resolve, reject) => {
-      const build = spawn('npm', ['run', 'build:dev'], {
+      const build = spawn('npm', ['run', 'build'], {
         cwd: path.join(__dirname, '..'),
-        stdio: 'inherit'
+        stdio: 'inherit',
       });
-      build.on('close', code => {
+      build.on('close', (code) => {
         if (code === 0) resolve();
         else reject(new Error(`Build failed with code ${code}`));
       });
@@ -56,7 +56,7 @@ async function captureBaseline() {
     console.log('Starting dev server...');
     server = spawn('npm', ['start'], {
       cwd: path.join(__dirname, '..'),
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
 
     // Wait for server to be ready
@@ -77,11 +77,14 @@ async function captureBaseline() {
     console.log('Navigating to fingerprint page...');
     await page.goto(SERVER_URL, { waitUntil: 'domcontentloaded' });
 
+    console.log('Clicking collect button...');
+    await page.click('#collectBtn');
+
     console.log('Waiting for fingerprinting to complete...');
-    // Wait for window.Fingerprint to be defined (the loose fingerprint)
-    await page.waitForFunction(() => {
-      return window.Fingerprint && window.Creep;
-    }, { timeout: TIMEOUT });
+    // Wait for window.FingerprintResult to be defined
+    await page.waitForFunction(() => window.FingerprintResult, {
+      timeout: TIMEOUT,
+    });
 
     // Give it a bit more time to ensure everything is captured
     await page.waitForTimeout(2000);
@@ -89,9 +92,10 @@ async function captureBaseline() {
     console.log('Capturing fingerprint data...');
     const baseline = await page.evaluate(() => {
       // Deep clone to ensure we get plain objects
+      const fp = window.FingerprintResult;
       return {
-        loose: JSON.parse(JSON.stringify(window.Fingerprint)),
-        stable: JSON.parse(JSON.stringify(window.Creep)),
+        loose: JSON.parse(JSON.stringify(fp.loose)),
+        stable: JSON.parse(JSON.stringify(fp.stable)),
         capturedAt: new Date().toISOString(),
         userAgent: navigator.userAgent,
       };
@@ -105,17 +109,22 @@ async function captureBaseline() {
     console.log('\n=== Baseline Summary ===');
     console.log(`Captured at: ${baseline.capturedAt}`);
     console.log(`User Agent: ${baseline.userAgent}`);
-    console.log(`Loose fingerprint sections: ${Object.keys(baseline.loose).length}`);
-    console.log(`Stable fingerprint sections: ${Object.keys(baseline.stable).filter(k => baseline.stable[k] !== undefined).length}`);
+    console.log(
+      `Loose fingerprint sections: ${Object.keys(baseline.loose).length}`,
+    );
+    console.log(
+      `Stable fingerprint sections: ${Object.keys(baseline.stable).filter((k) => baseline.stable[k] !== undefined).length}`,
+    );
 
     // List the sections
     console.log('\nLoose fingerprint sections:');
-    Object.keys(baseline.loose).forEach(key => {
+    Object.keys(baseline.loose).forEach((key) => {
       const value = baseline.loose[key];
       const hasHash = value && value.$hash;
-      console.log(`  - ${key}${hasHash ? ` (hash: ${value.$hash.slice(0, 8)}...)` : ''}`);
+      console.log(
+        `  - ${key}${hasHash ? ` (hash: ${value.$hash.slice(0, 8)}...)` : ''}`,
+      );
     });
-
   } catch (error) {
     console.error('Error capturing baseline:', error);
     process.exit(1);
