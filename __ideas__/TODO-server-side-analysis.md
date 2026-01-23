@@ -155,6 +155,50 @@ The client should collect fingerprint data and compute hashes. The server should
 - Map font hash → OS version via lookup table
   **Current client code to remove:** `DESKTOP_APP_FONTS` (4 categories), `LINUX_FONTS` (7), `ANDROID_FONTS` (3), `WINDOWS_VERSION_MAP` (9 hashes), `MACOS_VERSION_MAP` (8 hashes) in `src/fonts/constants.ts` (~50 lines)
 
+## Data Source Breakdown
+
+### Fully Automatable from Public APIs (cron job, zero human effort)
+
+| #   | Item                      | Public Source                                       | Update Cadence  |
+| --- | ------------------------- | --------------------------------------------------- | --------------- |
+| 1   | Timezone cities           | [IANA tz database](https://www.iana.org/time-zones) | Quarterly       |
+| 5   | OS fonts by version       | Microsoft typography docs, Apple developer docs     | Per OS release  |
+| 7   | Navigator valid values    | W3C specs (Device Memory, DNT, Platform)            | Rarely changes  |
+| 8   | Browser version detection | `@mdn/browser-compat-data` npm                      | Weekly          |
+| 14  | Desktop app fonts         | App release notes (Outlook, Acrobat, LibreOffice)   | Per app release |
+| —   | Caniuse cross-reference   | `caniuse-lite` npm / `github.com/Fyrd/caniuse`      | Weekly          |
+
+### Semi-Automatable (public source + measurement CI job)
+
+| #   | Item                   | Public Part                        | Custom Part                                                                                 |
+| --- | ---------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| 10  | Math precision         | Math spec defines functions        | Engine-specific float results must be measured per Chrome/FF/Safari release (Playwright CI) |
+| 11  | GPU renderer parts     | PCI ID database, Mesa/ANGLE source | Abbreviation whitelist requires judgment                                                    |
+| 12  | System font → platform | Font lists per OS are documented   | Mapping (font → platform) requires verification                                             |
+
+Math precision can be automated: CI job runs 22 math functions in Chromium/Firefox/WebKit via Playwright on each browser release, appends results to database.
+
+### Must Be Custom-Maintained (from real traffic or reverse engineering)
+
+| #   | Item                    | Why                                                                                    |
+| --- | ----------------------- | -------------------------------------------------------------------------------------- |
+| 2   | GPU capability hashes   | Hash sets grow as new GPUs ship. Only known by observing real devices.                 |
+| 3   | Canvas pixel patterns   | Rendering output changes per engine version. Must re-capture from real browsers.       |
+| 4   | Audio patterns          | Compressor/FFT output is engine-specific. Must measure per release.                    |
+| 6   | Lie/tampering patterns  | toString formats, proxy detection — changes with engine internals.                     |
+| 9   | Extension patterns      | Reverse-engineered from each extension's lie signature. New extensions = new patterns. |
+| 13  | DOMRect rotation hashes | Rendering-dependent. Must measure per engine version.                                  |
+
+### Summary
+
+| Category          | Count | Maintenance                       |
+| ----------------- | ----- | --------------------------------- |
+| Fully automatable | 6     | Cron job pulling public packages  |
+| Semi-auto         | 3     | CI job per browser release        |
+| Custom            | 6     | Manual observation or ML-assisted |
+
+The biggest ROI is the automatable items (timezone, MDN BCD, caniuse) — most validation surface, zero ongoing effort. The custom items (GPU hashes, canvas patterns, extension signatures) are the competitive moat.
+
 ## Implementation Steps
 
 1. [ ] Create server-side analysis module with validation functions
