@@ -1,14 +1,13 @@
 /**
  * Session response parsing tests
- * AR-189: Tests for v2 session response parsing
  */
 import { describe, it, expect } from 'vitest';
-import { parseSessionResponseV2, SCHEMA_VERSION } from './api';
-import type { SessionResponseV2 } from './types';
+import { parseSessionResponse, SCHEMA_VERSION } from './api';
+import type { SessionResponse } from './types';
 
-describe('parseSessionResponseV2', () => {
-  it('should convert v2 session response to v1 MatchResult format', () => {
-    const v2Response: SessionResponseV2 = {
+describe('parseSessionResponse', () => {
+  it('should convert session response to MatchResult format', () => {
+    const response: SessionResponse = {
       identifiers: {
         session_id: 'test-session',
         device_id: 'device-123',
@@ -23,7 +22,7 @@ describe('parseSessionResponseV2', () => {
       },
     };
 
-    const matchResult = parseSessionResponseV2(v2Response);
+    const matchResult = parseSessionResponse(response);
 
     expect(matchResult.device_id).toBe('device-123');
     expect(matchResult.confidence).toBe(0.95);
@@ -34,8 +33,8 @@ describe('parseSessionResponseV2', () => {
     expect(matchResult.evidence_codes).toEqual(['STABLE_HASH_MATCH']);
   });
 
-  it('should handle v2 response with optional fields missing', () => {
-    const v2Response: SessionResponseV2 = {
+  it('should handle response with optional fields missing', () => {
+    const response: SessionResponse = {
       identifiers: {
         session_id: 'test-session',
       },
@@ -47,7 +46,7 @@ describe('parseSessionResponseV2', () => {
       },
     };
 
-    const matchResult = parseSessionResponseV2(v2Response);
+    const matchResult = parseSessionResponse(response);
 
     expect(matchResult.status).toBe('complete');
     expect(matchResult.device_id).toBe('');
@@ -55,7 +54,7 @@ describe('parseSessionResponseV2', () => {
   });
 
   it('should include simhash_details when present', () => {
-    const v2Response: SessionResponseV2 = {
+    const response: SessionResponse = {
       identifiers: {
         session_id: 'test-session',
         device_id: 'device-456',
@@ -75,7 +74,7 @@ describe('parseSessionResponseV2', () => {
       },
     };
 
-    const matchResult = parseSessionResponseV2(v2Response);
+    const matchResult = parseSessionResponse(response);
 
     expect(matchResult.simhash_details).toBeDefined();
     expect(matchResult.simhash_details?.hamming_distance).toBe(2);
@@ -83,7 +82,7 @@ describe('parseSessionResponseV2', () => {
   });
 
   it('should include fuzzy_match_info when present', () => {
-    const v2Response: SessionResponseV2 = {
+    const response: SessionResponse = {
       identifiers: {
         session_id: 'test-session',
         device_id: 'device-789',
@@ -102,7 +101,7 @@ describe('parseSessionResponseV2', () => {
       },
     };
 
-    const matchResult = parseSessionResponseV2(v2Response);
+    const matchResult = parseSessionResponse(response);
 
     expect(matchResult.fuzzy_match_info).toBeDefined();
     expect(matchResult.fuzzy_match_info?.hamming_distance).toBe(1);

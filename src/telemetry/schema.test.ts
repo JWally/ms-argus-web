@@ -1,14 +1,12 @@
 /**
  * Schema validation tests
- * AR-188: Tests for Zod schema validation (updated for V3)
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PayloadV3Schema } from './schema';
-import { buildPayloadV3 } from './payload';
+import { describe, it, expect } from 'vitest';
+import { PayloadSchema } from './schema';
+import { buildPayload } from './payload';
 import type { TelemetrySubmission } from './types';
 import type { FingerprintResult } from '../fingerprint';
 
-// Mock fingerprint data for testing
 const createMockFingerprintResult = (
   overrides: Partial<FingerprintResult> = {},
 ): FingerprintResult => ({
@@ -51,30 +49,21 @@ const createMockFingerprintResult = (
   ...overrides,
 });
 
-// Suppress console.log during tests
-beforeEach(() => {
-  vi.spyOn(console, 'log').mockImplementation(() => {});
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-describe('PayloadV3Schema', () => {
+describe('PayloadSchema', () => {
   it('should be exported from schema module', () => {
-    expect(PayloadV3Schema).toBeDefined();
-    expect(typeof PayloadV3Schema.parse).toBe('function');
+    expect(PayloadSchema).toBeDefined();
+    expect(typeof PayloadSchema.parse).toBe('function');
   });
 
-  it('should validate valid v3 payload', () => {
+  it('should validate valid payload', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = {
       fingerprint,
       evercookie: { id: 'test-id' },
     };
 
-    const payload = buildPayloadV3(submission, 'test-session-id');
-    const result = PayloadV3Schema.safeParse(payload);
+    const payload = buildPayload(submission, 'test-session-id');
+    const result = PayloadSchema.safeParse(payload);
 
     expect(result.success).toBe(true);
   });
@@ -86,7 +75,7 @@ describe('PayloadV3Schema', () => {
       device: {},
     };
 
-    const result = PayloadV3Schema.safeParse(invalidPayload);
+    const result = PayloadSchema.safeParse(invalidPayload);
     expect(result.success).toBe(false);
   });
 
@@ -96,11 +85,11 @@ describe('PayloadV3Schema', () => {
       device: {},
     };
 
-    const result = PayloadV3Schema.safeParse(invalidPayload);
+    const result = PayloadSchema.safeParse(invalidPayload);
     expect(result.success).toBe(false);
   });
 
-  it('should accept payload with optional sigint section (V3 uses sigint instead of network)', () => {
+  it('should accept payload with optional sigint section', () => {
     const payload = {
       identifiers: { session_id: 'test-session' },
       hashes: { stable: 'stable-hash', fuzzy: 'fuzzy-hash' },
@@ -110,7 +99,7 @@ describe('PayloadV3Schema', () => {
       },
     };
 
-    const result = PayloadV3Schema.safeParse(payload);
+    const result = PayloadSchema.safeParse(payload);
     expect(result.success).toBe(true);
   });
 
@@ -121,7 +110,7 @@ describe('PayloadV3Schema', () => {
       device: {},
     };
 
-    const result = PayloadV3Schema.safeParse(payload);
+    const result = PayloadSchema.safeParse(payload);
     expect(result.success).toBe(true);
   });
 });

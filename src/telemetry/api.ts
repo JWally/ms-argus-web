@@ -8,9 +8,9 @@ import type {
   TelemetrySubmission,
   TelemetryResult,
   MatchResult,
-  SessionResponseV2,
+  SessionResponse,
 } from './types';
-import { buildPayloadV3 } from './payload';
+import { buildPayload } from './payload';
 import {
   detectApiBaseFromHostname,
   generateSessionId,
@@ -18,7 +18,6 @@ import {
   gzipCompress,
 } from './helpers';
 
-/** AR-188: Schema version for v3 payload format */
 export const SCHEMA_VERSION = '3.0.0';
 
 /**
@@ -51,8 +50,7 @@ export async function submitTelemetry(
   };
 
   try {
-    // AR-187: Build v3 format submission payload
-    const submission = buildPayloadV3(data, sessionId);
+    const submission = buildPayload(data, sessionId);
 
     // Submit to API
     const controller = new AbortController();
@@ -133,7 +131,7 @@ export async function submitTelemetry(
 
 interface PollResult {
   matchResult: MatchResult;
-  apiResponse: SessionResponseV2;
+  apiResponse: SessionResponse;
 }
 
 /**
@@ -168,40 +166,14 @@ async function pollSessionResult(
 
       if (response.ok) {
         const result = await response.json();
-        // AR-189: Handle both v1 and v2 response formats
-        // v2 has analysis.status, v1 has status at root
         if (result.analysis) {
-          // V2 format
           if (result.analysis.status === 'pending') {
             continue;
           }
-          const apiResponse = result as SessionResponseV2;
+          const apiResponse = result as SessionResponse;
           return {
-            matchResult: parseSessionResponseV2(apiResponse),
+            matchResult: parseSessionResponse(apiResponse),
             apiResponse,
-          };
-        } else {
-          // V1 format (backward compat) - wrap in v2 structure
-          if (result.status === 'pending') {
-            continue;
-          }
-          const matchResult = result as MatchResult;
-          return {
-            matchResult,
-            apiResponse: {
-              identifiers: {
-                session_id: sessionId,
-                device_id: matchResult.device_id,
-              },
-              analysis: {
-                status: matchResult.status as 'complete',
-                confidence: matchResult.confidence,
-                match_tier: matchResult.match_tier,
-                risk_score: matchResult.risk_score,
-                flags: matchResult.flags,
-                evidence_codes: matchResult.evidence_codes,
-              },
-            },
           };
         }
       }
@@ -214,22 +186,19 @@ async function pollSessionResult(
 }
 
 /**
- * AR-189: Parse v2 session response into v1 MatchResult format
- * This allows the demo site to continue using the existing v1 interface
+ * Parse session response into MatchResult format
  */
-export function parseSessionResponseV2(
-  v2Response: SessionResponseV2,
-): MatchResult {
+export function parseSessionResponse(response: SessionResponse): MatchResult {
   return {
-    device_id: v2Response.identifiers.device_id ?? '',
-    confidence: v2Response.analysis.confidence ?? 0,
-    match_tier: v2Response.analysis.match_tier ?? -1,
-    risk_score: v2Response.analysis.risk_score ?? 0,
-    status: v2Response.analysis.status,
-    flags: v2Response.analysis.flags,
-    evidence_codes: v2Response.analysis.evidence_codes,
-    simhash_details: v2Response.analysis.simhash_details,
-    fuzzy_match_info: v2Response.analysis.fuzzy_match_info,
+    device_id: response.identifiers.device_id ?? '',
+    confidence: response.analysis.confidence ?? 0,
+    match_tier: response.analysis.match_tier ?? -1,
+    risk_score: response.analysis.risk_score ?? 0,
+    status: response.analysis.status,
+    flags: response.analysis.flags,
+    evidence_codes: response.analysis.evidence_codes,
+    simhash_details: response.analysis.simhash_details,
+    fuzzy_match_info: response.analysis.fuzzy_match_info,
   };
 }
 

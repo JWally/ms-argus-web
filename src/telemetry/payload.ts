@@ -1,10 +1,12 @@
 /**
- * V3 Payload builder
- * AR-187: Build v3 format payload from telemetry submission data
- * Updated from V2: "network" renamed to "sigint"
+ * Payload builder - constructs the submission payload from telemetry data
  */
 
-import type { TelemetrySubmission, PayloadV3, IdentifiersV3 } from './types';
+import type {
+  TelemetrySubmission,
+  ArgusPayload,
+  PayloadIdentifiers,
+} from './types';
 
 /**
  * Extract all $hash values from loose fingerprint modules
@@ -22,17 +24,16 @@ function extractHashes(loose: Record<string, any>): Record<string, string> {
 }
 
 /**
- * Build v3 format payload from telemetry submission data
- * V3 uses "sigint" instead of "network"
+ * Build submission payload from telemetry data
  */
-export function buildPayloadV3(
+export function buildPayload(
   data: TelemetrySubmission,
   sessionId: string,
-): PayloadV3 {
+): ArgusPayload {
   const loose = data.fingerprint.loose || {};
 
   // Build identifiers section
-  const identifiers: IdentifiersV3 = {
+  const identifiers: PayloadIdentifiers = {
     session_id: sessionId,
     evercookie_id: data.evercookie?.id,
     public_key: data.cryptoId?.publicKey,
@@ -45,16 +46,12 @@ export function buildPayloadV3(
     ...extractHashes(loose),
   };
 
-  // Build payload (V3: uses "sigint" instead of "network")
-  const payload: PayloadV3 = {
+  const payload: ArgusPayload = {
     identifiers,
     hashes,
     device: { ...loose },
     sigint: data.sigint ? { ...data.sigint } : undefined,
   };
-
-  // Log what we're sending (before gzip)
-  console.log('[Argus] Payload to server:', payload);
 
   return payload;
 }
