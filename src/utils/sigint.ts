@@ -3,7 +3,8 @@
  *
  * Integrates with ms-argus-sigint server-side fingerprinting services:
  * - TLS Fingerprint Edge (CloudFront): JA3/JA4, third-party cookies, geo/ASN
- * - TCP Probe: TCP RTT, VPN/proxy detection, HTTP/2 fingerprint
+ * - TCP Probe: TCP RTT, VPN/proxy detection
+ * - H2 Probe: HTTP/2 protocol fingerprinting (SETTINGS, WINDOW_UPDATE, PRIORITY frames)
  * - STUN: WebRTC IP discovery
  * - Favicon Cache: Persistent device ID via browser favicon cache
  *
@@ -32,6 +33,8 @@ export interface SigintConfig {
   enableCookie?: boolean;
   /** Enable TCP probe endpoint (default: true) */
   enableTcpProbe?: boolean;
+  /** Enable H2 probe endpoint for HTTP/2 fingerprinting (default: true) */
+  enableH2Probe?: boolean;
   /** Enable STUN for WebRTC IP discovery (default: false - requires user gesture) */
   enableStun?: boolean;
   /** Enable favicon cache fingerprinting (default: true) */
@@ -103,16 +106,46 @@ export interface RttFingerprint {
   proxy_signals: string[];
 }
 
-/** HTTP/2 protocol fingerprint */
+/** HTTP/2 PRIORITY frame data */
+export interface H2PriorityFrame {
+  stream_id: number;
+  exclusive: boolean;
+  depends_on: number;
+  weight: number;
+}
+
+/** HTTP/2 protocol fingerprint from h2-probe */
 export interface Http2Fingerprint {
-  /** Protocol version (h2, http/1.1) */
-  protocol: string;
-  /** Header order (sorted) */
-  header_order: string[];
-  /** Computed fingerprint string */
+  /** SETTINGS frame values in order received (e.g., "MAX_CONCURRENT_STREAMS:100") */
+  settings_order: string[];
+  /** HEADER_TABLE_SIZE setting value */
+  header_table_size?: number;
+  /** ENABLE_PUSH setting value */
+  enable_push?: number;
+  /** MAX_CONCURRENT_STREAMS setting value */
+  max_concurrent_streams?: number;
+  /** INITIAL_WINDOW_SIZE setting value */
+  initial_window_size?: number;
+  /** MAX_FRAME_SIZE setting value */
+  max_frame_size?: number;
+  /** MAX_HEADER_LIST_SIZE setting value */
+  max_header_list_size?: number;
+  /** Connection-level WINDOW_UPDATE value */
+  window_update?: number;
+  /** PRIORITY frames sent by client */
+  priority_frames?: H2PriorityFrame[];
+  /** Computed fingerprint string (Akamai-style: "SETTINGS|WINDOW_UPDATE|PRIORITIES") */
   fingerprint: string;
-  /** Protocol anomalies detected */
-  anomalies: string[];
+  /** Protocol version (h2) */
+  protocol: string;
+}
+
+/** Response from H2 Probe service */
+export interface H2ProbeResponse {
+  h2_fingerprint: Http2Fingerprint | null;
+  client_ip: string;
+  domain: string;
+  error?: string;
 }
 
 /** Client Hints captured by TCP Probe */
@@ -134,7 +167,8 @@ export interface ClientHints {
 export interface TcpProbeResponse {
   tcp_info: TcpInfo | null;
   rtt_fingerprint: RttFingerprint | null;
-  http2_fingerprint: Http2Fingerprint | null;
+  /** @deprecated HTTP/2 fingerprinting moved to dedicated h2-probe service. Always null. */
+  http2_fingerprint: null;
   client_hints: ClientHints | null;
   user_agent: string;
   client_ip: string;
@@ -159,6 +193,8 @@ export interface SigintData {
   tlsFingerprint: TlsFingerprintResponse | null;
   /** TCP probe data (RTT, proxy detection) */
   tcpProbe: TcpProbeResponse | null;
+  /** H2 probe data (HTTP/2 protocol fingerprint) */
+  h2Probe: H2ProbeResponse | null;
   /** STUN/WebRTC data */
   stun: StunResult | null;
   /** Favicon cache device ID */
@@ -167,6 +203,7 @@ export interface SigintData {
   timing: {
     tlsFingerprintMs: number | null;
     tcpProbeMs: number | null;
+    h2ProbeMs: number | null;
     stunMs: number | null;
     faviconCacheMs: number | null;
     totalMs: number;
@@ -185,6 +222,7 @@ const DEFAULT_CONFIG: Required<SigintConfig> = {
   timeout: 2000,
   enableCookie: true,
   enableTcpProbe: true,
+  enableH2Probe: true,
   enableStun: false,
   enableFaviconCache: true,
   faviconCache: {
@@ -197,9 +235,7 @@ const DEFAULT_CONFIG: Required<SigintConfig> = {
 /*  URL Builders                                                       */
 /* ------------------------------------------------------------------ */
 
-/**
- * Build endpoint URL from config
- */
+/** Construct a full URL from config, subdomain, and path. */
 function buildEndpoint(
   config: Required<SigintConfig>,
   subdomain: string,
@@ -210,7 +246,10 @@ function buildEndpoint(
 }
 
 /**
- * Get TLS fingerprint endpoint URL
+ * Get the TLS fingerprint endpoint URL for the given sigint configuration.
+ *
+ * @param config - Sigint configuration specifying domain and stage
+ * @returns Fully-qualified HTTPS URL for the TLS fingerprint service
  */
 export function getTlsFingerprintEndpoint(config: SigintConfig): string {
   const merged = { ...DEFAULT_CONFIG, ...config };
@@ -218,7 +257,10 @@ export function getTlsFingerprintEndpoint(config: SigintConfig): string {
 }
 
 /**
- * Get TCP probe endpoint URL
+ * Get the TCP probe endpoint URL for the given sigint configuration.
+ *
+ * @param config - Sigint configuration specifying domain and stage
+ * @returns Fully-qualified HTTPS URL for the TCP probe service
  */
 export function getTcpProbeEndpoint(config: SigintConfig): string {
   const merged = { ...DEFAULT_CONFIG, ...config };
@@ -226,7 +268,21 @@ export function getTcpProbeEndpoint(config: SigintConfig): string {
 }
 
 /**
- * Get STUN server URI
+ * Get the H2 probe endpoint URL for the given sigint configuration.
+ *
+ * @param config - Sigint configuration specifying domain and stage
+ * @returns Fully-qualified HTTPS URL for the H2 probe service
+ */
+export function getH2ProbeEndpoint(config: SigintConfig): string {
+  const merged = { ...DEFAULT_CONFIG, ...config };
+  return buildEndpoint(merged, 'h2');
+}
+
+/**
+ * Get the STUN server URI for WebRTC ICE candidate gathering.
+ *
+ * @param config - Sigint configuration specifying domain and stage
+ * @returns STUN URI in the format `stun:<subdomain>.<domain>:3478`
  */
 export function getStunServerUri(config: SigintConfig): string {
   const merged = { ...DEFAULT_CONFIG, ...config };
@@ -235,7 +291,10 @@ export function getStunServerUri(config: SigintConfig): string {
 }
 
 /**
- * Get favicon cache base URL (for favicon-cache.ts integration)
+ * Get the favicon cache base URL for integration with favicon-cache.ts.
+ *
+ * @param config - Sigint configuration specifying domain, stage, and favicon options
+ * @returns Fully-qualified HTTPS URL pointing to the favicon cache path on the id subdomain
  */
 export function getFaviconCacheEndpoint(config: SigintConfig): string {
   const merged = { ...DEFAULT_CONFIG, ...config };
@@ -245,7 +304,10 @@ export function getFaviconCacheEndpoint(config: SigintConfig): string {
 }
 
 /**
- * Get favicon cache config for use with favicon-cache.ts
+ * Build the favicon cache configuration object for use with favicon-cache.ts.
+ *
+ * @param config - Sigint configuration specifying domain, stage, and favicon options
+ * @returns Object containing baseUrl, bit count, and probe path for favicon cache operations
  */
 export function getFaviconCacheConfig(config: SigintConfig): {
   baseUrl: string;
@@ -265,9 +327,7 @@ export function getFaviconCacheConfig(config: SigintConfig): {
 /*  Fetch Helpers                                                      */
 /* ------------------------------------------------------------------ */
 
-/**
- * Fetch with timeout and error handling
- */
+/** Fetch JSON from a URL with an AbortController-based timeout. */
 async function fetchWithTimeout<T>(
   url: string,
   timeout: number,
@@ -318,7 +378,10 @@ async function fetchWithTimeout<T>(
 /* ------------------------------------------------------------------ */
 
 /**
- * Fetch TLS fingerprint from CloudFront edge
+ * Fetch TLS fingerprint data from the CloudFront edge endpoint.
+ *
+ * @param config - Sigint configuration for endpoint resolution and timeout
+ * @returns Object containing TLS fingerprint data, any error message, and request duration in ms
  */
 export async function fetchTlsFingerprint(config: SigintConfig): Promise<{
   data: TlsFingerprintResponse | null;
@@ -331,7 +394,10 @@ export async function fetchTlsFingerprint(config: SigintConfig): Promise<{
 }
 
 /**
- * Fetch TCP probe data
+ * Fetch TCP probe data including RTT fingerprint.
+ *
+ * @param config - Sigint configuration for endpoint resolution and timeout
+ * @returns Object containing TCP probe data, any error message, and request duration in ms
  */
 export async function fetchTcpProbe(config: SigintConfig): Promise<{
   data: TcpProbeResponse | null;
@@ -344,7 +410,29 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
 }
 
 /**
- * Perform STUN binding request via WebRTC
+ * Fetch H2 probe data including HTTP/2 protocol fingerprint.
+ *
+ * @param config - Sigint configuration for endpoint resolution and timeout
+ * @returns Object containing H2 probe data, any error message, and request duration in ms
+ */
+export async function fetchH2Probe(config: SigintConfig): Promise<{
+  data: H2ProbeResponse | null;
+  error: string | null;
+  durationMs: number;
+}> {
+  const merged = { ...DEFAULT_CONFIG, ...config };
+  const url = getH2ProbeEndpoint(config);
+  return fetchWithTimeout<H2ProbeResponse>(url, merged.timeout);
+}
+
+/**
+ * Perform a STUN binding request via WebRTC to discover local and reflexive IP addresses.
+ *
+ * Creates a temporary RTCPeerConnection, gathers ICE candidates, and extracts host
+ * and server-reflexive candidate IPs to detect NAT presence.
+ *
+ * @param config - Sigint configuration for STUN server URI and timeout
+ * @returns Object containing STUN result with local/reflexive IPs, any error message, and duration in ms
  */
 export async function performStunBinding(config: SigintConfig): Promise<{
   data: StunResult | null;
@@ -465,9 +553,7 @@ export async function performStunBinding(config: SigintConfig): Promise<{
 /*  Main Collector                                                     */
 /* ------------------------------------------------------------------ */
 
-/**
- * Collect favicon cache ID with timing
- */
+/** Collect the favicon cache device ID, wrapping errors and recording timing. */
 async function collectFaviconCache(config: SigintConfig): Promise<{
   data: FaviconCacheData | null;
   error: string | null;
@@ -492,7 +578,13 @@ async function collectFaviconCache(config: SigintConfig): Promise<{
 }
 
 /**
- * Collect all sigint data in parallel
+ * Collect all enabled sigint signals in parallel and return the combined result.
+ *
+ * Runs TLS fingerprint, TCP probe, H2 probe, STUN, and favicon cache requests concurrently
+ * based on configuration flags, aggregating results and errors.
+ *
+ * @param config - Sigint configuration controlling which collectors to run
+ * @returns Combined sigint data including all responses, per-request timing, and collected errors
  */
 export async function collectSigintData(
   config: SigintConfig,
@@ -515,6 +607,11 @@ export async function collectSigintData(
     requestTypes.push('tcp');
   }
 
+  if (merged.enableH2Probe) {
+    requests.push(fetchH2Probe(config));
+    requestTypes.push('h2');
+  }
+
   if (merged.enableStun) {
     requests.push(performStunBinding(config));
     requestTypes.push('stun');
@@ -533,6 +630,8 @@ export async function collectSigintData(
   let tlsFingerprintMs: number | null = null;
   let tcpProbe: TcpProbeResponse | null = null;
   let tcpProbeMs: number | null = null;
+  let h2Probe: H2ProbeResponse | null = null;
+  let h2ProbeMs: number | null = null;
   let stun: StunResult | null = null;
   let stunMs: number | null = null;
   let faviconCache: FaviconCacheData | null = null;
@@ -559,6 +658,10 @@ export async function collectSigintData(
         tcpProbe = result.data as TcpProbeResponse | null;
         tcpProbeMs = result.durationMs;
         break;
+      case 'h2':
+        h2Probe = result.data as H2ProbeResponse | null;
+        h2ProbeMs = result.durationMs;
+        break;
       case 'stun':
         stun = result.data as StunResult | null;
         stunMs = result.durationMs;
@@ -573,11 +676,13 @@ export async function collectSigintData(
   return {
     tlsFingerprint,
     tcpProbe,
+    h2Probe,
     stun,
     faviconCache,
     timing: {
       tlsFingerprintMs,
       tcpProbeMs,
+      h2ProbeMs,
       stunMs,
       faviconCacheMs,
       totalMs: performance.now() - start,
@@ -591,7 +696,7 @@ export async function collectSigintData(
 /* ------------------------------------------------------------------ */
 
 /**
- * Parse sigint config from URL search params
+ * Parse sigint configuration from URL search parameters.
  *
  * Supported params:
  * - sigintDomain: Base domain (e.g., "argus.pw")
@@ -602,6 +707,9 @@ export async function collectSigintData(
  * - sigintStun: Enable STUN ("true"/"false")
  * - sigintFavicon: Enable favicon cache ("true"/"false")
  * - sigintFaviconBits: Number of favicon bits (default: 32)
+ *
+ * @param url - URL string or URL object from which to extract search parameters
+ * @returns Partial sigint config populated from any recognized query parameters
  */
 export function parseSigintConfigFromUrl(
   url: string | URL,
@@ -628,6 +736,9 @@ export function parseSigintConfigFromUrl(
   const tcpProbe = searchParams.get('sigintTcpProbe');
   if (tcpProbe !== null) config.enableTcpProbe = tcpProbe !== 'false';
 
+  const h2Probe = searchParams.get('sigintH2Probe');
+  if (h2Probe !== null) config.enableH2Probe = h2Probe !== 'false';
+
   const stun = searchParams.get('sigintStun');
   if (stun !== null) config.enableStun = stun === 'true';
 
@@ -650,8 +761,13 @@ export function parseSigintConfigFromUrl(
 /* ------------------------------------------------------------------ */
 
 /**
- * Quick check if we're likely behind a proxy/VPN
- * Returns score from 0.0 (unlikely) to 1.0 (very likely)
+ * Quick check if we're likely behind a proxy or VPN.
+ *
+ * Returns the higher of the proxy and VPN likelihood scores from the TCP probe
+ * RTT fingerprint, or 0 if TCP probe data is unavailable.
+ *
+ * @param data - Collected sigint data containing TCP probe results
+ * @returns Score from 0.0 (unlikely) to 1.0 (very likely) indicating proxy/VPN presence
  */
 export function getProxyScore(data: SigintData): number {
   if (!data.tcpProbe?.rtt_fingerprint) return 0;
@@ -662,7 +778,10 @@ export function getProxyScore(data: SigintData): number {
 }
 
 /**
- * Get TLS fingerprint hash (JA4 preferred, fallback to JA3)
+ * Get the TLS fingerprint hash, preferring JA4 with a fallback to JA3.
+ *
+ * @param data - Collected sigint data containing TLS fingerprint results
+ * @returns JA4 or JA3 hash string, or null if TLS fingerprint data is unavailable
  */
 export function getTlsHash(data: SigintData): string | null {
   if (!data.tlsFingerprint) return null;
@@ -670,15 +789,31 @@ export function getTlsHash(data: SigintData): string | null {
 }
 
 /**
- * Get third-party cookie ID
+ * Get the third-party cookie visitor ID from the TLS fingerprint response.
+ *
+ * @param data - Collected sigint data containing TLS fingerprint results
+ * @returns UUID visitor ID string, or null if TLS fingerprint data is unavailable
  */
 export function getThirdPartyCookieId(data: SigintData): string | null {
   return data.tlsFingerprint?.id || null;
 }
 
 /**
- * Get favicon cache device ID
+ * Get the persistent device ID derived from the browser's favicon cache.
+ *
+ * @param data - Collected sigint data containing favicon cache results
+ * @returns Device ID string, or null if favicon cache data is unavailable
  */
 export function getFaviconCacheDeviceId(data: SigintData): string | null {
   return data.faviconCache?.id || null;
+}
+
+/**
+ * Get the HTTP/2 protocol fingerprint string.
+ *
+ * @param data - Collected sigint data containing H2 probe results
+ * @returns H2 fingerprint string (Akamai-style), or null if H2 probe data is unavailable
+ */
+export function getH2Fingerprint(data: SigintData): string | null {
+  return data.h2Probe?.h2_fingerprint?.fingerprint || null;
 }

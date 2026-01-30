@@ -3,14 +3,17 @@ import {
   collectSigintData,
   fetchTlsFingerprint,
   fetchTcpProbe,
+  fetchH2Probe,
   performStunBinding,
   parseSigintConfigFromUrl,
   getTlsFingerprintEndpoint,
   getTcpProbeEndpoint,
+  getH2ProbeEndpoint,
   getStunServerUri,
   getProxyScore,
   getTlsHash,
   getThirdPartyCookieId,
+  getH2Fingerprint,
   type SigintConfig,
   type SigintData,
 } from './sigint';
@@ -41,6 +44,21 @@ describe('sigint URL builders', () => {
     };
     const url = getTcpProbeEndpoint(config);
     expect(url).toBe('https://uat-tcp-probe.argus.pw/');
+  });
+
+  it('builds H2 probe endpoint with default config', () => {
+    const config: SigintConfig = { baseDomain: 'argus.pw' };
+    const url = getH2ProbeEndpoint(config);
+    expect(url).toBe('https://h2.argus.pw/');
+  });
+
+  it('builds H2 probe endpoint with stage prefix', () => {
+    const config: SigintConfig = {
+      baseDomain: 'argus.pw',
+      stagePrefix: 'dev-jw-',
+    };
+    const url = getH2ProbeEndpoint(config);
+    expect(url).toBe('https://dev-jw-h2.argus.pw/');
   });
 
   it('builds STUN server URI with default config', () => {
@@ -99,6 +117,12 @@ describe('parseSigintConfigFromUrl', () => {
     expect(config.enableTcpProbe).toBe(false);
   });
 
+  it('parses sigintH2Probe=false from URL', () => {
+    const url = new URL('https://example.com/script.js?sigintH2Probe=false');
+    const config = parseSigintConfigFromUrl(url);
+    expect(config.enableH2Probe).toBe(false);
+  });
+
   it('parses sigintStun=true from URL', () => {
     const url = new URL('https://example.com/script.js?sigintStun=true');
     const config = parseSigintConfigFromUrl(url);
@@ -130,11 +154,15 @@ describe('helper functions', () => {
       const data: SigintData = {
         tlsFingerprint: null,
         tcpProbe: null,
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: null,
           tcpProbeMs: null,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -154,11 +182,15 @@ describe('helper functions', () => {
           client_ip: '1.2.3.4',
           domain: 'test.io',
         },
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: null,
           tcpProbeMs: 100,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -190,11 +222,15 @@ describe('helper functions', () => {
           client_ip: '1.2.3.4',
           domain: 'test.io',
         },
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: null,
           tcpProbeMs: 100,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -208,11 +244,15 @@ describe('helper functions', () => {
       const data: SigintData = {
         tlsFingerprint: null,
         tcpProbe: null,
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: null,
           tcpProbeMs: null,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -232,11 +272,15 @@ describe('helper functions', () => {
           ja4: 'ja4-hash',
         },
         tcpProbe: null,
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: 50,
           tcpProbeMs: null,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -256,11 +300,15 @@ describe('helper functions', () => {
           ja4: null,
         },
         tcpProbe: null,
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: 50,
           tcpProbeMs: null,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -274,11 +322,15 @@ describe('helper functions', () => {
       const data: SigintData = {
         tlsFingerprint: null,
         tcpProbe: null,
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: null,
           tcpProbeMs: null,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
@@ -298,16 +350,73 @@ describe('helper functions', () => {
           ja4: 'ja4-hash',
         },
         tcpProbe: null,
+        h2Probe: null,
         stun: null,
+        faviconCache: null,
         timing: {
           tlsFingerprintMs: 50,
           tcpProbeMs: null,
+          h2ProbeMs: null,
           stunMs: null,
+          faviconCacheMs: null,
           totalMs: 100,
         },
         errors: [],
       };
       expect(getThirdPartyCookieId(data)).toBe('cookie-uuid-12345');
+    });
+  });
+
+  describe('getH2Fingerprint', () => {
+    it('returns null when no h2 probe data', () => {
+      const data: SigintData = {
+        tlsFingerprint: null,
+        tcpProbe: null,
+        h2Probe: null,
+        stun: null,
+        faviconCache: null,
+        timing: {
+          tlsFingerprintMs: null,
+          tcpProbeMs: null,
+          h2ProbeMs: null,
+          stunMs: null,
+          faviconCacheMs: null,
+          totalMs: 100,
+        },
+        errors: [],
+      };
+      expect(getH2Fingerprint(data)).toBe(null);
+    });
+
+    it('returns fingerprint when h2 probe data available', () => {
+      const data: SigintData = {
+        tlsFingerprint: null,
+        tcpProbe: null,
+        h2Probe: {
+          h2_fingerprint: {
+            settings_order: [
+              'MAX_CONCURRENT_STREAMS:100',
+              'INITIAL_WINDOW_SIZE:10485760',
+            ],
+            fingerprint: '100,10485760|1048510465|0',
+            protocol: 'h2',
+          },
+          client_ip: '1.2.3.4',
+          domain: 'test.io',
+        },
+        stun: null,
+        faviconCache: null,
+        timing: {
+          tlsFingerprintMs: null,
+          tcpProbeMs: null,
+          h2ProbeMs: 50,
+          stunMs: null,
+          faviconCacheMs: null,
+          totalMs: 100,
+        },
+        errors: [],
+      };
+      expect(getH2Fingerprint(data)).toBe('100,10485760|1048510465|0');
     });
   });
 });
@@ -326,13 +435,16 @@ describe('collectSigintData', () => {
       baseDomain: 'test.io',
       enableCookie: false,
       enableTcpProbe: false,
+      enableH2Probe: false,
       enableStun: false,
+      enableFaviconCache: false,
     };
 
     const result = await collectSigintData(config);
 
     expect(result.tlsFingerprint).toBe(null);
     expect(result.tcpProbe).toBe(null);
+    expect(result.h2Probe).toBe(null);
     expect(result.stun).toBe(null);
     expect(result.errors).toHaveLength(0);
   });
@@ -345,7 +457,9 @@ describe('collectSigintData', () => {
       baseDomain: 'test.io',
       enableCookie: true,
       enableTcpProbe: true,
+      enableH2Probe: true,
       enableStun: false,
+      enableFaviconCache: false,
       timeout: 1000,
     };
 
@@ -376,7 +490,9 @@ describe('collectSigintData', () => {
       baseDomain: 'test.io',
       enableCookie: true,
       enableTcpProbe: false,
+      enableH2Probe: false,
       enableStun: false,
+      enableFaviconCache: false,
       timeout: 1000,
     };
 
@@ -398,7 +514,9 @@ describe('collectSigintData', () => {
       baseDomain: 'test.io',
       enableCookie: true,
       enableTcpProbe: true,
+      enableH2Probe: true,
       enableStun: false,
+      enableFaviconCache: false,
       timeout: 1000,
     };
 
