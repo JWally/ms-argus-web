@@ -1,10 +1,10 @@
-import { Construct } from "constructs";
-import { RemovalPolicy, Duration, CfnOutput } from "aws-cdk-lib";
+import { Construct } from 'constructs';
+import { RemovalPolicy, Duration, CfnOutput } from 'aws-cdk-lib';
 import {
   Bucket,
   BucketEncryption,
   BlockPublicAccess,
-} from "aws-cdk-lib/aws-s3";
+} from 'aws-cdk-lib/aws-s3';
 import {
   Distribution,
   ViewerProtocolPolicy,
@@ -19,23 +19,23 @@ import {
   ResponseHeadersPolicy,
   HeadersFrameOption,
   HeadersReferrerPolicy,
-} from "aws-cdk-lib/aws-cloudfront";
-import { OriginAccessIdentity } from "aws-cdk-lib/aws-cloudfront";
-import { S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
-import { PolicyStatement, CanonicalUserPrincipal } from "aws-cdk-lib/aws-iam";
+} from 'aws-cdk-lib/aws-cloudfront';
+import { OriginAccessIdentity } from 'aws-cdk-lib/aws-cloudfront';
+import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { PolicyStatement, CanonicalUserPrincipal } from 'aws-cdk-lib/aws-iam';
 import {
   BucketDeployment,
   Source,
   CacheControl,
-} from "aws-cdk-lib/aws-s3-deployment";
-import { HostedZone, ARecord, RecordTarget } from "aws-cdk-lib/aws-route53";
-import { CloudFrontTarget } from "aws-cdk-lib/aws-route53-targets";
+} from 'aws-cdk-lib/aws-s3-deployment';
+import { HostedZone, ARecord, RecordTarget } from 'aws-cdk-lib/aws-route53';
+import { CloudFrontTarget } from 'aws-cdk-lib/aws-route53-targets';
 import {
   Certificate,
   CertificateValidation,
   ICertificate,
-} from "aws-cdk-lib/aws-certificatemanager";
-import * as path from "path";
+} from 'aws-cdk-lib/aws-certificatemanager';
+import * as path from 'path';
 
 export interface SimpleStaticSiteProps {
   /**
@@ -78,7 +78,7 @@ export class StaticSiteConstruct extends Construct {
     const removalPolicy = props.removalPolicy ?? RemovalPolicy.DESTROY;
 
     // 1) Create a private S3 bucket for the site
-    this.bucket = new Bucket(this, "SiteBucket", {
+    this.bucket = new Bucket(this, 'SiteBucket', {
       encryption: BucketEncryption.S3_MANAGED,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       autoDeleteObjects: removalPolicy === RemovalPolicy.DESTROY,
@@ -86,11 +86,11 @@ export class StaticSiteConstruct extends Construct {
     });
 
     // 2) Create an Origin Access Identity (OAI) to allow CloudFront to read from the bucket
-    const oai = new OriginAccessIdentity(this, "SiteOAI");
+    const oai = new OriginAccessIdentity(this, 'SiteOAI');
     this.bucket.addToResourcePolicy(
       new PolicyStatement({
-        actions: ["s3:GetObject"],
-        resources: [this.bucket.arnForObjects("*")],
+        actions: ['s3:GetObject'],
+        resources: [this.bucket.arnForObjects('*')],
         principals: [
           new CanonicalUserPrincipal(
             oai.cloudFrontOriginAccessIdentityS3CanonicalUserId,
@@ -102,11 +102,11 @@ export class StaticSiteConstruct extends Construct {
     // 3) (Optional) If we have a custom domain + root domain, create or validate a cert in us-east-1
     let certificate: ICertificate | undefined;
     if (props.customDomain && props.rootDomain) {
-      const zone = HostedZone.fromLookup(this, "HostedZone", {
+      const zone = HostedZone.fromLookup(this, 'HostedZone', {
         domainName: props.rootDomain,
       });
 
-      certificate = new Certificate(this, "SiteCertificate", {
+      certificate = new Certificate(this, 'SiteCertificate', {
         domainName: props.customDomain,
         validation: CertificateValidation.fromDns(zone),
       });
@@ -116,10 +116,10 @@ export class StaticSiteConstruct extends Construct {
     // Create cache policies
     const staticAssetsCachePolicy = new CachePolicy(
       this,
-      "StaticAssetsCachePolicy",
+      'StaticAssetsCachePolicy',
       {
         cachePolicyName: `${props.stage}-argus-static-assets-cache`,
-        comment: "Cache policy for static assets with compression",
+        comment: 'Cache policy for static assets with compression',
         defaultTtl: Duration.days(30),
         maxTtl: Duration.days(365),
         minTtl: Duration.seconds(0),
@@ -131,9 +131,9 @@ export class StaticSiteConstruct extends Construct {
       },
     );
 
-    const htmlCachePolicy = new CachePolicy(this, "HtmlCachePolicy", {
+    const htmlCachePolicy = new CachePolicy(this, 'HtmlCachePolicy', {
       cachePolicyName: `${props.stage}-argus-html-no-cache`,
-      comment: "No cache policy for HTML files with compression",
+      comment: 'No cache policy for HTML files with compression',
       defaultTtl: Duration.seconds(0),
       maxTtl: Duration.seconds(86400), // 1 day max
       minTtl: Duration.seconds(0),
@@ -147,15 +147,15 @@ export class StaticSiteConstruct extends Construct {
     // Response headers policy with CORS for cross-origin script loading
     const corsResponseHeadersPolicy = new ResponseHeadersPolicy(
       this,
-      "CorsResponseHeadersPolicy",
+      'CorsResponseHeadersPolicy',
       {
         responseHeadersPolicyName: `${props.stage}-argus-cors-policy`,
-        comment: "CORS headers for cross-origin script loading",
+        comment: 'CORS headers for cross-origin script loading',
         corsBehavior: {
           accessControlAllowCredentials: false,
-          accessControlAllowHeaders: ["*"],
-          accessControlAllowMethods: ["GET", "HEAD", "OPTIONS"],
-          accessControlAllowOrigins: ["*"],
+          accessControlAllowHeaders: ['*'],
+          accessControlAllowMethods: ['GET', 'HEAD', 'OPTIONS'],
+          accessControlAllowOrigins: ['*'],
           accessControlMaxAge: Duration.seconds(86400),
           originOverride: true,
         },
@@ -166,7 +166,8 @@ export class StaticSiteConstruct extends Construct {
             override: true,
           },
           referrerPolicy: {
-            referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+            referrerPolicy:
+              HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
             override: true,
           },
           strictTransportSecurity: {
@@ -178,7 +179,7 @@ export class StaticSiteConstruct extends Construct {
       },
     );
 
-    this.distribution = new Distribution(this, "SiteDistribution", {
+    this.distribution = new Distribution(this, 'SiteDistribution', {
       defaultBehavior: {
         origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -187,42 +188,42 @@ export class StaticSiteConstruct extends Construct {
       },
       additionalBehaviors: {
         // JavaScript files - cached, compressed, with CORS headers
-        "*.js": {
+        '*.js': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           responseHeadersPolicy: corsResponseHeadersPolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
         // CSS files - cached and compressed
-        "*.css": {
+        '*.css': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
         // Font files - cached and compressed
-        "*.woff*": {
+        '*.woff*': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
         // Images - cached and compressed
-        "*.png": {
+        '*.png': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
-        "*.jpg": {
+        '*.jpg': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
-        "*.svg": {
+        '*.svg': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
         // WASM files - cached
-        "*.wasm": {
+        '*.wasm': {
           origin: new S3Origin(this.bucket, { originAccessIdentity: oai }),
           cachePolicy: staticAssetsCachePolicy,
           viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -236,20 +237,20 @@ export class StaticSiteConstruct extends Construct {
       minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
       httpVersion: HttpVersion.HTTP2,
       priceClass: PriceClass.PRICE_CLASS_100,
-      defaultRootObject: "index.html",
+      defaultRootObject: 'index.html',
 
       // This makes sure that everything resolves to index.html
       errorResponses: [
         {
           httpStatus: 403,
           responseHttpStatus: 200,
-          responsePagePath: "/index.html",
+          responsePagePath: '/index.html',
           ttl: Duration.seconds(0),
         },
         {
           httpStatus: 404,
           responseHttpStatus: 200,
-          responsePagePath: "/index.html",
+          responsePagePath: '/index.html',
           ttl: Duration.seconds(0),
         },
       ],
@@ -257,11 +258,11 @@ export class StaticSiteConstruct extends Construct {
 
     // 5) If a custom domain was provided, create a Route53 A-record
     if (certificate && props.customDomain && props.rootDomain) {
-      const zone = HostedZone.fromLookup(this, "AliasHostedZone", {
+      const zone = HostedZone.fromLookup(this, 'AliasHostedZone', {
         domainName: props.rootDomain,
       });
 
-      new ARecord(this, "AliasRecord", {
+      new ARecord(this, 'AliasRecord', {
         zone,
         recordName: props.customDomain,
         target: RecordTarget.fromAlias(new CloudFrontTarget(this.distribution)),
@@ -272,23 +273,25 @@ export class StaticSiteConstruct extends Construct {
       this.domainUrl = `https://${this.distribution.distributionDomainName}`;
     }
 
-    // 6) Deploy your compiled site from /dist -> S3, with a single invalidation
-    const distPath = path.join(__dirname, "../../dist");
-    new BucketDeployment(this, "DeployStaticSite", {
+    // 6) Deploy your compiled site from /dist -> S3, with full cache invalidation
+    const distPath = path.join(__dirname, '../../dist');
+    new BucketDeployment(this, 'DeployStaticSite', {
       sources: [Source.asset(distPath)],
       destinationBucket: this.bucket,
       distribution: this.distribution,
-      distributionPaths: ["/index.html", "/"],
+      // Invalidate all paths to ensure fresh content after deployment
+      // This is critical for JavaScript files that may be cached at edge locations
+      distributionPaths: ['/*'],
       memoryLimit: 2096,
       cacheControl: [
-        CacheControl.fromString("public, max-age=0, must-revalidate"),
+        CacheControl.fromString('public, max-age=0, must-revalidate'),
       ],
     });
 
     // 7) Provide a CloudFormation output for the site URL
-    new CfnOutput(this, "SiteURL", {
+    new CfnOutput(this, 'SiteURL', {
       value: this.domainUrl,
-      description: "The URL of the deployed site",
+      description: 'The URL of the deployed site',
     });
   }
 }
