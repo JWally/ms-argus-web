@@ -411,8 +411,28 @@ export async function fetchTlsFingerprint(config: SigintConfig): Promise<{
   return fetchWithTimeout<TlsFingerprintResponse>(url, merged.timeout);
 }
 
+/** Number of parallel TCP probe requests to make for median calculation */
+const TCP_PROBE_SAMPLE_COUNT = 5;
+
+/**
+ * Calculate the median of an array of numbers.
+ * Returns NaN for empty arrays.
+ */
+function median(values: number[]): number {
+  if (values.length === 0) return NaN;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 /**
  * Fetch TCP probe data including RTT fingerprint.
+ *
+ * Makes multiple parallel requests and returns the response with the median
+ * TLS/TCP ratio for more robust proxy detection. The median filters out
+ * outliers caused by network variance.
  *
  * @param config - Sigint configuration for endpoint resolution and timeout
  * @returns Object containing TCP probe data, any error message, and request duration in ms
@@ -424,7 +444,62 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
 }> {
   const merged = { ...DEFAULT_CONFIG, ...config };
   const url = getTcpProbeEndpoint(config);
-  return fetchWithTimeout<TcpProbeResponse>(url, merged.timeout);
+  const start = performance.now();
+
+  // Make parallel requests for median calculation
+  const requests = Array.from({ length: TCP_PROBE_SAMPLE_COUNT }, () =>
+    fetchWithTimeout<TcpProbeResponse>(url, merged.timeout),
+  );
+
+  const results = await Promise.all(requests);
+  const durationMs = performance.now() - start;
+
+  // Filter successful responses with valid ratio data
+  const validResults = results.filter(
+    (r) =>
+      r.data !== null &&
+      r.data.rtt_fingerprint !== null &&
+      typeof r.data.rtt_fingerprint.tls_to_tcp_ratio === 'number' &&
+      !isNaN(r.data.rtt_fingerprint.tls_to_tcp_ratio),
+  );
+
+  // If no valid results, return the first error or a generic error
+  if (validResults.length === 0) {
+    const firstError = results.find((r) => r.error !== null);
+    return {
+      data: null,
+      error: firstError?.error || 'All TCP probe requests failed',
+      durationMs,
+    };
+  }
+
+  // Calculate median ratio
+  const ratios = validResults.map(
+    (r) => r.data!.rtt_fingerprint!.tls_to_tcp_ratio,
+  );
+  const medianRatio = median(ratios);
+
+  // Find the result closest to the median (to return complete data)
+  let closestResult = validResults[0];
+  let closestDiff = Math.abs(
+    closestResult.data!.rtt_fingerprint!.tls_to_tcp_ratio - medianRatio,
+  );
+
+  for (const result of validResults) {
+    const diff = Math.abs(
+      result.data!.rtt_fingerprint!.tls_to_tcp_ratio - medianRatio,
+    );
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closestResult = result;
+    }
+  }
+
+  return {
+    data: closestResult.data,
+    error: null,
+    durationMs,
+  };
 }
 
 /**

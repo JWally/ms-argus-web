@@ -504,9 +504,41 @@ describe('collectSigintData', () => {
   });
 
   it('records timing for all requests', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ id: 'test' }),
+    // Mock TCP probe response with valid rtt_fingerprint for median calculation
+    const mockTcpProbeResponse = {
+      tcp_info: { rtt: 40000 },
+      rtt_fingerprint: {
+        tcp_rtt_us: 40000,
+        tls_handshake_us: 42000,
+        http_first_byte_us: 1000,
+        total_connection_us: 50000,
+        snd_mss: 1448,
+        pmtu: 9001,
+        tls_to_tcp_ratio: 1.05,
+        total_to_tcp_ratio: 1.25,
+        proxy_score: 0,
+        vpn_score: 0,
+        proxy_signals: ['none'],
+      },
+      http2_fingerprint: null,
+      client_hints: null,
+      user_agent: 'test',
+      client_ip: '1.2.3.4',
+      domain: 'test.io',
+    };
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      // Return TCP probe response for tcp-probe URLs, generic for others
+      if (url.includes('tcp-probe')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockTcpProbeResponse),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ id: 'test' }),
+      });
     });
     vi.stubGlobal('fetch', mockFetch);
 
@@ -535,5 +567,121 @@ describe('performStunBinding', () => {
     // Should handle gracefully
     expect(result.error).toContain('WebRTC not available');
     expect(result.data).toBe(null);
+  });
+});
+
+describe('fetchTcpProbe median calculation', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns median ratio from multiple requests', async () => {
+    // Create responses with varying ratios
+    // Sorted: [1.0, 1.05, 1.1, 5.0, 15.0] -> median is 1.1 (middle value)
+    const ratios = [1.0, 5.0, 1.1, 15.0, 1.05];
+    let callIndex = 0;
+
+    const mockFetch = vi.fn().mockImplementation(() => {
+      const ratio = ratios[callIndex % ratios.length];
+      callIndex++;
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tcp_info: { rtt: 40000 },
+            rtt_fingerprint: {
+              tcp_rtt_us: 40000,
+              tls_handshake_us: Math.round(40000 * ratio),
+              http_first_byte_us: 1000,
+              total_connection_us: 50000,
+              snd_mss: 1448,
+              pmtu: 9001,
+              tls_to_tcp_ratio: ratio,
+              total_to_tcp_ratio: 1.25,
+              proxy_score: ratio > 2 ? 0.5 : 0,
+              vpn_score: 0,
+              proxy_signals: ratio > 2 ? ['elevated_tls_ratio'] : ['none'],
+            },
+            http2_fingerprint: null,
+            client_hints: null,
+            user_agent: 'test',
+            client_ip: '1.2.3.4',
+            domain: 'test.io',
+          }),
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const config: SigintConfig = { baseDomain: 'test.io', timeout: 1000 };
+    const result = await fetchTcpProbe(config);
+
+    // Should make 5 requests
+    expect(mockFetch).toHaveBeenCalledTimes(5);
+
+    // Should return the response closest to median (1.1)
+    // Sorted ratios: [1.0, 1.05, 1.1, 5.0, 15.0] -> median = 1.1
+    expect(result.data).not.toBe(null);
+    expect(result.data?.rtt_fingerprint?.tls_to_tcp_ratio).toBe(1.1);
+    expect(result.error).toBe(null);
+  });
+
+  it('handles all requests failing', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const config: SigintConfig = { baseDomain: 'test.io', timeout: 1000 };
+    const result = await fetchTcpProbe(config);
+
+    expect(result.data).toBe(null);
+    expect(result.error).toContain('Network error');
+  });
+
+  it('handles partial failures gracefully', async () => {
+    let callIndex = 0;
+
+    const mockFetch = vi.fn().mockImplementation(() => {
+      callIndex++;
+      // First 2 requests fail, last 3 succeed
+      if (callIndex <= 2) {
+        return Promise.reject(new Error('Network error'));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tcp_info: { rtt: 40000 },
+            rtt_fingerprint: {
+              tcp_rtt_us: 40000,
+              tls_handshake_us: 42000,
+              http_first_byte_us: 1000,
+              total_connection_us: 50000,
+              snd_mss: 1448,
+              pmtu: 9001,
+              tls_to_tcp_ratio: 1.05,
+              total_to_tcp_ratio: 1.25,
+              proxy_score: 0,
+              vpn_score: 0,
+              proxy_signals: ['none'],
+            },
+            http2_fingerprint: null,
+            client_hints: null,
+            user_agent: 'test',
+            client_ip: '1.2.3.4',
+            domain: 'test.io',
+          }),
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const config: SigintConfig = { baseDomain: 'test.io', timeout: 1000 };
+    const result = await fetchTcpProbe(config);
+
+    // Should still succeed with 3 valid responses
+    expect(result.data).not.toBe(null);
+    expect(result.error).toBe(null);
   });
 });
