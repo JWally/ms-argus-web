@@ -17,6 +17,21 @@ import {
   EVERCOOKIE_DB_STORE,
 } from './constants';
 
+/** Timeout for IndexedDB operations (ms). Prevents infinite hangs in Firefox/private mode. */
+const IDB_TIMEOUT_MS = 2000;
+
+/** Races a promise against a timeout, returning fallback on timeout. */
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 /* ───────────────────────────── Helpers ───────────────────────────── */
 
 /** Convert an ArrayBuffer to a Base64 string */
@@ -131,7 +146,9 @@ const writeStoredKeys = async (
  * @returns The resolved CryptoKeys bundle
  */
 const setupCryptography = async (): Promise<CryptoKeys> => {
-  const db = await openDb().catch(() => undefined);
+  const db = await withTimeout(openDb(), IDB_TIMEOUT_MS, undefined).catch(
+    () => undefined,
+  );
 
   try {
     // 1. Attempt to load existing keys from DB
@@ -261,7 +278,9 @@ export const resetCryptoIdMemo = (): void => {
  */
 export const clearStoredKeys = async (): Promise<void> => {
   resetCryptoIdMemo();
-  const db = await openDb().catch(() => undefined);
+  const db = await withTimeout(openDb(), IDB_TIMEOUT_MS, undefined).catch(
+    () => undefined,
+  );
   if (!db) return;
 
   try {

@@ -30,6 +30,21 @@ import {
 } from './constants';
 import { expectFailure } from './expected-failure';
 
+/** Timeout for IndexedDB operations (ms). Prevents infinite hangs in Firefox/private mode. */
+const IDB_TIMEOUT_MS = 2000;
+
+/** Races a promise against a timeout, returning null on timeout. */
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 import {
   getFaviconCacheId,
   setFaviconCacheId,
@@ -134,7 +149,11 @@ async function openEvercookieDb(): Promise<IDBDatabase> {
 /** Reads evercookie data from IndexedDB, returning null if unavailable. */
 async function readFromIndexedDB(): Promise<EvercookieData | null> {
   try {
-    const db = await openEvercookieDb();
+    const db = await withTimeout(openEvercookieDb(), IDB_TIMEOUT_MS, null);
+    if (!db) {
+      expectFailure('indexedDB.open', 'Timeout - IndexedDB blocked or slow');
+      return null;
+    }
     return new Promise((resolve) => {
       const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readonly');
       const store = tx.objectStore(EVERCOOKIE_DB_STORE);
@@ -161,7 +180,11 @@ async function readFromIndexedDB(): Promise<EvercookieData | null> {
 /** Writes evercookie data to IndexedDB, returning success status. */
 async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
   try {
-    const db = await openEvercookieDb();
+    const db = await withTimeout(openEvercookieDb(), IDB_TIMEOUT_MS, null);
+    if (!db) {
+      expectFailure('indexedDB.open', 'Timeout - IndexedDB blocked or slow');
+      return false;
+    }
     return new Promise((resolve) => {
       const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite');
       const store = tx.objectStore(EVERCOOKIE_DB_STORE);
@@ -539,8 +562,9 @@ export async function clearEvercookieId(): Promise<void> {
 
   // IndexedDB
   clearPromises.push(
-    openEvercookieDb()
+    withTimeout(openEvercookieDb(), IDB_TIMEOUT_MS, null)
       .then((db) => {
+        if (!db) return;
         return new Promise<void>((resolve) => {
           const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite');
           const store = tx.objectStore(EVERCOOKIE_DB_STORE);
