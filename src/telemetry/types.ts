@@ -15,6 +15,27 @@ export interface PayloadIdentifiers {
   session_id: string;
   evercookie_id?: string;
   public_key?: string;
+  /** Ground truth data for test validation (e.g., BrowserStack capabilities) */
+  ground_truth?: GroundTruth;
+}
+
+/**
+ * Ground truth data for test validation.
+ * Populated from URL params when running in test environments (e.g., BrowserStack).
+ */
+export interface GroundTruth {
+  /** Browser name (e.g., "Chrome", "Firefox", "Safari") */
+  browser?: string;
+  /** Browser version (e.g., "120", "latest") */
+  browser_version?: string;
+  /** OS name (e.g., "Windows", "OS X", "iOS", "Android") */
+  os?: string;
+  /** OS version (e.g., "11", "Sonoma", "18") */
+  os_version?: string;
+  /** Device name for mobile (e.g., "iPhone 16 Pro", "Samsung Galaxy S24") */
+  device?: string;
+  /** Test run identifier for grouping multiple runs */
+  test_run?: string;
 }
 
 /**

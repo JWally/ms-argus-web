@@ -12,8 +12,45 @@ import type {
   TelemetrySubmission,
   ArgusPayload,
   PayloadIdentifiers,
+  GroundTruth,
 } from './types';
 import { compactFingerprint } from '../utils/crypto';
+
+/**
+ * Extract ground truth data from URL search params.
+ * Used for test validation in BrowserStack and similar environments.
+ *
+ * Expected params: gt_browser, gt_browser_version, gt_os, gt_os_version, gt_device, gt_test_run
+ *
+ * @returns Ground truth object if any params present, undefined otherwise
+ */
+function extractGroundTruth(): GroundTruth | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  const params = new URLSearchParams(window.location.search);
+
+  const groundTruth: GroundTruth = {};
+  let hasAny = false;
+
+  const mapping: [string, keyof GroundTruth][] = [
+    ['gt_browser', 'browser'],
+    ['gt_browser_version', 'browser_version'],
+    ['gt_os', 'os'],
+    ['gt_os_version', 'os_version'],
+    ['gt_device', 'device'],
+    ['gt_test_run', 'test_run'],
+  ];
+
+  for (const [param, key] of mapping) {
+    const value = params.get(param);
+    if (value) {
+      groundTruth[key] = value;
+      hasAny = true;
+    }
+  }
+
+  return hasAny ? groundTruth : undefined;
+}
 
 /**
  * Extract all $hash and $fuzzy values from loose fingerprint modules.
@@ -56,6 +93,7 @@ export function buildPayload(
     session_id: sessionId,
     evercookie_id: data.evercookie?.id,
     public_key: data.cryptoId?.publicKey,
+    ground_truth: extractGroundTruth(),
   };
 
   // Build hashes section: stable, fuzzy, + all module hashes from loose
