@@ -1,7 +1,29 @@
+/**
+ * Error Capture Module
+ *
+ * Provides utilities for capturing, sanitizing, and collecting errors
+ * during fingerprint operations without crashing the main execution.
+ *
+ * Functions:
+ * - `captureError`: Log and store sanitized error info
+ * - `attempt`: Execute a function with automatic error capture
+ * - `caniuse`: Safely check API availability via property chain
+ * - `timer`: Create a performance timer for profiling
+ * - `getCapturedErrors`: Retrieve all captured errors
+ *
+ * @module errors
+ */
+
+/**
+ * Creates an error capturing system that collects and sanitizes encountered errors.
+ *
+ * @returns Object with `getErrors()` and `captureError()` methods
+ */
 const createErrorsCaptured = () => {
   const errors = [];
   return {
     getErrors: () => errors,
+    /** Captures and sanitizes an error, storing its trusted name and message. */
     captureError: (error, customMessage = '') => {
       const type = {
         Error: true,
@@ -32,6 +54,12 @@ const createErrorsCaptured = () => {
 const errorsCaptured = createErrorsCaptured();
 const { captureError } = errorsCaptured;
 
+/**
+ * Attempts to execute a function, capturing any thrown error instead of propagating it.
+ * @param fn - The function to execute.
+ * @param customMessage - An optional custom message to attach to any captured error.
+ * @returns The return value of fn, or undefined if an error was captured.
+ */
 const attempt = (fn, customMessage = '') => {
   try {
     return fn();
@@ -43,6 +71,14 @@ const attempt = (fn, customMessage = '') => {
   }
 };
 
+/**
+ * Safely checks whether an API is available by traversing an object property chain, optionally invoking it as a method.
+ * @param fn - A function that returns the root API object to test.
+ * @param objChainList - An array of property names to traverse on the API object.
+ * @param args - Arguments to pass if invoking the resolved chain as a method.
+ * @param method - Whether to invoke the resolved chain as a method via apply.
+ * @returns The resolved value, the method call result, or undefined if any step fails.
+ */
 const caniuse = (fn, objChainList = [], args = [], method = false) => {
   let api;
   try {
@@ -68,7 +104,11 @@ const caniuse = (fn, objChainList = [], args = [], method = false) => {
       : chain;
 };
 
-// Log performance time
+/**
+ * Creates a performance timer that measures elapsed time between start and end.
+ * @param logStart - An optional message to log when the timer starts.
+ * @returns A function that, when called, returns the elapsed time in milliseconds and optionally logs it.
+ */
 const timer = (logStart) => {
   logStart && console.log(logStart);
   let start = 0;
@@ -77,6 +117,7 @@ const timer = (logStart) => {
   } catch (error) {
     captureError(error);
   }
+  /** Stops the timer and returns elapsed milliseconds. */
   return (logEnd) => {
     let end = 0;
     try {
@@ -90,6 +131,10 @@ const timer = (logStart) => {
   };
 };
 
+/**
+ * Retrieves all captured errors wrapped in a data property.
+ * @returns An object containing the array of captured errors.
+ */
 const getCapturedErrors = () => ({ data: errorsCaptured.getErrors() });
 
 export {

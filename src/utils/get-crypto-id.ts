@@ -61,9 +61,15 @@ let inflight: Promise<CryptoKeys> | undefined;
 
 /* ─────────────────────────── IDB plumbing ────────────────────────── */
 
+/**
+ * Open (or create) the IndexedDB database, ensuring required object stores exist.
+ *
+ * @returns A promise that resolves with the opened IDBDatabase instance
+ */
 const openDb = (): Promise<IDBDatabase> =>
   new Promise((res, rej) => {
     const req = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    /** Create object stores on first open or version upgrade. */
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(TABLE_NAME_KEYS)) {
@@ -78,6 +84,12 @@ const openDb = (): Promise<IDBDatabase> =>
     req.onerror = () => rej(req.error);
   });
 
+/**
+ * Retrieve the stored key record from IndexedDB.
+ *
+ * @param db - An open IDBDatabase instance
+ * @returns The stored keys if present, otherwise undefined
+ */
 const readStoredKeys = async (
   db: IDBDatabase,
 ): Promise<StoredKeys | undefined> =>
@@ -89,6 +101,13 @@ const readStoredKeys = async (
     req.onerror = () => rej(req.error);
   });
 
+/**
+ * Persist a key record to IndexedDB, overwriting any existing entry.
+ *
+ * @param db - An open IDBDatabase instance
+ * @param data - The key record to store
+ * @returns A promise that resolves once the write transaction completes
+ */
 const writeStoredKeys = async (
   db: IDBDatabase,
   data: StoredKeys,
@@ -103,6 +122,14 @@ const writeStoredKeys = async (
 
 /* ────────────────────── Core initialisation logic ─────────────────── */
 
+/**
+ * Load existing keys from IndexedDB or generate a fresh ECDSA P-256 key pair.
+ *
+ * If the database contains a previously stored key record it is returned directly;
+ * otherwise a new non-extractable key pair is generated, persisted, and returned.
+ *
+ * @returns The resolved CryptoKeys bundle
+ */
 const setupCryptography = async (): Promise<CryptoKeys> => {
   const db = await openDb().catch(() => undefined);
 

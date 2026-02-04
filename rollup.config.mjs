@@ -1,8 +1,13 @@
 import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
+import nodeResolve from '@rollup/plugin-node-resolve';
+import replace from '@rollup/plugin-replace';
+import { randomBytes } from 'crypto';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+const BUILD_ID = randomBytes(8).toString('hex');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -152,6 +157,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -170,6 +177,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -188,6 +197,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -210,6 +221,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -227,6 +240,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -246,6 +261,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -264,6 +281,8 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
+      replace({ __BUILD_ID__: JSON.stringify(BUILD_ID), preventAssignment: true }),
       typescript({
         tsconfig: './tsconfig.json',
         noEmitOnError: false,
@@ -286,6 +305,7 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
       stripInlineData(),
       typescript({
         tsconfig: './tsconfig.json',
@@ -306,6 +326,7 @@ export default [
     },
     plugins: [
       wasmBase64Plugin(),
+      nodeResolve(),
       stripInlineData(),
       typescript({
         tsconfig: './tsconfig.json',

@@ -92,6 +92,7 @@ function computeStyle(type: string): ComputedStyleResult | undefined {
     // Get own enumerable properties (numeric indices map to property names)
     const ownEnumerablePropertyNames: string[] = [];
 
+    /** Filters enumerable properties, separating numeric-indexed values from named keys. */
     Object.keys(cssStyleDeclaration).forEach((key) => {
       const numericKey = !isNaN(+key);
       const value = (cssStyleDeclaration as Record<string, string>)[key];
@@ -109,6 +110,7 @@ function computeStyle(type: string): ComputedStyleResult | undefined {
     // Chrome exposes both kebab-case and camelCase versions
     const propertiesInPrototypeChain: Record<string, boolean> = {};
 
+    /** Finds counterpart properties (kebab-case vs camelCase) in the prototype chain. */
     ownEnumerablePropertyNames.forEach((key) => {
       if (propertiesInPrototypeChain[key]) return;
 
@@ -191,6 +193,7 @@ function computeStyle(type: string): ComputedStyleResult | undefined {
  */
 function getSystemStyles(el?: HTMLElement | null): SystemStyles | undefined {
   try {
+    /** Extracts computed system colors and fonts from the given element. */
     const getStyles = (element: HTMLElement) => ({
       colors: SYSTEM_COLORS.map((color) => {
         element.setAttribute('style', `background-color: ${color} !important`);

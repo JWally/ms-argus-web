@@ -2,12 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   hashMini,
   hashify,
+  simhashify,
   cipher,
   instanceId,
   getBotHash,
   getFuzzyHash,
   getSimHashDistance,
   SIMHASH_FEATURE_WEIGHTS,
+  SIMHASH_BITS,
 } from './crypto';
 
 describe('crypto utils', () => {
@@ -346,7 +348,7 @@ describe('getBotHash()', () => {
 });
 
 describe('getFuzzyHash() - SimHash implementation', () => {
-  it('returns 16-character hex string (64-bit SimHash)', async () => {
+  it('returns 64-character hex string (256-bit SimHash)', async () => {
     const fp = {
       canvas2d: { dataURI: 'data:image/png;base64,...' },
       maths: { data: { sin: 0.123 } },
@@ -354,8 +356,8 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     };
 
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(16);
-    expect(result).toMatch(/^[0-9a-f]{16}$/);
+    expect(result.length).toBe(SIMHASH_BITS / 4);
+    expect(result).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('produces consistent hashes for same input', async () => {
@@ -388,8 +390,8 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     const fp = {};
     const result = await getFuzzyHash(fp);
     // Empty fp produces all-zero votes, so all bits are 0
-    expect(result.length).toBe(16);
-    expect(result).toBe('0000000000000000');
+    expect(result.length).toBe(SIMHASH_BITS / 4);
+    expect(result).toBe('0'.repeat(SIMHASH_BITS / 4));
   });
 
   it('ignores $hash and lied properties', async () => {
@@ -402,7 +404,7 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     };
 
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(16);
+    expect(result.length).toBe(SIMHASH_BITS / 4);
   });
 
   it('handles full fingerprint structure', async () => {
@@ -439,8 +441,8 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     };
 
     const result = await getFuzzyHash(fp);
-    expect(result.length).toBe(16);
-    expect(result).toMatch(/^[0-9a-f]{16}$/);
+    expect(result.length).toBe(SIMHASH_BITS / 4);
+    expect(result).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('produces similar hashes for similar fingerprints (locality-sensitive)', async () => {
@@ -461,8 +463,8 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     const hash2 = await getFuzzyHash(fp2);
     const distance = getSimHashDistance(hash1, hash2);
 
-    // Small change should result in small Hamming distance
-    expect(distance).toBeLessThan(20);
+    // Small change should result in small Hamming distance (scaled for 256 bits)
+    expect(distance).toBeLessThan(80);
   });
 
   it('produces very different hashes for very different fingerprints', async () => {
@@ -489,37 +491,38 @@ describe('getFuzzyHash() - SimHash implementation', () => {
     const hash2 = await getFuzzyHash(firefoxMac);
     const distance = getSimHashDistance(hash1, hash2);
 
-    // Very different fingerprints should have high Hamming distance
-    expect(distance).toBeGreaterThan(15);
+    // Very different fingerprints should have high Hamming distance (scaled for 256 bits)
+    expect(distance).toBeGreaterThan(60);
   });
 });
 
 describe('getSimHashDistance()', () => {
+  const zeros64 = '0'.repeat(64);
+  const ones64 = 'f'.repeat(64);
+
   it('returns 0 for identical hashes', () => {
-    const hash = 'abcdef0123456789';
+    const hash = 'abcdef0123456789'.repeat(4);
     expect(getSimHashDistance(hash, hash)).toBe(0);
   });
 
-  it('returns 64 for completely opposite hashes', () => {
-    const hash1 = '0000000000000000';
-    const hash2 = 'ffffffffffffffff';
-    expect(getSimHashDistance(hash1, hash2)).toBe(64);
+  it('returns 256 for completely opposite hashes', () => {
+    expect(getSimHashDistance(zeros64, ones64)).toBe(256);
   });
 
   it('returns correct distance for known bit differences', () => {
     // Differ by 1 bit (last hex char: 0 vs 1)
-    const hash1 = '0000000000000000';
-    const hash2 = '0000000000000001';
+    const hash1 = zeros64;
+    const hash2 = '0'.repeat(63) + '1';
     expect(getSimHashDistance(hash1, hash2)).toBe(1);
 
     // Differ by 4 bits (last hex char: 0 vs f)
-    const hash3 = '000000000000000f';
+    const hash3 = '0'.repeat(63) + 'f';
     expect(getSimHashDistance(hash1, hash3)).toBe(4);
   });
 
   it('is symmetric', () => {
-    const hash1 = 'abcd1234efgh5678'.replace(/[gh]/g, 'a');
-    const hash2 = '1234abcd5678efab';
+    const hash1 = 'abcd1234efab5678'.repeat(4);
+    const hash2 = '1234abcd5678efab'.repeat(4);
     expect(getSimHashDistance(hash1, hash2)).toBe(
       getSimHashDistance(hash2, hash1),
     );
@@ -527,19 +530,19 @@ describe('getSimHashDistance()', () => {
 
   it('throws for invalid hash lengths', () => {
     expect(() => getSimHashDistance('abc', 'def')).toThrow();
-    expect(() => getSimHashDistance('abcdef0123456789', 'short')).toThrow();
+    expect(() => getSimHashDistance(zeros64, 'short')).toThrow();
   });
 
   it('handles real-world distance thresholds', () => {
     // Simulate "same device" scenario (very similar hashes)
-    const sameDevice1 = 'a1b2c3d4e5f60718';
-    const sameDevice2 = 'a1b2c3d4e5f60719'; // 1 bit different
+    const sameDevice1 = 'a1b2c3d4e5f60718'.repeat(4);
+    const sameDevice2 = 'a1b2c3d4e5f60719' + 'a1b2c3d4e5f60718'.repeat(3); // 1 bit different
     expect(getSimHashDistance(sameDevice1, sameDevice2)).toBeLessThanOrEqual(3);
 
     // Simulate "different device" scenario
-    const device1 = 'a1b2c3d4e5f60718';
-    const device2 = '5e4d3c2b1a098765';
-    expect(getSimHashDistance(device1, device2)).toBeGreaterThan(20);
+    const device1 = 'a1b2c3d4e5f60718'.repeat(4);
+    const device2 = '5e4d3c2b1a098765'.repeat(4);
+    expect(getSimHashDistance(device1, device2)).toBeGreaterThan(80);
   });
 });
 
@@ -566,5 +569,102 @@ describe('SIMHASH_FEATURE_WEIGHTS', () => {
     const featureCount = Object.keys(SIMHASH_FEATURE_WEIGHTS).length;
     expect(featureCount).toBeGreaterThan(50);
     expect(featureCount).toBeLessThan(200);
+  });
+});
+
+describe('simhashify() - Module-level SimHash', () => {
+  it('returns 64-character hex string (256-bit SimHash)', () => {
+    const data = { screen: { width: 1920, height: 1080 } };
+    const result = simhashify(data);
+    expect(result.length).toBe(SIMHASH_BITS / 4);
+    expect(result).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('produces consistent hashes for same input', () => {
+    const data = { foo: 'bar', num: 123 };
+    const hash1 = simhashify(data);
+    const hash2 = simhashify(data);
+    expect(hash1).toBe(hash2);
+  });
+
+  it('produces different hashes for different input', () => {
+    const hash1 = simhashify({ a: 1 });
+    const hash2 = simhashify({ a: 2 });
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('produces similar hashes for similar input (locality-sensitive)', () => {
+    const data1 = { screen: { width: 1920, height: 1080, colorDepth: 24 } };
+    const data2 = { screen: { width: 1920, height: 1080, colorDepth: 32 } }; // Small change
+
+    const hash1 = simhashify(data1);
+    const hash2 = simhashify(data2);
+    const distance = getSimHashDistance(hash1, hash2);
+
+    // Small change = small distance
+    expect(distance).toBeLessThan(50);
+  });
+
+  it('produces very different hashes for very different input', () => {
+    const data1 = { platform: 'Win32', gpu: 'NVIDIA', cores: 8 };
+    const data2 = { platform: 'MacIntel', gpu: 'Apple M1', cores: 10 };
+
+    const hash1 = simhashify(data1);
+    const hash2 = simhashify(data2);
+    const distance = getSimHashDistance(hash1, hash2);
+
+    // Very different = large distance
+    expect(distance).toBeGreaterThan(50);
+  });
+
+  it('handles various data types', () => {
+    expect(simhashify('string')).toMatch(/^[0-9a-f]{64}$/);
+    expect(simhashify(12345)).toMatch(/^[0-9a-f]{64}$/);
+    expect(simhashify([1, 2, 3])).toMatch(/^[0-9a-f]{64}$/);
+    expect(simhashify(null)).toMatch(/^[0-9a-f]{64}$/);
+    expect(simhashify(true)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('handles nested objects', () => {
+    const nested = {
+      level1: {
+        level2: {
+          level3: { value: 'deep' },
+        },
+      },
+    };
+    const result = simhashify(nested);
+    expect(result).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('handles empty values', () => {
+    expect(simhashify({})).toMatch(/^[0-9a-f]{64}$/);
+    expect(simhashify([])).toMatch(/^[0-9a-f]{64}$/);
+    expect(simhashify('')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('preserves key:value structure via colons', () => {
+    // These should be different because colons are preserved
+    const hash1 = simhashify({ a: 1, b: 2 });
+    const hash2 = simhashify({ a1b: 2 });
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('is sensitive to small changes in large data', () => {
+    // Use enough variation that simhash can detect it
+    const largeData1 = {
+      dataURI: 'data:image/png;base64,' + 'ABCD'.repeat(100),
+    };
+    const largeData2 = {
+      dataURI: 'data:image/png;base64,' + 'ABCD'.repeat(99) + 'WXYZ',
+    };
+
+    const hash1 = simhashify(largeData1);
+    const hash2 = simhashify(largeData2);
+    const distance = getSimHashDistance(hash1, hash2);
+
+    // Should detect the change but still be somewhat similar
+    expect(distance).toBeGreaterThan(0);
+    expect(distance).toBeLessThan(50);
   });
 });

@@ -54,13 +54,34 @@ export function createLieDetector(
 ): LieDetector {
   const { documentLie: docLie, queryLies: query, queryLiesContext } = deps;
 
+  /** Checks if an API object is defined and truthy. */
   const isSupported = (obj: unknown) => typeof obj !== 'undefined' && !!obj;
   const props: Record<string, string[]> = {}; // lie list and detail
   const propsSearched: string[] = []; // list of properties searched
 
   return {
+    /**
+     * Returns the record of detected lies, keyed by API name.
+     *
+     * @returns Map of API names to their detected lie type strings
+     */
     getProps: () => props,
+    /**
+     * Returns the list of API property names that have been searched.
+     *
+     * @returns Array of API name strings that were tested
+     */
     getPropsSearched: () => propsSearched,
+    /**
+     * Searches an API object for lies by testing each of its properties.
+     *
+     * Iterates over the properties of the object returned by `fn`, running
+     * lie detection queries on each function or getter. Detected lies are
+     * documented and stored in the internal props record.
+     *
+     * @param fn - Factory function that returns the API object to test
+     * @param config - Optional configuration to target or ignore specific properties
+     */
     searchLies: (fn: () => unknown, config?: SearchConfig): void => {
       const { target, ignore } = config || {};
       let obj: { prototype?: unknown; name?: string };

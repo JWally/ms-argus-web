@@ -208,11 +208,13 @@ async function probeWithTiming(
     // Create an image element to trigger favicon loading
     const img = new Image();
 
+    /** Remove image event handlers to prevent memory leaks */
     const cleanup = () => {
       img.onload = null;
       img.onerror = null;
     };
 
+    /** Resolve the probe with cache status based on load timing */
     const handleResult = (success: boolean) => {
       cleanup();
       const timing = performance.now() - startTime;
@@ -227,11 +229,13 @@ async function probeWithTiming(
       resolve({ cached: false, timing: PROBE_TIMEOUT_MS });
     }, PROBE_TIMEOUT_MS);
 
+    /** Handle successful image load */
     img.onload = () => {
       clearTimeout(timeout);
       handleResult(true);
     };
 
+    /** Handle failed image load */
     img.onerror = () => {
       clearTimeout(timeout);
       handleResult(false);
@@ -310,6 +314,7 @@ interface FaviconMetadata {
   lastSeen: string;
 }
 
+/** Retrieve favicon metadata from localStorage */
 function getMetadataFromStorage(): FaviconMetadata | null {
   try {
     const stored = localStorage.getItem(METADATA_KEY);
@@ -325,6 +330,7 @@ function getMetadataFromStorage(): FaviconMetadata | null {
   return null;
 }
 
+/** Persist favicon metadata to localStorage */
 function setMetadataToStorage(meta: FaviconMetadata): void {
   try {
     localStorage.setItem(METADATA_KEY, JSON.stringify(meta));
@@ -336,6 +342,7 @@ function setMetadataToStorage(meta: FaviconMetadata): void {
   }
 }
 
+/** Remove favicon metadata from localStorage */
 function clearMetadataFromStorage(): void {
   try {
     localStorage.removeItem(METADATA_KEY);

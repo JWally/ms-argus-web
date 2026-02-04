@@ -133,6 +133,7 @@ function measurePixelEmojis(doc: Document, emojis: string[]): PixelEmojiResult {
     }
 
     // Calculate fingerprint sum from unique dimensions
+    /** Converts a CSS pixel value string to a number. */
     const pixelToNumber = (px: string): number => +px.replace('px', '') || 0;
     const pixelSizeSystemSum =
       0.00001 *

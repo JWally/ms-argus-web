@@ -41,6 +41,8 @@ export function clearCustomStunServers(): void {
 
 /**
  * Get current STUN servers (custom if set, otherwise defaults).
+ *
+ * @returns Array of STUN server URIs
  */
 export function getStunServers(): string[] {
   return customStunServers || DEFAULT_STUN_SERVERS;
@@ -49,6 +51,8 @@ export function getStunServers(): string[] {
 /**
  * Get RTCPeerConnection configuration for fingerprinting.
  * Uses custom STUN servers if configured.
+ *
+ * @returns RTCConfiguration with STUN servers for ICE gathering
  */
 export function getRtcConfig(): RTCConfiguration {
   return {
@@ -58,8 +62,18 @@ export function getRtcConfig(): RTCConfiguration {
 }
 
 /**
- * @deprecated Use getRtcConfig() instead for dynamic STUN server support.
  * RTCPeerConnection configuration for fingerprinting.
+ *
+ * @deprecated Use getRtcConfig() instead for dynamic STUN server support. Will be removed in v2.0.
+ *
+ * @example
+ * // Before (deprecated):
+ * const pc = new RTCPeerConnection(RTC_CONFIG);
+ *
+ * // After (recommended):
+ * import { getRtcConfig, setCustomStunServers } from './constants';
+ * setCustomStunServers(['stun:stun.example.com:3478']); // optional
+ * const pc = new RTCPeerConnection(getRtcConfig());
  */
 export const RTC_CONFIG = {
   iceCandidatePoolSize: 1,

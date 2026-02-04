@@ -87,10 +87,16 @@ async function getTimerPrecision(): Promise<TimerPrecisionResult> {
   const baseDate = +new Date();
   const baseNumber = +('' + baseDate).slice(-1);
 
-  // Create regex to match trailing digits
+  /** Creates a regex matching trailing repetitions of the given digit. */
   const regex = (n: number) => new RegExp(`${n}+$`);
 
-  // Sample function with delay
+  /**
+   * Samples a timestamp after a given delay and extracts the trailing digit pattern.
+   *
+   * @param ms - Delay in milliseconds before sampling
+   * @param useBaseDate - If true, uses the pre-captured base timestamp instead of a fresh one
+   * @returns The matched trailing digit string, or the full timestamp if no pattern matches
+   */
   const sample = (
     ms: number,
     useBaseDate?: boolean,

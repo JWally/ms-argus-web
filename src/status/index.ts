@@ -43,6 +43,7 @@ const GIGABYTE = 1073741824;
  * @returns Maximum recursion depth before stack overflow
  */
 function getMaxCallStackSize(): number {
+  /** Recursively increments depth until stack overflow. */
   const fn = (): number => {
     try {
       return 1 + fn();
@@ -137,6 +138,7 @@ function getClientCode(): string[] {
   // Build native function signature pattern
   const [p1, p2] = (1).constructor.toString().split((1).constructor.name);
 
+  /** Checks if a value is a native engine function by matching its toString signature. */
   const isEngine = (fn: unknown): boolean => {
     return (
       typeof fn === 'function' &&
@@ -145,6 +147,7 @@ function getClientCode(): string[] {
     );
   };
 
+  /** Determines if a window property was injected by client-side code. */
   const isClient = (key: string): boolean => {
     if (/_$/.test(key)) return true;
     const d = Object.getOwnPropertyDescriptor(window, key);
@@ -189,6 +192,7 @@ export async function getStorage(): Promise<number | null> {
   if (!navigator?.storage?.estimate) return null;
   return Promise.all([
     navigator.storage.estimate().then(({ quota }) => quota),
+    /** Queries webkitTemporaryStorage for a fallback quota value. */
     new Promise((resolve) => {
       // @ts-expect-error - webkitTemporaryStorage may not be typed
       navigator.webkitTemporaryStorage.queryUsageAndQuota(

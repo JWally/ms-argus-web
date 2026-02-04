@@ -144,86 +144,103 @@ export async function load(config: LoaderConfig): Promise<LoaderResult> {
 
   injectStyles();
 
-  return new Promise((resolve, reject) => {
-    let iframe: HTMLIFrameElement | null = null;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let settled = false;
+  return new Promise(
+    /** Creates iframe, sets up message listener, and manages timeout */ (
+      resolve,
+      reject,
+    ) => {
+      let iframe: HTMLIFrameElement | null = null;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let settled = false;
 
-    const cleanup = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (iframe) iframe.remove();
-      window.removeEventListener('message', handleMessage);
-    };
+      /** Removes the iframe, clears timeout, and detaches the message listener. */
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (iframe) iframe.remove();
+        window.removeEventListener('message', handleMessage);
+      };
 
-    const handleMessage = (event: MessageEvent) => {
-      // Only handle our messages
-      if (!event.data || event.data.type !== MSG_TYPE) return;
-      if (settled) return;
-      settled = true;
-
-      cleanup();
-
-      const endTime = performance.now();
-
-      if (event.data.success) {
-        resolve({
-          fingerprint: event.data.data.fingerprint,
-          sigint: event.data.data.sigint,
-          timing: {
-            start: startTime,
-            end: endTime,
-            duration: endTime - startTime,
-          },
-        });
-      } else {
-        reject(new Error(event.data.error || 'Unknown error'));
-      }
-    };
-
-    // Listen for result
-    window.addEventListener('message', handleMessage);
-
-    // Set up timeout
-    timeoutId = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(new Error(`Fingerprint collection timed out after ${timeout}ms`));
-    }, timeout);
-
-    // Create iframe
-    iframe = document.createElement('iframe');
-    iframe.className = 'argus-frame';
-    iframe.setAttribute('srcdoc', SRCDOC);
-    iframe.setAttribute('tabindex', '-1');
-    iframe.setAttribute('aria-hidden', 'true');
-
-    iframe.addEventListener(
-      'load',
-      () => {
-        if (settled || !iframe?.contentDocument) return;
-
-        // Inject our script into the iframe
-        const script = iframe.contentDocument.createElement('script');
-        script.textContent = buildIframeScript(config);
-        iframe.contentDocument.body.appendChild(script);
-      },
-      { once: true },
-    );
-
-    iframe.addEventListener(
-      'error',
-      () => {
+      /**
+       * Handles postMessage events from the iframe, resolving or rejecting the loader promise.
+       * @param event - The MessageEvent from the iframe containing fingerprint results or an error.
+       */
+      const handleMessage = (event: MessageEvent) => {
+        // Only handle our messages
+        if (!event.data || event.data.type !== MSG_TYPE) return;
         if (settled) return;
         settled = true;
-        cleanup();
-        reject(new Error('Failed to create iframe'));
-      },
-      { once: true },
-    );
 
-    document.body.appendChild(iframe);
-  });
+        cleanup();
+
+        const endTime = performance.now();
+
+        if (event.data.success) {
+          resolve({
+            fingerprint: event.data.data.fingerprint,
+            sigint: event.data.data.sigint,
+            timing: {
+              start: startTime,
+              end: endTime,
+              duration: endTime - startTime,
+            },
+          });
+        } else {
+          reject(new Error(event.data.error || 'Unknown error'));
+        }
+      };
+
+      // Listen for result
+      window.addEventListener('message', handleMessage);
+
+      // Set up timeout
+      timeoutId = setTimeout(
+        /** Rejects the promise if fingerprinting exceeds the configured timeout */ () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(
+            new Error(`Fingerprint collection timed out after ${timeout}ms`),
+          );
+        },
+        timeout,
+      );
+
+      // Create iframe
+      iframe = document.createElement('iframe');
+      iframe.className = 'argus-frame';
+      iframe.setAttribute('srcdoc', SRCDOC);
+      iframe.setAttribute('tabindex', '-1');
+      iframe.setAttribute('aria-hidden', 'true');
+
+      iframe.addEventListener(
+        'load',
+        /** Injects the fingerprinting script into the iframe once it has loaded */
+        () => {
+          if (settled || !iframe?.contentDocument) return;
+
+          // Inject our script into the iframe
+          const script = iframe.contentDocument.createElement('script');
+          script.textContent = buildIframeScript(config);
+          iframe.contentDocument.body.appendChild(script);
+        },
+        { once: true },
+      );
+
+      iframe.addEventListener(
+        'error',
+        /** Rejects the loader promise if the iframe fails to load */
+        () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(new Error('Failed to create iframe'));
+        },
+        { once: true },
+      );
+
+      document.body.appendChild(iframe);
+    },
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,29 +279,33 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
           sessionId: url.searchParams.get('sessionId') || undefined,
           timeout: parseInt(url.searchParams.get('timeout') || '') || undefined,
         })
-          .then((result) => {
-            // Store result globally for access
-            (window as unknown as Record<string, unknown>).__argusResult__ =
-              result;
+          .then(
+            /** Stores the result globally and sends it to the configured endpoint */ (
+              result,
+            ) => {
+              // Store result globally for access
+              (window as unknown as Record<string, unknown>).__argusResult__ =
+                result;
 
-            // Send to endpoint if configured
-            const endpoint = url.searchParams.get('endpoint');
-            if (endpoint) {
-              const body = JSON.stringify(result);
-              if (navigator.sendBeacon) {
-                navigator.sendBeacon(
-                  endpoint,
-                  new Blob([body], { type: 'application/json' }),
-                );
-              } else {
-                fetch(endpoint, {
-                  method: 'POST',
-                  body,
-                  keepalive: true,
-                }).catch(() => {});
+              // Send to endpoint if configured
+              const endpoint = url.searchParams.get('endpoint');
+              if (endpoint) {
+                const body = JSON.stringify(result);
+                if (navigator.sendBeacon) {
+                  navigator.sendBeacon(
+                    endpoint,
+                    new Blob([body], { type: 'application/json' }),
+                  );
+                } else {
+                  fetch(endpoint, {
+                    method: 'POST',
+                    body,
+                    keepalive: true,
+                  }).catch(() => {});
+                }
               }
-            }
-          })
+            },
+          )
           .catch((err) => {
             console.warn('[Argus] Load failed:', err);
           });

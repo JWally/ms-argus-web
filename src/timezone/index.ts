@@ -11,7 +11,7 @@
  *    settings, consistently spoofing all timezone-related APIs is difficult.
  *
  * Note: Historical offset validation for lie detection has been moved to
- * server-side analysis. See TODO in docs/todo.md for implementation details.
+ * server-side analysis. See __ideas__/TODO-server-side-analysis.md for implementation details.
  *
  * @see https://arkenfox.github.io/TZP - Timezone fingerprinting project
  * @module timezone

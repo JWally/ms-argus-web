@@ -35,7 +35,13 @@
 import { attempt, caniuse, captureError } from '../errors';
 import { documentLie, lieProps } from '../lies';
 import { sendToTrash } from '../trash';
-import { createTimer, logTestResult, queueEvent } from '../utils/helpers';
+import {
+  createTimer,
+  logTestResult,
+  queueEvent,
+  LowerEntropy,
+} from '../utils/helpers';
+import { IS_WEBKIT } from '../utils/engine';
 import { expectFailure } from '../utils/expected-failure';
 
 import { AUDIO_CONFIG, AUDIO_TRAP } from './constants';
@@ -64,6 +70,7 @@ async function detectFakeAudio(): Promise<boolean> {
   context.startRendering();
 
   return new Promise((resolve) => {
+    /** Handles the completion of the silent audio render to check for fake data. */
     context.oncomplete = (event) => {
       const channelData = event.renderedBuffer.getChannelData?.(0);
       if (!channelData) {
@@ -181,65 +188,73 @@ function collectAudioNodeValues(
 function renderAudioBuffer(
   context: OfflineAudioContext,
 ): Promise<AudioRenderData | null> {
-  return new Promise((resolve) => {
-    const analyser = context.createAnalyser();
-    const oscillator = context.createOscillator();
-    const dynamicsCompressor = context.createDynamicsCompressor();
+  return new Promise(
+    /** Sets up the audio graph, starts rendering, and resolves with extracted data. */ (
+      resolve,
+    ) => {
+      const analyser = context.createAnalyser();
+      const oscillator = context.createOscillator();
+      const dynamicsCompressor = context.createDynamicsCompressor();
 
-    try {
-      // Triangle wave produces more complex harmonics than sine
-      oscillator.type = 'triangle';
-      oscillator.frequency.value = AUDIO_CONFIG.OSCILLATOR_FREQUENCY;
-
-      // Compressor settings chosen to produce measurable gain reduction
-      dynamicsCompressor.threshold.value = AUDIO_CONFIG.COMPRESSOR_THRESHOLD;
-      dynamicsCompressor.knee.value = AUDIO_CONFIG.COMPRESSOR_KNEE;
-      dynamicsCompressor.attack.value = 0;
-    } catch {
-      expectFailure(
-        'renderAudioBuffer',
-        'Browser does not support all compressor settings',
-      );
-    }
-
-    // Connect the audio graph
-    oscillator.connect(dynamicsCompressor);
-    dynamicsCompressor.connect(analyser);
-    dynamicsCompressor.connect(context.destination);
-
-    oscillator.start(0);
-    context.startRendering();
-
-    context.addEventListener('complete', (event) => {
       try {
-        // Clean up connections
-        dynamicsCompressor.disconnect();
-        oscillator.disconnect();
+        // Triangle wave produces more complex harmonics than sine
+        oscillator.type = 'triangle';
+        oscillator.frequency.value = AUDIO_CONFIG.OSCILLATOR_FREQUENCY;
 
-        // Extract frequency domain data
-        const floatFrequencyData = new Float32Array(analyser.frequencyBinCount);
-        analyser.getFloatFrequencyData?.(floatFrequencyData);
-
-        // Extract time domain data
-        const floatTimeDomainData = new Float32Array(analyser.fftSize);
-        if ('getFloatTimeDomainData' in analyser) {
-          analyser.getFloatTimeDomainData(floatTimeDomainData);
-        }
-
-        resolve({
-          floatFrequencyData,
-          floatTimeDomainData,
-          buffer: event.renderedBuffer,
-          compressorGainReduction:
-            // @ts-expect-error WebKit uses .value property
-            dynamicsCompressor.reduction.value ?? dynamicsCompressor.reduction,
-        });
+        // Compressor settings chosen to produce measurable gain reduction
+        dynamicsCompressor.threshold.value = AUDIO_CONFIG.COMPRESSOR_THRESHOLD;
+        dynamicsCompressor.knee.value = AUDIO_CONFIG.COMPRESSOR_KNEE;
+        dynamicsCompressor.attack.value = 0;
       } catch {
-        expectFailure('renderAudioBuffer', 'Audio data extraction failed');
-        resolve(null);
+        expectFailure(
+          'renderAudioBuffer',
+          'Browser does not support all compressor settings',
+        );
       }
-    });
-  });
+
+      // Connect the audio graph
+      oscillator.connect(dynamicsCompressor);
+      dynamicsCompressor.connect(analyser);
+      dynamicsCompressor.connect(context.destination);
+
+      oscillator.start(0);
+      context.startRendering();
+
+      /** Extracts frequency, time-domain, and gain reduction data from the rendered audio. */
+      context.addEventListener('complete', (event) => {
+        try {
+          // Clean up connections
+          dynamicsCompressor.disconnect();
+          oscillator.disconnect();
+
+          // Extract frequency domain data
+          const floatFrequencyData = new Float32Array(
+            analyser.frequencyBinCount,
+          );
+          analyser.getFloatFrequencyData?.(floatFrequencyData);
+
+          // Extract time domain data
+          const floatTimeDomainData = new Float32Array(analyser.fftSize);
+          if ('getFloatTimeDomainData' in analyser) {
+            analyser.getFloatTimeDomainData(floatTimeDomainData);
+          }
+
+          resolve({
+            floatFrequencyData,
+            floatTimeDomainData,
+            buffer: event.renderedBuffer,
+            compressorGainReduction:
+              // @ts-expect-error WebKit uses .value property
+              dynamicsCompressor.reduction.value ??
+              dynamicsCompressor.reduction,
+          });
+        } catch {
+          expectFailure('renderAudioBuffer', 'Audio data extraction failed');
+          resolve(null);
+        }
+      });
+    },
+  );
 }
 
 /**
@@ -293,7 +308,7 @@ function detectBufferNoise(): number {
     });
     const copy = new Float32Array(length);
 
-    // Write trap values and check if they're preserved
+    /** Writes known trap values via getChannelData and verifies them via copyFromChannel. */
     const testCopyFrom = (): number[] => {
       const channelData = buffer.getChannelData(0);
       const max = 20;
@@ -320,6 +335,7 @@ function detectBufferNoise(): number {
       );
     };
 
+    /** Writes trap values via copyToChannel and checks for noise-injected modifications. */
     const testCopyTo = (): number[] => {
       const buffer2 = new AudioBuffer({
         length,
@@ -490,6 +506,13 @@ export default async function getOfflineAudioContext(): Promise<
     const sampleSum = calculateAbsoluteSum(
       extractSampleSlice([...bins], SAMPLE_RANGE_START, BUFFER_LENGTH),
     );
+
+    // WebKit (Safari) randomizes audio render output per page load.
+    // The output is stable within a single load but differs across loads,
+    // so exclude audio from the stable hash on WebKit engines.
+    if (IS_WEBKIT) {
+      LowerEntropy.AUDIO = true;
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TAMPERING DETECTION

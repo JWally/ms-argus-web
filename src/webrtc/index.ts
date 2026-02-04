@@ -254,40 +254,50 @@ export async function getMediaCapabilities(): Promise<Record<
   string,
   string[]
 > | null> {
-  const decodingInfo = TEST_CODECS.map((codec) => {
-    const config = getMediaConfig(codec, VIDEO_TEST_CONFIG, AUDIO_TEST_CONFIG);
-    // @ts-expect-error - mediaCapabilities may not be fully typed
-    return navigator.mediaCapabilities
-      .decodingInfo(config)
-      .then(
-        (support: {
-          supported: boolean;
-          smooth: boolean;
-          powerEfficient: boolean;
-        }) => ({
-          codec,
-          ...support,
-        }),
-      )
-      .catch(() => null);
-  });
+  const decodingInfo = TEST_CODECS.map(
+    /** Builds a decoding info promise for each codec. */ (codec) => {
+      const config = getMediaConfig(
+        codec,
+        VIDEO_TEST_CONFIG,
+        AUDIO_TEST_CONFIG,
+      );
+      // @ts-expect-error - mediaCapabilities may not be fully typed
+      return navigator.mediaCapabilities
+        .decodingInfo(config)
+        .then(
+          (support: {
+            supported: boolean;
+            smooth: boolean;
+            powerEfficient: boolean;
+          }) => ({
+            codec,
+            ...support,
+          }),
+        )
+        .catch(() => null);
+    },
+  );
 
-  const capabilities = await Promise.all(decodingInfo).then((data) => {
-    return data.reduce(
-      (acc, support) => {
-        const { codec, supported, smooth, powerEfficient } = support || {};
-        if (!supported) return acc;
-        return {
-          ...acc,
-          ['' + codec]: [
-            ...(smooth ? ['smooth'] : []),
-            ...(powerEfficient ? ['efficient'] : []),
-          ],
-        };
-      },
-      {} as Record<string, string[]>,
-    );
-  });
+  const capabilities = await Promise.all(decodingInfo).then(
+    /** Reduces codec results into a support map keyed by codec name. */ (
+      data,
+    ) => {
+      return data.reduce(
+        (acc, support) => {
+          const { codec, supported, smooth, powerEfficient } = support || {};
+          if (!supported) return acc;
+          return {
+            ...acc,
+            ['' + codec]: [
+              ...(smooth ? ['smooth'] : []),
+              ...(powerEfficient ? ['efficient'] : []),
+            ],
+          };
+        },
+        {} as Record<string, string[]>,
+      );
+    },
+  );
 
   return capabilities;
 }
@@ -342,6 +352,7 @@ function constructDescriptions(params: {
   }
 
   return sdpDescriptors.reduce(
+    /** Accumulates codec capabilities by parsing SDP format lines for each descriptor. */
     (descriptionAcc: CodecCapability[], descriptor) => {
       const matcher = `(rtpmap|fmtp|rtcp-fb):${descriptor} (.+)`;
       const formats = sdp.match(new RegExp(matcher, 'g')) || [];
@@ -359,57 +370,71 @@ function constructDescriptions(params: {
         rtxCounter.increment();
       }
 
+      /** Strips the SDP attribute prefix, returning only the payload data. */
       const getLineData = (x: string) => x.replace(/[^\s]+ /, '');
 
-      const description = formats.reduce((acc: Partial<CodecCapability>, x) => {
-        const rawData = getLineData(x);
-        const data = rawData.split('/');
-        const codec = data[0];
+      const description = formats.reduce(
+        /** Builds a single codec capability from its rtpmap, fmtp, and rtcp-fb lines. */ (
+          acc: Partial<CodecCapability>,
+          x,
+        ) => {
+          const rawData = getLineData(x);
+          const data = rawData.split('/');
+          const codec = data[0];
 
-        if (x.includes('rtpmap')) {
-          if (mediaType === 'audio') {
-            acc.channels = +data[2] || 1;
+          if (x.includes('rtpmap')) {
+            if (mediaType === 'audio') {
+              acc.channels = +data[2] || 1;
+            }
+            acc.mimeType = `${mediaType}/${codec}`;
+            acc.clockRates = [+data[1]];
+            return acc;
+          } else if (x.includes('rtcp-fb')) {
+            acc.feedbackSupport = [...(acc.feedbackSupport || []), rawData];
+            return acc;
+          } else if (isRtxCodec) {
+            return acc; // no sdpFmtpLine
           }
-          acc.mimeType = `${mediaType}/${codec}`;
-          acc.clockRates = [+data[1]];
+          acc.sdpFmtpLine = [...rawData.split(';')];
           return acc;
-        } else if (x.includes('rtcp-fb')) {
-          acc.feedbackSupport = [...(acc.feedbackSupport || []), rawData];
-          return acc;
-        } else if (isRtxCodec) {
-          return acc; // no sdpFmtpLine
-        }
-        acc.sdpFmtpLine = [...rawData.split(';')];
-        return acc;
-      }, {});
+        },
+        {},
+      );
 
       // Merge with existing description if same mimeType
       let shouldMerge = false;
-      const mergerAcc = descriptionAcc.map((x) => {
-        shouldMerge = x.mimeType === description.mimeType;
-        if (shouldMerge) {
-          if (x.feedbackSupport && description.feedbackSupport) {
-            x.feedbackSupport = [
-              ...new Set([
-                ...x.feedbackSupport,
-                ...description.feedbackSupport,
-              ]),
-            ];
+      const mergerAcc = descriptionAcc.map(
+        /** Merges duplicate mimeType entries by combining their clock rates, feedback, and fmtp lines. */ (
+          x,
+        ) => {
+          shouldMerge = x.mimeType === description.mimeType;
+          if (shouldMerge) {
+            if (x.feedbackSupport && description.feedbackSupport) {
+              x.feedbackSupport = [
+                ...new Set([
+                  ...x.feedbackSupport,
+                  ...description.feedbackSupport,
+                ]),
+              ];
+            }
+            if (x.sdpFmtpLine && description.sdpFmtpLine) {
+              x.sdpFmtpLine = [
+                ...new Set([...x.sdpFmtpLine, ...description.sdpFmtpLine]),
+              ];
+            }
+            return {
+              ...x,
+              clockRates: [
+                ...new Set([
+                  ...x.clockRates,
+                  ...(description.clockRates || []),
+                ]),
+              ],
+            };
           }
-          if (x.sdpFmtpLine && description.sdpFmtpLine) {
-            x.sdpFmtpLine = [
-              ...new Set([...x.sdpFmtpLine, ...description.sdpFmtpLine]),
-            ];
-          }
-          return {
-            ...x,
-            clockRates: [
-              ...new Set([...x.clockRates, ...(description.clockRates || [])]),
-            ],
-          };
-        }
-        return x;
-      });
+          return x;
+        },
+      );
 
       if (shouldMerge) {
         return mergerAcc;
@@ -511,92 +536,99 @@ function getIPAddress(sdp: string): string | undefined {
  * @returns WebRTC fingerprint data or null if unsupported
  */
 export default async function getWebRTCData(): Promise<WebRTCFingerprint | null> {
-  return new Promise(async (resolve) => {
-    if (!window.RTCPeerConnection) {
-      return resolve(null);
-    }
-
-    const connection = new RTCPeerConnection(getRtcConfig());
-    connection.createDataChannel('');
-
-    const options = { offerToReceiveAudio: 1, offerToReceiveVideo: 1 };
-    const offer = await connection.createOffer(
-      options as unknown as RTCOfferOptions,
-    );
-
-    connection.setLocalDescription(offer);
-    const { sdp } = offer || {};
-
-    const extensions = getExtensions(sdp || '');
-    const codecsSdp = getCapabilities(sdp || '');
-
-    let firstCandidate = '';
-    let foundation = '';
-    let firstAddress = '';
-    const collectedCandidates: ParsedICECandidate[] = [];
-
-    /**
-     * Finalizes collection and returns results.
-     */
-    const finalize = () => {
-      connection.removeEventListener('icecandidate', computeCandidate);
-      connection.close();
-
-      if (!sdp) {
+  return new Promise(
+    /** Creates an RTCPeerConnection, generates an offer, and gathers ICE candidates. */ async (
+      resolve,
+    ) => {
+      if (!window.RTCPeerConnection) {
         return resolve(null);
       }
 
-      const iceCandidates = summarizeICECandidates(collectedCandidates);
+      const connection = new RTCPeerConnection(getRtcConfig());
+      connection.createDataChannel('');
 
-      // Use summary's public IP if we didn't get one from SDP
-      const address = firstAddress || iceCandidates.publicIP;
+      const options = { offerToReceiveAudio: 1, offerToReceiveVideo: 1 };
+      const offer = await connection.createOffer(
+        options as unknown as RTCOfferOptions,
+      );
 
-      // Note: Raw iceCandidate/stunConnection strings are excluded
-      // because they contain random session-specific data that shouldn't be hashed.
-      // Only stable data (codecsSdp, extensions) should be used for fingerprint hashing.
-      return resolve({
-        codecsSdp,
-        extensions,
-        foundation: KNOWN_FOUNDATIONS[foundation] || foundation,
-        foundationProp: foundation,
-        address,
-        iceCandidates,
-      });
-    };
+      connection.setLocalDescription(offer);
+      const { sdp } = offer || {};
 
-    // Timeout for ICE candidate gathering
-    const giveUpOnIPAddress = setTimeout(finalize, ICE_GATHER_TIMEOUT);
+      const extensions = getExtensions(sdp || '');
+      const codecsSdp = getCapabilities(sdp || '');
 
-    // ICE candidate handler - collects ALL candidates
-    const computeCandidate = (event: RTCPeerConnectionIceEvent) => {
-      const { candidate } = event.candidate || {};
+      let firstCandidate = '';
+      let foundation = '';
+      let firstAddress = '';
+      const collectedCandidates: ParsedICECandidate[] = [];
 
-      // Null candidate signals gathering complete
-      if (!candidate) {
-        clearTimeout(giveUpOnIPAddress);
-        finalize();
-        return;
-      }
+      /**
+       * Finalizes collection and returns results.
+       */
+      const finalize = () => {
+        connection.removeEventListener('icecandidate', computeCandidate);
+        connection.close();
 
-      // Parse and collect this candidate
-      const parsed = parseICECandidate(candidate);
-      if (parsed) {
-        collectedCandidates.push(parsed);
-      }
+        if (!sdp) {
+          return resolve(null);
+        }
 
-      // Track first candidate for backward compatibility
-      if (!firstCandidate) {
-        firstCandidate = candidate;
-        foundation = (/^candidate:([\w]+)/.exec(candidate) || [])[1] || '';
-      }
+        const iceCandidates = summarizeICECandidates(collectedCandidates);
 
-      // Try to get address from SDP (for backward compatibility)
-      if (!firstAddress) {
-        const { sdp: localSdp } = connection.localDescription || {};
-        firstAddress = getIPAddress(localSdp || '') || '';
-      }
-    };
+        // Use summary's public IP if we didn't get one from SDP
+        const address = firstAddress || iceCandidates.publicIP;
 
-    connection.addEventListener('icecandidate', computeCandidate);
-  });
+        // Note: Raw iceCandidate/stunConnection strings are excluded
+        // because they contain random session-specific data that shouldn't be hashed.
+        // Only stable data (codecsSdp, extensions) should be used for fingerprint hashing.
+        return resolve({
+          codecsSdp,
+          extensions,
+          foundation: KNOWN_FOUNDATIONS[foundation] || foundation,
+          foundationProp: foundation,
+          address,
+          iceCandidates,
+        });
+      };
+
+      // Timeout for ICE candidate gathering
+      const giveUpOnIPAddress = setTimeout(finalize, ICE_GATHER_TIMEOUT);
+
+      /**
+       * Handles each ICE candidate event, parsing and collecting candidates
+       * while tracking the first candidate's foundation and address.
+       */
+      const computeCandidate = (event: RTCPeerConnectionIceEvent) => {
+        const { candidate } = event.candidate || {};
+
+        // Null candidate signals gathering complete
+        if (!candidate) {
+          clearTimeout(giveUpOnIPAddress);
+          finalize();
+          return;
+        }
+
+        // Parse and collect this candidate
+        const parsed = parseICECandidate(candidate);
+        if (parsed) {
+          collectedCandidates.push(parsed);
+        }
+
+        // Track first candidate for backward compatibility
+        if (!firstCandidate) {
+          firstCandidate = candidate;
+          foundation = (/^candidate:([\w]+)/.exec(candidate) || [])[1] || '';
+        }
+
+        // Try to get address from SDP (for backward compatibility)
+        if (!firstAddress) {
+          const { sdp: localSdp } = connection.localDescription || {};
+          firstAddress = getIPAddress(localSdp || '') || '';
+        }
+      };
+
+      connection.addEventListener('icecandidate', computeCandidate);
+    },
+  );
 }

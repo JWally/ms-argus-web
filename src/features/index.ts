@@ -192,7 +192,13 @@ export default async function getEngineFeatures({
  * Legacy export for backwards compatibility.
  * Version lie detection is now done server-side.
  *
- * @deprecated Use server-side analysis instead
+ * @deprecated Use server-side analysis instead. Will be removed in v2.0.
+ *
+ * Migration: Send the feature data from `getEngineFeatures()` to your server,
+ * then use the server-side MDN BCD comparison (see __ideas__/TODO-server-side-analysis.md)
+ * to detect version lies by comparing reported UA version against actual feature support.
+ *
+ * @returns Always returns null; actual detection happens server-side
  */
 export function getFeaturesLie(): null {
   // Version lie detection moved to server-side

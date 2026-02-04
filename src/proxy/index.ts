@@ -38,7 +38,9 @@ const TIMEOUT_MS = 1000;
 const FAST_FAIL_MS = 500;
 
 /**
- * Test localhost connectivity to detect proxy behavior
+ * Test localhost connectivity to detect proxy behavior.
+ *
+ * @returns Connection test result with blocking status, timing, and error details
  */
 async function testLocalhostConnectivity(): Promise<{
   blocked: boolean;
@@ -138,7 +140,13 @@ async function testLocalhostConnectivity(): Promise<{
 }
 
 /**
- * Detect residential proxy by testing localhost behavior
+ * Detect residential proxy by testing localhost behavior.
+ *
+ * Tests connectivity to a random high port on localhost and analyzes the
+ * response timing and error type to determine if traffic is being routed
+ * through a residential proxy.
+ *
+ * @returns Proxy detection result with timing, error type, and likelihood assessment
  */
 export async function detectProxy(): Promise<ProxyDetectionResult> {
   try {

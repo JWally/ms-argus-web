@@ -1,12 +1,19 @@
 /**
- * Telemetry helper functions
- * URL detection, session ID generation, gzip compression
+ * Telemetry Helper Functions
+ *
+ * URL detection, session ID generation, and gzip compression utilities
+ * for the telemetry submission system.
+ *
+ * @module telemetry/helpers
  */
 
 import type { TelemetryConfig } from './types';
 
 /**
- * Build API base URL from config
+ * Build API base URL from config.
+ *
+ * @param config - Telemetry configuration with base domain and stage prefix
+ * @returns Full API base URL (e.g., "https://api-dev.argus.pw")
  */
 export function buildApiBase(config: TelemetryConfig): string {
   const { baseDomain, stagePrefix = '' } = config;
@@ -17,9 +24,13 @@ export function buildApiBase(config: TelemetryConfig): string {
 }
 
 /**
- * Auto-detect stage from current hostname
- * static-dev-jw.argus.pw -> 'dev-jw-'
- * static.argus.pw -> '' (prod)
+ * Auto-detect stage from current hostname.
+ *
+ * @example
+ * // static-dev-jw.argus.pw -> 'dev-jw-'
+ * // static.argus.pw -> '' (prod)
+ *
+ * @returns Stage prefix with trailing dash, or empty string for prod
  */
 export function detectStageFromHostname(): string {
   if (typeof window === 'undefined') return '';
@@ -31,7 +42,10 @@ export function detectStageFromHostname(): string {
 }
 
 /**
- * Auto-detect API base from hostname
+ * Auto-detect API base URL from hostname.
+ *
+ * @param baseDomain - Base domain for API (e.g., "argus.pw")
+ * @returns Full API base URL derived from current hostname
  */
 export function detectApiBaseFromHostname(baseDomain: string): string {
   if (typeof window === 'undefined') {
@@ -64,23 +78,30 @@ export function detectApiBaseFromHostname(baseDomain: string): string {
 }
 
 /**
- * Generate unique session ID
+ * Generate unique session ID.
+ *
+ * @returns Session ID in format "demo-{timestamp}-{random}"
  */
 export function generateSessionId(): string {
   return 'demo-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
 }
 
 /**
- * AR-91: Check if browser supports CompressionStream API for gzip
+ * Check if browser supports CompressionStream API for gzip.
  * Chrome 80+, Firefox 113+, Safari 16.4+
+ *
+ * @returns True if CompressionStream is available
  */
 export function supportsGzipCompression(): boolean {
   return typeof CompressionStream !== 'undefined';
 }
 
 /**
- * AR-91: Gzip compress a string and return as Uint8Array (raw binary)
- * Uses browser's CompressionStream API
+ * Gzip compress a string and return as Uint8Array.
+ * Uses browser's CompressionStream API.
+ *
+ * @param data - String data to compress
+ * @returns Compressed data as raw binary bytes
  */
 export async function gzipCompress(data: string): Promise<Uint8Array> {
   const encoder = new TextEncoder();

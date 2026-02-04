@@ -28,7 +28,7 @@ import { getStatus } from './status';
 import getSVG from './svg';
 import getTimezone from './timezone';
 import { getTrash } from './trash';
-import { getBotHash, getFuzzyHash, hashify } from './utils/crypto';
+import { getBotHash, getFuzzyHash, hashify, simhashify } from './utils/crypto';
 import { removeVolatile, getDroppedKeys } from './utils/delta';
 import {
   IS_BLINK,
@@ -46,7 +46,7 @@ import getWebGpuCompute from './webgpu-compute';
 import getTimingFingerprint from './timing';
 import { analyzeInconsistencies } from './inconsistencies';
 import detectProxy from './proxy';
-import { detectIncognito } from './incognito';
+import { detectIncognito, detectPrivateFromDelta } from './incognito';
 
 // Types for the fingerprint result
 export interface FingerprintMeta {
@@ -76,11 +76,24 @@ export interface FingerprintHashes {
   deviceOfTimezone: string;
 }
 
+export interface DeltaReport {
+  canvas2d: string[];
+  canvasWebgl: string[];
+  offlineAudioContext: string[];
+  css: string[];
+  cssMedia: string[];
+  screen: string[];
+  fonts: string[];
+  media: string[];
+  timezone: string[];
+}
+
 export interface FingerprintResult {
   loose: Record<string, any>;
   stable: Record<string, any>;
   hashes: FingerprintHashes;
   botSignals: BotSignals;
+  deltaReport: DeltaReport;
   meta: FingerprintMeta;
 }
 
@@ -274,6 +287,21 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     media: getDroppedKeys(mediaComputed, mediaStable),
     timezone: getDroppedKeys(timezoneComputed, timezoneStable),
   };
+
+  // Augment incognito detection with delta-based private mode signal
+  if (incognitoComputed && !incognitoComputed.isPrivate) {
+    const deltaPrivate = detectPrivateFromDelta({
+      browser: incognitoComputed.browser,
+      canvasLied: canvas2dComputed?.lied ?? false,
+      canvasDeltaDropped: deltaReport.canvas2d,
+      hasSecondRun: !!canvas2dRun2,
+    });
+    if (deltaPrivate) {
+      incognitoComputed.isPrivate = deltaPrivate.isPrivate;
+      incognitoComputed.confidence = deltaPrivate.confidence;
+      incognitoComputed.signals.push(deltaPrivate.signal);
+    }
+  }
 
   // GPU Prediction handling
   const { parameters: gpuParameter } = canvasWebglComputed || {};
@@ -479,36 +507,81 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
   }
 
   // Build the loose fingerprint (full raw data)
+  // Each module gets $hash (SHA-256 for exact matching) and $fuzzy (SimHash for similarity)
   const loose = {
     workerScope: !workerScopeComputed
       ? undefined
-      : { ...workerScopeComputed, $hash: workerHash },
+      : {
+          ...workerScopeComputed,
+          $hash: workerHash,
+          $fuzzy: simhashify(workerScopeComputed),
+        },
     navigator: !navigatorComputed
       ? undefined
-      : { ...navigatorComputed, $hash: navigatorHash },
+      : {
+          ...navigatorComputed,
+          $hash: navigatorHash,
+          $fuzzy: simhashify(navigatorComputed),
+        },
     windowFeatures: !windowFeaturesComputed
       ? undefined
-      : { ...windowFeaturesComputed, $hash: windowHash },
+      : {
+          ...windowFeaturesComputed,
+          $hash: windowHash,
+          $fuzzy: simhashify(windowFeaturesComputed),
+        },
     headless: !headlessComputed
       ? undefined
-      : { ...headlessComputed, $hash: headlessHash },
+      : {
+          ...headlessComputed,
+          $hash: headlessHash,
+          $fuzzy: simhashify(headlessComputed),
+        },
     htmlElementVersion: !htmlElementVersionComputed
       ? undefined
-      : { ...htmlElementVersionComputed, $hash: htmlHash },
+      : {
+          ...htmlElementVersionComputed,
+          $hash: htmlHash,
+          $fuzzy: simhashify(htmlElementVersionComputed),
+        },
     cssMedia: !cssMediaComputed
       ? undefined
-      : { ...cssMediaComputed, $hash: cssMediaHash },
-    css: !cssComputed ? undefined : { ...cssComputed, $hash: cssHash },
+      : {
+          ...cssMediaComputed,
+          $hash: cssMediaHash,
+          $fuzzy: simhashify(cssMediaComputed),
+        },
+    css: !cssComputed
+      ? undefined
+      : { ...cssComputed, $hash: cssHash, $fuzzy: simhashify(cssComputed) },
     screen: !screenComputed
       ? undefined
-      : { ...screenComputed, $hash: screenHash },
+      : {
+          ...screenComputed,
+          $hash: screenHash,
+          $fuzzy: simhashify(screenComputed),
+        },
     voices: !voicesComputed
       ? undefined
-      : { ...voicesComputed, $hash: voicesHash },
-    media: !mediaComputed ? undefined : { ...mediaComputed, $hash: mediaHash },
+      : {
+          ...voicesComputed,
+          $hash: voicesHash,
+          $fuzzy: simhashify(voicesComputed),
+        },
+    media: !mediaComputed
+      ? undefined
+      : {
+          ...mediaComputed,
+          $hash: mediaHash,
+          $fuzzy: simhashify(mediaComputed),
+        },
     canvas2d: !canvas2dComputed
       ? undefined
-      : { ...canvas2dComputed, $hash: canvas2dHash },
+      : {
+          ...canvas2dComputed,
+          $hash: canvas2dHash,
+          $fuzzy: simhashify(canvas2dComputed),
+        },
     canvasWebgl: !canvasWebglComputed
       ? undefined
       : {
@@ -516,50 +589,126 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
           pixels: pixelsHash,
           pixels2: pixels2Hash,
           $hash: canvasWebglHash,
+          $fuzzy: simhashify(canvasWebglComputed),
         },
-    maths: !mathsComputed ? undefined : { ...mathsComputed, $hash: mathsHash },
+    maths: !mathsComputed
+      ? undefined
+      : {
+          ...mathsComputed,
+          $hash: mathsHash,
+          $fuzzy: simhashify(mathsComputed),
+        },
     consoleErrors: !consoleErrorsComputed
       ? undefined
-      : { ...consoleErrorsComputed, $hash: consoleErrorsHash },
+      : {
+          ...consoleErrorsComputed,
+          $hash: consoleErrorsHash,
+          $fuzzy: simhashify(consoleErrorsComputed),
+        },
     timezone: !timezoneComputed
       ? undefined
-      : { ...timezoneComputed, $hash: timezoneHash },
+      : {
+          ...timezoneComputed,
+          $hash: timezoneHash,
+          $fuzzy: simhashify(timezoneComputed),
+        },
     clientRects: !clientRectsComputed
       ? undefined
-      : { ...clientRectsComputed, $hash: rectsHash },
+      : {
+          ...clientRectsComputed,
+          $hash: rectsHash,
+          $fuzzy: simhashify(clientRectsComputed),
+        },
     offlineAudioContext: !offlineAudioContextComputed
       ? undefined
-      : { ...offlineAudioContextComputed, $hash: audioHash },
-    fonts: !fontsComputed ? undefined : { ...fontsComputed, $hash: fontsHash },
-    lies: !liesComputed ? undefined : { ...liesComputed, $hash: liesHash },
-    trash: !trashComputed ? undefined : { ...trashComputed, $hash: trashHash },
+      : {
+          ...offlineAudioContextComputed,
+          $hash: audioHash,
+          $fuzzy: simhashify(offlineAudioContextComputed),
+        },
+    fonts: !fontsComputed
+      ? undefined
+      : {
+          ...fontsComputed,
+          $hash: fontsHash,
+          $fuzzy: simhashify(fontsComputed),
+        },
+    lies: !liesComputed
+      ? undefined
+      : { ...liesComputed, $hash: liesHash, $fuzzy: simhashify(liesComputed) },
+    trash: !trashComputed
+      ? undefined
+      : {
+          ...trashComputed,
+          $hash: trashHash,
+          $fuzzy: simhashify(trashComputed),
+        },
     capturedErrors: !capturedErrorsComputed
       ? undefined
-      : { ...capturedErrorsComputed, $hash: errorsHash },
-    svg: !svgComputed ? undefined : { ...svgComputed, $hash: svgHash },
+      : {
+          ...capturedErrorsComputed,
+          $hash: errorsHash,
+          $fuzzy: simhashify(capturedErrorsComputed),
+        },
+    svg: !svgComputed
+      ? undefined
+      : { ...svgComputed, $hash: svgHash, $fuzzy: simhashify(svgComputed) },
     resistance: !resistanceComputed
       ? undefined
-      : { ...resistanceComputed, $hash: resistanceHash },
-    intl: !intlComputed ? undefined : { ...intlComputed, $hash: intlHash },
+      : {
+          ...resistanceComputed,
+          $hash: resistanceHash,
+          $fuzzy: simhashify(resistanceComputed),
+        },
+    intl: !intlComputed
+      ? undefined
+      : { ...intlComputed, $hash: intlHash, $fuzzy: simhashify(intlComputed) },
     features: !featuresComputed
       ? undefined
-      : { ...featuresComputed, $hash: featuresHash },
+      : {
+          ...featuresComputed,
+          $hash: featuresHash,
+          $fuzzy: simhashify(featuresComputed),
+        },
     webrtc: !webrtcComputed
       ? undefined
-      : { ...webrtcComputed, $hash: webrtcHash },
+      : {
+          ...webrtcComputed,
+          $hash: webrtcHash,
+          $fuzzy: simhashify(webrtcComputed),
+        },
     webgpuCompute: !webgpuComputeComputed
       ? undefined
-      : { ...webgpuComputeComputed, $hash: webgpuComputeHash },
+      : {
+          ...webgpuComputeComputed,
+          $hash: webgpuComputeHash,
+          $fuzzy: simhashify(webgpuComputeComputed),
+        },
     timing: !timingComputed
       ? undefined
-      : { ...timingComputed, $hash: timingHash },
-    proxy: !proxyComputed ? undefined : { ...proxyComputed, $hash: proxyHash },
+      : {
+          ...timingComputed,
+          $hash: timingHash,
+          $fuzzy: simhashify(timingComputed),
+        },
+    proxy: !proxyComputed
+      ? undefined
+      : {
+          ...proxyComputed,
+          $hash: proxyHash,
+          $fuzzy: simhashify(proxyComputed),
+        },
     incognito: !incognitoComputed
       ? undefined
-      : { ...incognitoComputed, $hash: incognitoHash },
+      : {
+          ...incognitoComputed,
+          $hash: incognitoHash,
+          $fuzzy: simhashify(incognitoComputed),
+        },
   };
 
   // Build the stable fingerprint (filtered/hardened for production)
+  /** Suppresses a property value when locale entropy signals are untrustworthy. */
   const hardenEntropy = (workerScope: any, prop: any) => {
     return !workerScope
       ? prop
@@ -573,6 +722,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     resistanceComputed &&
     /^(tor browser|firefox)$/i.test(resistanceComputed.privacy);
 
+  /** Returns GPU renderer/vendor only when confidence is not low. */
   const hardenGPU = (canvasWebgl: any) => {
     const {
       gpu: { confidence, compressedGPU },
@@ -772,7 +922,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     hashify(stable),
   ]).catch(() => ['', '']);
 
-  const fuzzyHash = await getFuzzyHash(loose).catch(() => '');
+  const fuzzyHash = await getFuzzyHash(loose, deltaReport).catch(() => '');
 
   // Analyze internal inconsistencies across signals
   const inconsistencies = analyzeInconsistencies(loose);

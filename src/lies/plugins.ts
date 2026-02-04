@@ -37,6 +37,7 @@ export function getPluginLies(
   const trustedMimeTypes = new Set(mimeTypesOwnPropertyNames);
 
   // Get initial trusted plugin names
+  /** Removes duplicate values from an array. */
   const excludeDuplicates = <T>(arr: T[]): T[] => [...new Set(arr)];
   const mimeTypeEnabledPlugins = excludeDuplicates(
     mimeTypesList.map((mimeType) => mimeType.enabledPlugin),

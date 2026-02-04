@@ -120,6 +120,7 @@ export const { logTestResult } = performanceLogger;
  * Race a promise against a timeout, returning undefined if slow/rejected.
  * Useful for fingerprint operations that may hang on some browsers.
  *
+ * @param options - Configuration object
  * @param options.promise - Promise to race
  * @param options.responseType - Expected response constructor (for instanceof check)
  * @param options.limit - Timeout in ms (default: 1000)

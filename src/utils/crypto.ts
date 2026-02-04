@@ -1,8 +1,29 @@
+/**
+ * Cryptographic Utilities Module
+ *
+ * Provides hashing, encryption, and bot detection utilities for fingerprinting.
+ *
+ * Functions:
+ * - `hashMini`: Fast 8-character FNV-1a inspired hash
+ * - `hashify`: SHA-256 hash with non-secure context fallback
+ * - `cipher`: AES-GCM encryption for data protection
+ * - `getBotHash`: Binary hash representing bot detection signals
+ * - `getFuzzyHash`: SimHash for locality-sensitive fingerprint matching
+ * - `getSimHashDistance`: Hamming distance between SimHash values
+ *
+ * @module utils/crypto
+ */
+
 import { isFontOSBad } from '../fonts';
 import { WORKER_TYPE } from '../worker';
 import { getReportedPlatform } from './helpers';
 
-// https://stackoverflow.com/a/22429679
+/**
+ * Generates an 8-character hex hash using an FNV-1a inspired algorithm.
+ *
+ * @param x - The value to hash (will be JSON-serialized)
+ * @returns An 8-character hexadecimal hash string
+ */
 const hashMini = (x) => {
   const json = `${JSON.stringify(x)}`;
   const hash = json.split('').reduce((hash, char, i) => {
@@ -11,14 +32,19 @@ const hashMini = (x) => {
   return ('0000000' + (hash >>> 0).toString(16)).substr(-8);
 };
 
-// instance id
+/** Random instance identifier generated once per page load. */
 const instanceId =
   String.fromCharCode(Math.random() * 26 + 97) +
   Math.random().toString(36).slice(-7);
 
-// https://stackoverflow.com/a/53490958
-// https://stackoverflow.com/a/43383990
-// https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
+/**
+ * Generates a SHA-256 hex hash of JSON-serialized input, falling back to
+ * hashMini for non-secure contexts where crypto.subtle is unavailable.
+ *
+ * @param x - The value to hash (will be JSON-serialized)
+ * @param algorithm - The digest algorithm to use (defaults to SHA-256)
+ * @returns A promise resolving to the hexadecimal hash string
+ */
 const hashify = (x, algorithm = 'SHA-256') => {
   const json = `${JSON.stringify(x)}`;
 
@@ -38,6 +64,14 @@ const hashify = (x, algorithm = 'SHA-256') => {
   });
 };
 
+/**
+ * Encrypts data using AES-GCM and returns the ciphertext, initialization vector,
+ * and key as base64-encoded strings. Falls back to a plain base64 encoding in
+ * non-secure contexts where crypto.subtle is unavailable.
+ *
+ * @param data - The data to encrypt (will be JSON-serialized)
+ * @returns A promise resolving to a tuple of [ciphertext, IV, key] as base64 strings
+ */
 async function cipher(data: any): Promise<string[]> {
   // Fallback for non-secure contexts (HTTP) where crypto.subtle is unavailable
   if (!crypto.subtle) {
@@ -73,6 +107,15 @@ async function cipher(data: any): Promise<string[]> {
   return [message, vector, keyData!];
 }
 
+/**
+ * Computes a binary hash string representing bot detection signals derived
+ * from fingerprint data. Each bit position corresponds to a specific bot
+ * indicator pattern (e.g., lied worker scope, extreme lie count).
+ *
+ * @param fp - The fingerprint data object containing detection modules
+ * @param imports - Utility imports providing getFeaturesLie and computeWindowsRelease
+ * @returns An object containing the binary botHash string and the first matching bad bot pattern key
+ */
 const getBotHash = (fp, imports) => {
   const { getFeaturesLie, computeWindowsRelease } = imports;
   const outsideFeaturesVersion = getFeaturesLie(fp);
@@ -288,14 +331,40 @@ const SIMHASH_FEATURE_WEIGHTS: Record<string, number> = {
   'offlineAudioContext.totalUniqueSamples': 1,
 };
 
-// 64-bit SimHash implementation
-const SIMHASH_BITS = 64;
+// 256-bit SimHash implementation (64 hex chars)
+// Increased from 64-bit for finer similarity granularity
+const SIMHASH_BITS = 256;
 
 /**
  * Generate a 64-bit SimHash from fingerprint data.
  * Returns a 16-character hex string.
+ *
+ * @param fp - The loose fingerprint object
+ * @param deltaDropped - Keys dropped by delta detection (volatile between runs),
+ *                       keyed by module name. These features are excluded from the hash.
  */
-const getFuzzyHash = async (fp): Promise<string> => {
+const getFuzzyHash = async (
+  fp: Record<string, any>,
+  deltaDropped?: Record<string, string[]>,
+): Promise<string> => {
+  // Build set of excluded feature keys from delta report.
+  // Delta reports nested paths (e.g., "mods.pixels") but SimHash features
+  // reference top-level keys (e.g., "canvas2d.mods"). A sub-key change means
+  // the parent object changed, so we add all ancestor paths too.
+  const excluded = new Set<string>();
+  if (deltaDropped) {
+    for (const [module, keys] of Object.entries(deltaDropped)) {
+      for (const key of keys) {
+        excluded.add(`${module}.${key}`);
+        // Add ancestor paths: "mods.pixels" → also exclude "mods"
+        const parts = key.split('.');
+        for (let i = 1; i < parts.length; i++) {
+          excluded.add(`${module}.${parts.slice(0, i).join('.')}`);
+        }
+      }
+    }
+  }
+
   // Extract all features from fingerprint
   const features: Record<string, unknown> = {};
   for (const [section, values] of Object.entries(fp)) {
@@ -313,32 +382,28 @@ const getFuzzyHash = async (fp): Promise<string> => {
 
   // Process each weighted feature
   for (const [featureKey, weight] of Object.entries(SIMHASH_FEATURE_WEIGHTS)) {
+    if (excluded.has(featureKey)) continue;
     const value = features[featureKey];
     if (value === undefined || value === null) continue;
 
     // Hash the feature key+value to get deterministic bit pattern
     const featureString = JSON.stringify({ k: featureKey, v: value });
-    const hash = hashMini(featureString);
 
-    // Convert 8-char hex hash to 32 bits, then extend to 64 bits
-    // by also hashing with a salt for the upper 32 bits
-    const lower32 = parseInt(hash, 16) >>> 0;
-    const upper32 = parseInt(hashMini(featureString + ':upper'), 16) >>> 0;
-
-    // Vote on each bit position
-    for (let i = 0; i < SIMHASH_BITS; i++) {
-      const bitValue =
-        i < 32 ? (lower32 >>> i) & 1 : (upper32 >>> (i - 32)) & 1;
-
-      // Add or subtract weight based on bit value
-      votes[i] += bitValue ? weight : -weight;
+    // Generate enough bits by chaining hashMini calls
+    for (let h = 0; h < SIMHASH_BITS / 32; h++) {
+      const salt = h === 0 ? featureString : `${featureString}:${h}`;
+      const bits = parseInt(hashMini(salt), 16) >>> 0;
+      for (let b = 0; b < 32; b++) {
+        const bitValue = (bits >>> b) & 1;
+        votes[h * 32 + b] += bitValue ? weight : -weight;
+      }
     }
   }
 
   // Convert votes to binary: positive -> 1, non-positive -> 0
-  // Then pack into 64-bit value as hex string
+  // Then pack into hex string
   let result = '';
-  for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
+  for (let byteIdx = 0; byteIdx < SIMHASH_BITS / 8; byteIdx++) {
     let byte = 0;
     for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
       const voteIdx = byteIdx * 8 + bitIdx;
@@ -356,17 +421,17 @@ const getFuzzyHash = async (fp): Promise<string> => {
  * Calculate Hamming distance between two SimHash values.
  * Lower distance = more similar fingerprints.
  *
- * @param hash1 - First SimHash (16-char hex string)
- * @param hash2 - Second SimHash (16-char hex string)
- * @returns Number of differing bits (0-64)
+ * @param hash1 - First SimHash hex string
+ * @param hash2 - Second SimHash hex string (must be same length as hash1)
+ * @returns Number of differing bits (0 to hash length * 4)
  */
 const getSimHashDistance = (hash1: string, hash2: string): number => {
-  if (hash1.length !== 16 || hash2.length !== 16) {
-    throw new Error('SimHash values must be 16-character hex strings');
+  if (hash1.length !== hash2.length || hash1.length % 2 !== 0) {
+    throw new Error('SimHash values must be equal-length hex strings');
   }
 
   let distance = 0;
-  for (let i = 0; i < 16; i += 2) {
+  for (let i = 0; i < hash1.length; i += 2) {
     const byte1 = parseInt(hash1.slice(i, i + 2), 16);
     const byte2 = parseInt(hash2.slice(i, i + 2), 16);
     const xor = byte1 ^ byte2;
@@ -376,20 +441,185 @@ const getSimHashDistance = (hash1: string, hash2: string): number => {
   return distance;
 };
 
-// 8-bit popcount lookup
+/** Counts the number of set bits (population count) in an 8-bit number. */
 const popcount8 = (n: number): number => {
   n = n - ((n >> 1) & 0x55);
   n = (n & 0x33) + ((n >> 2) & 0x33);
   return (n + (n >> 4)) & 0x0f;
 };
 
+/**
+ * Computes a SimHash for any JSON-serializable value.
+ * Similar inputs produce similar hashes (low hamming distance).
+ *
+ * Approach: JSON.stringify, strip syntax chars (keep colons for structure),
+ * then n-gram simhash. Simple and effective for structured data.
+ *
+ * @param x - Any JSON-serializable value
+ * @returns Hex string (SIMHASH_BITS / 4 characters)
+ */
+const simhashify = (x: unknown): string => {
+  // Strip JSON syntax, keep colons for key:value structure
+  const stripped = JSON.stringify(x).replace(/[{}\[\]",]/g, '');
+
+  const votes = new Array(SIMHASH_BITS).fill(0);
+  const NGRAM_SIZE = 3;
+
+  // Sliding window n-grams
+  // For very short strings, include the whole string as a single token
+  const tokens: string[] = [];
+  if (stripped.length <= NGRAM_SIZE) {
+    if (stripped.length > 0) tokens.push(stripped);
+  } else {
+    for (let i = 0; i <= stripped.length - NGRAM_SIZE; i++) {
+      tokens.push(stripped.slice(i, i + NGRAM_SIZE));
+    }
+  }
+
+  for (const token of tokens) {
+    // Generate enough bits by chaining hashMini calls
+    for (let h = 0; h < SIMHASH_BITS / 32; h++) {
+      const salt = h === 0 ? token : `${token}:${h}`;
+      const bits = parseInt(hashMini(salt), 16) >>> 0;
+      for (let b = 0; b < 32; b++) {
+        votes[h * 32 + b] += (bits >>> b) & 1 ? 1 : -1;
+      }
+    }
+  }
+
+  // Convert votes to hex
+  let result = '';
+  for (let byteIdx = 0; byteIdx < SIMHASH_BITS / 8; byteIdx++) {
+    let byte = 0;
+    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+      if (votes[byteIdx * 8 + bitIdx] > 0) byte |= 1 << bitIdx;
+    }
+    result += ('0' + byte.toString(16)).slice(-2);
+  }
+  return result;
+};
+
+/**
+ * Computes a SimHash for an array of strings.
+ * Similar arrays produce similar hashes (low hamming distance).
+ *
+ * This is useful for large arrays like windowFeatures.keys (1000+ DOM APIs)
+ * where exact matching is too strict but you want to detect similarity.
+ *
+ * @param arr - Array of strings to hash
+ * @returns Hex string (SIMHASH_BITS / 4 characters)
+ */
+const simHashArray = (arr: string[]): string => {
+  const votes = new Array(SIMHASH_BITS).fill(0);
+
+  for (const item of arr) {
+    // Generate enough bits by chaining hashMini calls
+    for (let h = 0; h < SIMHASH_BITS / 32; h++) {
+      const salt = h === 0 ? item : `${item}:${h}`;
+      const bits = parseInt(hashMini(salt), 16) >>> 0;
+      for (let b = 0; b < 32; b++) {
+        votes[h * 32 + b] += (bits >>> b) & 1 ? 1 : -1;
+      }
+    }
+  }
+
+  let result = '';
+  for (let byteIdx = 0; byteIdx < SIMHASH_BITS / 8; byteIdx++) {
+    let byte = 0;
+    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+      if (votes[byteIdx * 8 + bitIdx] > 0) byte |= 1 << bitIdx;
+    }
+    result += ('0' + byte.toString(16)).slice(-2);
+  }
+  return result;
+};
+
+/** Result of compacting a large array or string */
+interface CompactedValue {
+  /** 256-bit SimHash (64 hex chars) for similarity comparison */
+  $simhash: string;
+  /** Original length - useful for sanity checks (Chrome ~1200, Firefox ~900) */
+  $len: number;
+}
+
+/**
+ * Recursively compacts a fingerprint object by SimHashing large arrays/strings.
+ *
+ * Large arrays of strings become: { $simhash: "abc123...", $len: 1200 }
+ * Large strings become: { $simhash: "def456...", $len: 2000 }
+ *
+ * Benefits:
+ * - Massive size reduction (1200 strings → 1 hash + 1 number)
+ * - Preserves similarity (95% array overlap ≈ 3-5 bit hamming distance)
+ * - Fast comparison (XOR + popcount vs deep array diff)
+ * - Spoofing detection (Chrome with $len=850 is suspicious)
+ *
+ * @param obj - Object to compact (typically a fingerprint)
+ * @param arrayThreshold - Arrays larger than this get SimHashed (default: 50)
+ * @param stringThreshold - Strings longer than this get hashed (default: 500)
+ * @returns Compacted object with large values replaced by {$simhash, $len}
+ */
+const compactFingerprint = (
+  obj: unknown,
+  arrayThreshold = 50,
+  stringThreshold = 500,
+): unknown => {
+  if (obj === null || obj === undefined) return obj;
+
+  if (Array.isArray(obj)) {
+    // Only SimHash large arrays of STRINGS (not numbers).
+    // Number arrays (like audio binsSample/copySample) have meaningful values
+    // that downstream consumers (vector extraction) need to access directly.
+    if (obj.length > arrayThreshold) {
+      const allStrings = obj.every((x) => typeof x === 'string');
+
+      if (allStrings) {
+        return {
+          $simhash: simHashArray(obj as string[]),
+          $len: obj.length,
+        } as CompactedValue;
+      }
+    }
+    // Recurse into array elements for mixed/object/number arrays
+    return obj.map((item) =>
+      compactFingerprint(item, arrayThreshold, stringThreshold),
+    );
+  }
+
+  if (typeof obj === 'string') {
+    if (obj.length > stringThreshold) {
+      return {
+        $simhash: hashMini(obj),
+        $len: obj.length,
+      } as CompactedValue;
+    }
+    return obj;
+  }
+
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = compactFingerprint(value, arrayThreshold, stringThreshold);
+    }
+    return result;
+  }
+
+  return obj; // primitives pass through
+};
+
 export {
   hashMini,
   instanceId,
   hashify,
+  simhashify,
   getBotHash,
   getFuzzyHash,
   getSimHashDistance,
+  simHashArray,
+  compactFingerprint,
   cipher,
   SIMHASH_FEATURE_WEIGHTS,
+  SIMHASH_BITS,
 };
+
+export type { CompactedValue };

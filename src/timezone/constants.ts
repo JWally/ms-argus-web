@@ -68,7 +68,7 @@ export async function getTimezoneCities(): Promise<string[]> {
  *
  * Total: ~460 timezone identifiers
  *
- * @deprecated Use getTimezoneCities() for external data loading
+ * @deprecated Use getTimezoneCities() for external data loading. Will be removed in v2.0.
  */
 export const TIMEZONE_CITIES_INLINE = [
   'UTC',
@@ -547,6 +547,6 @@ export const TIMEZONE_CITIES_INLINE = [
 
 /**
  * Backwards-compatible export of timezone cities.
- * @deprecated Use getTimezoneCities() for async loading with external data support.
+ * @deprecated Use getTimezoneCities() for async loading with external data support. Will be removed in v2.0.
  */
 export const TIMEZONE_CITIES = TIMEZONE_CITIES_INLINE;

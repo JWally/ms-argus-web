@@ -188,6 +188,7 @@ function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
       reject(new Error('Iframe load timeout'));
     }, 5000);
 
+    /** Resolves the promise once the iframe content has fully loaded. */
     iframe.addEventListener(
       'load',
       () => {
@@ -198,6 +199,7 @@ function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
       { once: true },
     );
 
+    /** Rejects the promise if the iframe fails to load. */
     iframe.addEventListener(
       'error',
       () => {
@@ -278,6 +280,7 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
 
   try {
     // Set up timeout
+    /** Rejects after the configured timeout duration to prevent indefinite hangs. */
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
         reject(
@@ -297,6 +300,10 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
 
     // Run fingerprint collection inside iframe (and sigint in parallel if enabled)
     // Since srcdoc is same-origin, we have full access
+    /**
+     * Runs fingerprint and optional sigint collection in parallel within the
+     * iframe's clean environment.
+     */
     const collectionPromise = (async () => {
       // The iframe has a clean JS environment, but we need to run our code there.
       // We inject the collectFingerprint function and run it.
@@ -428,7 +435,10 @@ export async function getFingerprintHash(): Promise<string> {
 declare const globalThis: { __ARGUS_TEST__?: boolean };
 
 if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
-  // Check if we should auto-run based on script params
+  /**
+   * Determines whether the loader should auto-run by checking the current
+   * script element's URL for 'autorun' or 'endpoint' search parameters.
+   */
   const autoRun = (() => {
     try {
       if (typeof document === 'undefined') return false;

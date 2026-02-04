@@ -92,6 +92,7 @@ export function extractAllMetrics(metrics: TextMetrics): number[] {
 export function getTextMetricsFloatLie(
   context: CanvasRenderingContext2D,
 ): boolean {
+  /** Checks whether a number has a fractional component. */
   const isFloat = (n: number) => n % 1 !== 0;
 
   const metrics = context.measureText('') || {};

@@ -38,26 +38,45 @@ export interface EngineFeaturesFingerprint {
 // Legacy types kept for reference - now handled server-side
 
 /**
- * @deprecated Version detection moved server-side
+ * Represents differences between expected and actual feature lists.
+ * Used for detecting version spoofing by comparing against MDN BCD data.
+ *
+ * @deprecated Version detection moved server-side. Will be removed in v2.0.
+ * Implement this interface server-side using MDN BCD data for comparison.
  */
 export interface FeatureListDiff {
+  /** Features expected for the reported version but not present */
   removed: string[];
+  /** Features present but not expected for the reported version */
   added: string[];
 }
 
 /**
- * @deprecated Version detection moved server-side
+ * Result of version detection from feature analysis.
+ * Contains possible version matches based on feature fingerprint.
+ *
+ * @deprecated Version detection moved server-side. Will be removed in v2.0.
+ * Implement version detection server-side using scripts/update-features-mdn.ts data.
  */
 export interface VersionReport {
+  /** All browser versions that match the observed features */
   versions: string[];
+  /** Most likely specific version, or null if ambiguous */
   version: string | null;
 }
 
 /**
- * @deprecated Version lie detection moved server-side
+ * Result of version lie detection analysis.
+ * Indicates whether the reported browser version matches actual capabilities.
+ *
+ * @deprecated Version lie detection moved server-side. Will be removed in v2.0.
+ * Server-side implementation compares reported UA against feature-detected version.
  */
 export interface FeatureLieResult {
+  /** True if reported version doesn't match detected capabilities */
   versionLie: boolean;
+  /** Detected version based on feature analysis */
   version: string | null;
+  /** Range of possible versions if exact match not found */
   versionRange: string | null;
 }

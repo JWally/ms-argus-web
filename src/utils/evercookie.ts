@@ -106,10 +106,12 @@ function deserialize(str: string | null | undefined): EvercookieData | null {
 
 /* ─────────────────────────── IndexedDB Storage ─────────────────────────── */
 
+/** Opens or creates the IndexedDB database for evercookie storage. */
 async function openEvercookieDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
 
+    /** Handle database schema creation/migration. */
     request.onupgradeneeded = () => {
       const db = request.result;
       // Create evercookie store if it doesn't exist
@@ -122,11 +124,14 @@ async function openEvercookieDb(): Promise<IDBDatabase> {
       }
     };
 
+    /** Resolve with the opened database instance. */
     request.onsuccess = () => resolve(request.result);
+    /** Reject with the database open error. */
     request.onerror = () => reject(request.error);
   });
 }
 
+/** Reads evercookie data from IndexedDB, returning null if unavailable. */
 async function readFromIndexedDB(): Promise<EvercookieData | null> {
   try {
     const db = await openEvercookieDb();
@@ -135,11 +140,13 @@ async function readFromIndexedDB(): Promise<EvercookieData | null> {
       const store = tx.objectStore(EVERCOOKIE_DB_STORE);
       const request = store.get(EVERCOOKIE_KEY);
 
+      /** Resolve with deserialized data from the store. */
       request.onsuccess = () => {
         db.close();
         const result = request.result;
         resolve(result?.data ? deserialize(result.data) : null);
       };
+      /** Resolve null on read failure. */
       request.onerror = () => {
         db.close();
         resolve(null);
@@ -151,6 +158,7 @@ async function readFromIndexedDB(): Promise<EvercookieData | null> {
   }
 }
 
+/** Writes evercookie data to IndexedDB, returning success status. */
 async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
   try {
     const db = await openEvercookieDb();
@@ -159,10 +167,12 @@ async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
       const store = tx.objectStore(EVERCOOKIE_DB_STORE);
       const request = store.put({ key: EVERCOOKIE_KEY, data: serialize(data) });
 
+      /** Resolve true on successful write. */
       request.onsuccess = () => {
         db.close();
         resolve(true);
       };
+      /** Resolve false on write failure. */
       request.onerror = () => {
         db.close();
         resolve(false);
@@ -176,6 +186,7 @@ async function writeToIndexedDB(data: EvercookieData): Promise<boolean> {
 
 /* ─────────────────────────── localStorage Storage ─────────────────────────── */
 
+/** Reads evercookie data from localStorage. */
 function readFromLocalStorage(): EvercookieData | null {
   try {
     const stored = localStorage.getItem(EVERCOOKIE_KEY);
@@ -189,6 +200,7 @@ function readFromLocalStorage(): EvercookieData | null {
   }
 }
 
+/** Writes evercookie data to localStorage. */
 function writeToLocalStorage(data: EvercookieData): boolean {
   try {
     localStorage.setItem(EVERCOOKIE_KEY, serialize(data));
@@ -201,6 +213,7 @@ function writeToLocalStorage(data: EvercookieData): boolean {
 
 /* ─────────────────────────── sessionStorage Storage ─────────────────────────── */
 
+/** Reads evercookie data from sessionStorage. */
 function readFromSessionStorage(): EvercookieData | null {
   try {
     const stored = sessionStorage.getItem(EVERCOOKIE_KEY);
@@ -214,6 +227,7 @@ function readFromSessionStorage(): EvercookieData | null {
   }
 }
 
+/** Writes evercookie data to sessionStorage. */
 function writeToSessionStorage(data: EvercookieData): boolean {
   try {
     sessionStorage.setItem(EVERCOOKIE_KEY, serialize(data));
@@ -229,6 +243,7 @@ function writeToSessionStorage(data: EvercookieData): boolean {
 
 /* ─────────────────────────── Cookie Storage ─────────────────────────── */
 
+/** Reads evercookie data from document.cookie by parsing all cookies. */
 function readFromCookie(): EvercookieData | null {
   try {
     const cookies = document.cookie.split(';');
@@ -245,6 +260,7 @@ function readFromCookie(): EvercookieData | null {
   return null;
 }
 
+/** Writes evercookie data as a document.cookie with 10-year expiration. */
 function writeToCookie(data: EvercookieData): boolean {
   try {
     const value = encodeURIComponent(serialize(data));
@@ -262,6 +278,7 @@ function writeToCookie(data: EvercookieData): boolean {
 
 /* ─────────────────────────── Cache API Storage ─────────────────────────── */
 
+/** Reads evercookie data from the Cache API, returning null if unavailable. */
 async function readFromCacheAPI(): Promise<EvercookieData | null> {
   try {
     if (!('caches' in self)) return null;
@@ -279,6 +296,7 @@ async function readFromCacheAPI(): Promise<EvercookieData | null> {
   return null;
 }
 
+/** Writes evercookie data to the Cache API as a JSON response. */
 async function writeToCacheAPI(data: EvercookieData): Promise<boolean> {
   try {
     if (!('caches' in self)) return false;
@@ -304,12 +322,14 @@ async function writeToCacheAPI(data: EvercookieData): Promise<boolean> {
 let broadcastChannel: BroadcastChannel | null = null;
 let channelData: EvercookieData | null = null;
 
+/** Initializes the BroadcastChannel for cross-tab evercookie sync. */
 function initBroadcastChannel(): void {
   if (broadcastChannel || typeof BroadcastChannel === 'undefined') return;
 
   try {
     broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
 
+    /** Handle incoming evercookie data from another tab. */
     broadcastChannel.onmessage = (event) => {
       const data = deserialize(event.data);
       if (data) {
@@ -323,6 +343,7 @@ function initBroadcastChannel(): void {
   }
 }
 
+/** Broadcasts evercookie data to other tabs via BroadcastChannel. */
 function broadcastData(data: EvercookieData): void {
   if (broadcastChannel) {
     try {
@@ -336,6 +357,7 @@ function broadcastData(data: EvercookieData): void {
   }
 }
 
+/** Returns cached evercookie data received from BroadcastChannel, if any. */
 function readFromBroadcastChannel(): EvercookieData | null {
   return channelData;
 }
@@ -523,10 +545,12 @@ export async function clearEvercookieId(): Promise<void> {
           const tx = db.transaction(EVERCOOKIE_DB_STORE, 'readwrite');
           const store = tx.objectStore(EVERCOOKIE_DB_STORE);
           const request = store.delete(EVERCOOKIE_KEY);
+          /** Close DB and resolve after successful deletion. */
           request.onsuccess = () => {
             db.close();
             resolve();
           };
+          /** Close DB and resolve even on deletion failure. */
           request.onerror = () => {
             db.close();
             resolve();

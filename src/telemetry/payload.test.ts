@@ -13,23 +13,44 @@ const createMockFingerprintResult = (
   loose: {
     canvas2d: {
       $hash: 'canvas-hash-123',
+      $fuzzy: 'canvas-fuzzy-abc',
       dataURI: 'data:image/png;base64,...',
     },
     canvasWebgl: {
       $hash: 'webgl-hash-456',
+      $fuzzy: 'webgl-fuzzy-def',
       gpu: { compressedGPU: 'ANGLE (Intel, UHD Graphics 620)' },
       parameters: { MAX_TEXTURE_SIZE: 16384 },
     },
     offlineAudioContext: {
       $hash: 'audio-hash-789',
+      $fuzzy: 'audio-fuzzy-ghi',
       binFrequencies: [0.1, 0.2],
     },
-    screen: { $hash: 'screen-hash', width: 1920, height: 1080 },
-    timezone: { $hash: 'tz-hash', location: 'America/New_York' },
-    navigator: { $hash: 'nav-hash', hardwareConcurrency: 8, deviceMemory: 16 },
-    maths: { $hash: 'maths-hash' },
-    windowFeatures: { $hash: 'window-hash' },
-    fonts: { $hash: 'fonts-hash', fontFaceLoadFonts: ['Arial', 'Helvetica'] },
+    screen: {
+      $hash: 'screen-hash',
+      $fuzzy: 'screen-fuzzy',
+      width: 1920,
+      height: 1080,
+    },
+    timezone: {
+      $hash: 'tz-hash',
+      $fuzzy: 'tz-fuzzy',
+      location: 'America/New_York',
+    },
+    navigator: {
+      $hash: 'nav-hash',
+      $fuzzy: 'nav-fuzzy',
+      hardwareConcurrency: 8,
+      deviceMemory: 16,
+    },
+    maths: { $hash: 'maths-hash', $fuzzy: 'maths-fuzzy' },
+    windowFeatures: { $hash: 'window-hash', $fuzzy: 'window-fuzzy' },
+    fonts: {
+      $hash: 'fonts-hash',
+      $fuzzy: 'fonts-fuzzy',
+      fontFaceLoadFonts: ['Arial', 'Helvetica'],
+    },
   },
   stable: {},
   hashes: {
@@ -97,6 +118,24 @@ describe('buildPayload', () => {
     expect(payload.hashes.maths).toBe('maths-hash');
     expect(payload.hashes.windowFeatures).toBe('window-hash');
     expect(payload.hashes.fonts).toBe('fonts-hash');
+  });
+
+  it('should extract $fuzzy hashes with underscore prefix', () => {
+    const fingerprint = createMockFingerprintResult();
+    const submission: TelemetrySubmission = { fingerprint };
+
+    const payload = buildPayload(submission, 'test-session-id');
+
+    // $fuzzy values should be extracted with underscore prefix
+    expect(payload.hashes._canvas2d).toBe('canvas-fuzzy-abc');
+    expect(payload.hashes._canvasWebgl).toBe('webgl-fuzzy-def');
+    expect(payload.hashes._offlineAudioContext).toBe('audio-fuzzy-ghi');
+    expect(payload.hashes._screen).toBe('screen-fuzzy');
+    expect(payload.hashes._timezone).toBe('tz-fuzzy');
+    expect(payload.hashes._navigator).toBe('nav-fuzzy');
+    expect(payload.hashes._maths).toBe('maths-fuzzy');
+    expect(payload.hashes._windowFeatures).toBe('window-fuzzy');
+    expect(payload.hashes._fonts).toBe('fonts-fuzzy');
   });
 
   it('should spread full loose fingerprint into device section', () => {

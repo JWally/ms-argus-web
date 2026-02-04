@@ -333,11 +333,18 @@ async function fetchWithTimeout<T>(
   timeout: number,
   options: RequestInit = {},
 ): Promise<{ data: T | null; error: string | null; durationMs: number }> {
+  const isH2 = url.includes('-h2.');
+  if (isH2) console.log('[H2_DEBUG] fetchWithTimeout START for:', url);
+
   const start = performance.now();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const timeoutId = setTimeout(() => {
+    if (isH2) console.log('[H2_DEBUG] TIMEOUT triggered for:', url);
+    controller.abort();
+  }, timeout);
 
   try {
+    if (isH2) console.log('[H2_DEBUG] About to call fetch() for:', url);
     // Note: credentials: 'include' requires server to return specific origin, not '*'
     // If server returns Access-Control-Allow-Origin: *, use 'same-origin' instead
     const response = await fetch(url, {
@@ -345,11 +352,19 @@ async function fetchWithTimeout<T>(
       signal: controller.signal,
       credentials: 'omit', // Omit cookies to allow wildcard CORS (server fix needed for cookie support)
     });
+    if (isH2)
+      console.log('[H2_DEBUG] fetch() returned, status:', response.status);
 
     clearTimeout(timeoutId);
     const durationMs = performance.now() - start;
 
     if (!response.ok) {
+      if (isH2)
+        console.log(
+          '[H2_DEBUG] Response not OK:',
+          response.status,
+          response.statusText,
+        );
       return {
         data: null,
         error: `HTTP ${response.status}: ${response.statusText}`,
@@ -358,10 +373,13 @@ async function fetchWithTimeout<T>(
     }
 
     const data = (await response.json()) as T;
+    if (isH2) console.log('[H2_DEBUG] Parsed JSON data:', data);
     return { data, error: null, durationMs };
   } catch (err) {
     clearTimeout(timeoutId);
     const durationMs = performance.now() - start;
+
+    if (isH2) console.error('[H2_DEBUG] fetch() CAUGHT ERROR:', err);
 
     if (err instanceof Error) {
       if (err.name === 'AbortError') {
@@ -420,9 +438,19 @@ export async function fetchH2Probe(config: SigintConfig): Promise<{
   error: string | null;
   durationMs: number;
 }> {
+  console.log('[H2_DEBUG] fetchH2Probe called');
   const merged = { ...DEFAULT_CONFIG, ...config };
   const url = getH2ProbeEndpoint(config);
-  return fetchWithTimeout<H2ProbeResponse>(url, merged.timeout);
+  console.log('[H2_DEBUG] H2 URL:', url);
+  console.log('[H2_DEBUG] H2 timeout:', merged.timeout);
+  try {
+    const result = await fetchWithTimeout<H2ProbeResponse>(url, merged.timeout);
+    console.log('[H2_DEBUG] H2 fetch result:', result);
+    return result;
+  } catch (err) {
+    console.error('[H2_DEBUG] H2 fetch threw:', err);
+    throw err;
+  }
 }
 
 /**
@@ -590,6 +618,9 @@ export async function collectSigintData(
   config: SigintConfig,
 ): Promise<SigintData> {
   const merged = { ...DEFAULT_CONFIG, ...config };
+  console.log('[H2_DEBUG] collectSigintData called');
+  console.log('[H2_DEBUG] config passed in:', JSON.stringify(config));
+  console.log('[H2_DEBUG] merged.enableH2Probe:', merged.enableH2Probe);
   const start = performance.now();
   const errors: string[] = [];
 
@@ -608,8 +639,11 @@ export async function collectSigintData(
   }
 
   if (merged.enableH2Probe) {
+    console.log('[H2_DEBUG] Adding H2 probe to requests');
     requests.push(fetchH2Probe(config));
     requestTypes.push('h2');
+  } else {
+    console.log('[H2_DEBUG] H2 probe DISABLED, not adding');
   }
 
   if (merged.enableStun) {

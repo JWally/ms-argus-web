@@ -297,6 +297,7 @@ export let WORKER_NAME = '';
  * @returns Worker scope data or undefined if in window context
  */
 export async function spawnWorker() {
+  /** Safely executes a function, returning undefined on error. */
   const ask = (fn) => {
     try {
       return fn();
@@ -305,6 +306,7 @@ export async function spawnWorker() {
     }
   };
 
+  /** Detects prototype lies on WorkerNavigator properties. */
   function getWorkerPrototypeLies(scope: Window & typeof globalThis) {
     const lieDetector = createLieDetector(scope);
     const { searchLies } = lieDetector;
@@ -339,6 +341,10 @@ export async function spawnWorker() {
     };
   }
 
+  /**
+   * Fetches high-entropy user agent data from NavigatorUAData API.
+   * Returns sorted key-value object with brand and version info.
+   */
   const getUserAgentData = async (navigator) => {
     if (!('userAgentData' in navigator)) {
       return;
@@ -352,10 +358,12 @@ export async function spawnWorker() {
       'uaFullVersion',
     ]);
     const { brands, mobile } = navigator.userAgentData || {};
+    /** Filters out "Not" brands and formats as name strings, optionally with version. */
     const compressedBrands = (brands, captureVersion = false) =>
       brands
         .filter((obj) => !/Not/.test(obj.brand))
         .map((obj) => `${obj.brand}${captureVersion ? ` ${obj.version}` : ''}`);
+    /** Removes Chromium entries from brand list when multiple brands exist. */
     const removeChromium = (brands) =>
       brands.length > 1
         ? brands.filter((brand) => !/Chromium/.test(brand))
@@ -382,6 +390,10 @@ export async function spawnWorker() {
     return dataSorted;
   };
 
+  /**
+   * Gets WebGL vendor and renderer strings via OffscreenCanvas.
+   * Used for GPU fingerprinting in the worker scope.
+   */
   const getWebglData = () =>
     ask(() => {
       // @ts-ignore
@@ -400,11 +412,15 @@ export async function spawnWorker() {
       };
     });
 
+  /**
+   * Calculates timezone offset in minutes by comparing local and UTC date parsing.
+   */
   const computeTimezoneOffset = () => {
     const date = new Date().getDate();
     const month = new Date().getMonth();
     // @ts-ignore
     const year = Date().split` `[3]; // current year
+    /** Zero-pads single digit numbers to two characters. */
     const format = (n) => (('' + n).length == 1 ? `0${n}` : n);
     const dateString = `${month + 1}/${format(date)}/${year}`;
     const dateStringUTC = `${year}-${format(month + 1)}-${format(date)}`;
@@ -414,6 +430,10 @@ export async function spawnWorker() {
     return +((utc - now) / 60000).toFixed(0);
   };
 
+  /**
+   * Detects locale by querying resolved options from multiple Intl constructors.
+   * Returns deduplicated list of locale strings.
+   */
   const getLocale = () => {
     const constructors = [
       'Collator',
@@ -441,6 +461,10 @@ export async function spawnWorker() {
     return [...new Set(locale)];
   };
 
+  /**
+   * Main data collection function for the worker scope.
+   * Gathers navigator, WebGL, timezone, locale, and prototype lie data.
+   */
   const getWorkerData = async () => {
     const timer = createTimer();
     await queueEvent(timer);
@@ -537,7 +561,9 @@ export async function spawnWorker() {
   };
 
   // Compute and communicate from worker scope
+  /** Adds an event listener to the worker global scope. */
   const onEvent = (eventType, fn) => addEventListener(eventType, fn);
+  /** Collects worker data and sends it via postMessage to the given source. */
   const send = (source) => {
     return getWorkerData().then((data) => source.postMessage(data));
   };
@@ -576,6 +602,7 @@ export default async function getBestWorkerScope() {
     const timer = createTimer();
     await queueEvent(timer);
 
+    /** Safely executes a function, returning undefined on error. */
     const ask = <T>(fn: () => T): T | undefined => {
       try {
         return fn();
@@ -584,6 +611,7 @@ export default async function getBestWorkerScope() {
       }
     };
 
+    /** Checks if an object's prototype constructor matches the given name. */
     const hasConstructor = (x: unknown, name: string): boolean =>
       x != null &&
       (x as { __proto__: { constructor: { name: string } } }).__proto__
@@ -592,6 +620,9 @@ export default async function getBestWorkerScope() {
     // Create Blob URL for inline worker script
     const blobUrl = createWorkerBlobUrl();
 
+    /**
+     * Spawns a DedicatedWorker via Blob URL and resolves with its fingerprint data.
+     */
     const getDedicatedWorker = (): Promise<WorkerScopeData | null> =>
       new Promise((resolve) => {
         const giveUpOnWorker = setTimeout(
@@ -605,12 +636,14 @@ export default async function getBestWorkerScope() {
           return resolve(null);
         }
 
+        /** Resolves with worker data on successful message. */
         webWorker!.onmessage = (event) => {
           webWorker!.terminate();
           clearTimeout(giveUpOnWorker);
           resolve(event.data);
         };
 
+        /** Resolves null on worker error. */
         webWorker!.onerror = () => {
           webWorker!.terminate();
           clearTimeout(giveUpOnWorker);
@@ -618,6 +651,9 @@ export default async function getBestWorkerScope() {
         };
       });
 
+    /**
+     * Spawns a SharedWorker via Blob URL and resolves with its fingerprint data.
+     */
     const getSharedWorker = (): Promise<WorkerScopeData | null> =>
       new Promise((resolve) => {
         const giveUpOnWorker = setTimeout(
@@ -633,12 +669,14 @@ export default async function getBestWorkerScope() {
 
         sharedWorker!.port.start();
 
+        /** Resolves with shared worker data on port message. */
         sharedWorker!.port.onmessage = (event) => {
           sharedWorker!.port.close();
           clearTimeout(giveUpOnWorker);
           resolve(event.data);
         };
 
+        /** Resolves null on shared worker error. */
         sharedWorker!.onerror = () => {
           sharedWorker!.port.close();
           clearTimeout(giveUpOnWorker);
@@ -785,6 +823,7 @@ export default async function getBestWorkerScope() {
       documentLie('WorkerGlobalScope', workerScope.lies.engine);
     }
     // user agent version lie
+    /** Extracts the leading version number from a string. */
     const getVersion = (x) => (/\d+/.exec(x) || [])[0];
     const userAgentVersion = getVersion(decryptedName);
     const userAgentDataVersion = getVersion(
@@ -800,6 +839,10 @@ export default async function getBestWorkerScope() {
 
     // platformVersion lie
     const FEATURE_CASE = IS_BLINK && CSS.supports('accent-color: initial');
+    /**
+     * Checks for Windows/macOS platform version inconsistency between
+     * userAgentData.platformVersion and the reported device string.
+     */
     const getPlatformVersionLie = (device, userAgentData) => {
       if (!/windows|mac/i.test(device) || !userAgentData?.platformVersion) {
         return false;
@@ -1018,6 +1061,7 @@ export async function getAllWorkerScopes(
 ): Promise<ParallelWorkerResults> {
   const startTime = performance.now();
 
+  /** Safely executes a function, returning undefined on error. */
   const ask = <T>(fn: () => T): T | undefined => {
     try {
       return fn();
@@ -1026,6 +1070,7 @@ export async function getAllWorkerScopes(
     }
   };
 
+  /** Checks if an object's prototype constructor matches the given name. */
   const hasConstructor = (x: unknown, name: string): boolean =>
     x != null &&
     (x as { __proto__: { constructor: { name: string } } }).__proto__
@@ -1060,6 +1105,7 @@ export async function getAllWorkerScopes(
         return;
       }
 
+      /** Resolves with dedicated worker data on successful message. */
       worker!.onmessage = (event: MessageEvent) => {
         worker!.terminate();
         clearTimeout(timeout);
@@ -1071,6 +1117,7 @@ export async function getAllWorkerScopes(
         });
       };
 
+      /** Resolves with error result on dedicated worker failure. */
       worker!.onerror = (error: ErrorEvent) => {
         worker!.terminate();
         clearTimeout(timeout);
@@ -1116,6 +1163,7 @@ export async function getAllWorkerScopes(
 
       worker!.port.start();
 
+      /** Resolves with shared worker data on port message. */
       worker!.port.onmessage = (event: MessageEvent) => {
         worker!.port.close();
         clearTimeout(timeout);
@@ -1127,6 +1175,7 @@ export async function getAllWorkerScopes(
         });
       };
 
+      /** Resolves with error result on shared worker failure. */
       worker!.onerror = (error: ErrorEvent) => {
         worker!.port.close();
         clearTimeout(timeout);
@@ -1187,6 +1236,7 @@ export async function getAllWorkerScopes(
           return navigator.serviceWorker.ready.then((readyRegistration) => {
             readyRegistration.active?.postMessage(undefined);
 
+            /** Resolves with service worker data on message from active worker. */
             navigator.serviceWorker.onmessage = (event: MessageEvent) => {
               readyRegistration.unregister();
               clearTimeout(timeout);

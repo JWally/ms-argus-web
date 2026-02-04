@@ -117,6 +117,7 @@ export default async function getVoices(): Promise<SpeechFingerprint | null> {
   // Wait for services to load
   await new Promise((resolve) => setTimeout(resolve, VOICE_LOAD_DELAY_MS));
 
+  /** Resolves with speech fingerprint data or null on failure/timeout. */
   return new Promise(async (resolve) => {
     try {
       const timer = createTimer();
@@ -135,12 +136,17 @@ export default async function getVoices(): Promise<SpeechFingerprint | null> {
       const lied = !!lieProps['SpeechSynthesis.getVoices'];
 
       // Set timeout for voice loading
+      /** Resolves null if voices fail to load within the timeout window. */
       const giveUpOnVoices = setTimeout(() => {
         logTestResult({ test: 'speech', passed: false });
         return resolve(null);
       }, VOICE_TIMEOUT_MS);
 
-      // Voice fetching function (may be called multiple times)
+      /**
+       * Attempts to retrieve and process available speech synthesis voices.
+       * Called immediately and again on the 'voiceschanged' event, since
+       * voices may not be available synchronously in all browsers.
+       */
       const fetchVoices = (): void => {
         const data = speechSynthesis.getVoices();
         const localServiceDidLoad = (data || []).find((x) => x.localService);

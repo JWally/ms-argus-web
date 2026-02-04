@@ -36,7 +36,13 @@ export {
 export const IS_WORKER_SCOPE = !self.document && self.WorkerGlobalScope;
 
 /**
- * @deprecated Import from './platform' instead
+ * @deprecated Import directly from './platform' instead. Will be removed in v2.0.
+ * @example
+ * // Before (deprecated):
+ * import { getOS } from './helpers';
+ *
+ * // After (recommended):
+ * import { getOS } from './platform';
  */
 const getOS = getOSFromPlatform;
 export { getOS };
@@ -81,6 +87,18 @@ const [USER_AGENT_OS, PLATFORM_OS] = getReportedPlatform(
   navPlatform,
 );
 
+/**
+ * Decrypts and identifies the browser name and version from a user agent string.
+ *
+ * Parses the user agent to detect specific browsers (Chrome, Firefox, Safari, Edge,
+ * Opera, Vivaldi, DuckDuckGo, Yandex, Brave, PaleMoon) and returns a formatted
+ * string with the browser engine and version, plus any overlay browser identifier.
+ *
+ * @param ua - The raw user agent string to parse
+ * @param os - The operating system string used for Apple device detection
+ * @param isBrave - Whether the browser has been identified as Brave
+ * @returns A formatted string of "browser version [overlay]" or "unknown"
+ */
 const decryptUserAgent = ({
   ua,
   os,
@@ -141,6 +159,18 @@ const decryptUserAgent = ({
   return 'unknown';
 };
 
+/**
+ * Extracts the OS and device platform information from a user agent string.
+ *
+ * Parses the parenthesized platform section of the user agent to identify and
+ * return a cleaned platform descriptor for Android, Windows, ChromeOS, Linux,
+ * or Apple devices. Maps Windows NT versions to release names and macOS versions
+ * to codenames where possible.
+ *
+ * @param userAgent - The full user agent string to extract platform info from
+ * @param excludeBuild - Whether to strip build identifiers from the result (defaults to true)
+ * @returns A cleaned platform string or "unknown" if parsing fails
+ */
 const getUserAgentPlatform = ({
   userAgent,
   excludeBuild = true,
@@ -181,6 +211,7 @@ const getUserAgentPlatform = ({
   const otherOS =
     /((symbianos|nokia|blackberry|morphos|mac).+)|\/linux|freebsd|symbos|series \d+|win\d+|unix|hp-ux|bsdi|bsd|x86_64/i;
 
+  /** Counts how many identifiers in the list match the given device pattern. */
   const isDevice = (list: string[], device: RegExp) =>
     list.filter((x) => device.test(x)).length;
 
@@ -299,6 +330,18 @@ const getUserAgentPlatform = ({
   }
 };
 
+/**
+ * Determines the Windows release version from platform version data.
+ *
+ * Uses the Chromium platform version string and font-based platform detection to
+ * map internal version numbers to user-facing Windows release names (e.g., 7, 8,
+ * 10, 11). Only applies in Blink-based browsers that support accent-color.
+ *
+ * @param platform - The platform name string (must be "Windows" to produce a result)
+ * @param platformVersion - The platform version string (e.g., "10.0.0")
+ * @param fontPlatformVersion - The font-detected platform version for older OS fallback
+ * @returns A formatted "Windows [version] [platformVersion]" string, or undefined if not applicable
+ */
 const computeWindowsRelease = ({
   platform,
   platformVersion,
@@ -347,7 +390,16 @@ const computeWindowsRelease = ({
   return `Windows ${version} [${platformVersion}]`;
 };
 
-// attempt restore from User-Agent Reduction
+/**
+ * Checks whether the given user agent string matches the post-Chrome UA reduction format.
+ *
+ * Detects if the user agent conforms to the unified/reduced user agent template
+ * introduced by Chrome's User-Agent Reduction initiative, where platform details
+ * are replaced with fixed values.
+ *
+ * @param userAgent - The user agent string to test
+ * @returns True if the user agent matches the reduced UA pattern in a Blink browser
+ */
 const isUAPostReduction = (userAgent: string): boolean => {
   const matcher =
     /Mozilla\/5\.0 \((Macintosh; Intel Mac OS X 10_15_7|Windows NT 10\.0; Win64; x64|(X11; (CrOS|Linux) x86_64)|(Linux; Android 10(; K|)))\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\d+\.0\.0\.0( Mobile|) Safari\/537\.36/;

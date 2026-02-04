@@ -80,7 +80,7 @@ export function getBraveMode(): BraveMode {
     strict: false,
   };
   try {
-    // strict mode adds float frequency data AnalyserNode
+    /** Detect strict mode by checking if AnalyserNode returns randomized frequency data. */
     const strictMode = () => {
       try {
         window.OfflineAudioContext =

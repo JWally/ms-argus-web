@@ -28,6 +28,7 @@ let _capabilities: number[] | null = null;
 /**
  * Get known GPU brand capabilities from external data.
  * @throws Error if external data cannot be loaded
+ * @returns GPU brand capabilities array from external JSON data
  */
 export async function getKnownGpuBrandCapabilities(): Promise<string[]> {
   if (_gpuBrandCapabilities) return _gpuBrandCapabilities;
@@ -39,6 +40,7 @@ export async function getKnownGpuBrandCapabilities(): Promise<string[]> {
 /**
  * Get known capabilities from external data.
  * @throws Error if external data cannot be loaded
+ * @returns Known WebGL capabilities array from external JSON data
  */
 export async function getKnownCapabilities(): Promise<number[]> {
   if (_capabilities) return _capabilities;

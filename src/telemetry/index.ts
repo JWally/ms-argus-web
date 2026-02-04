@@ -1,5 +1,10 @@
 /**
- * Telemetry module - Submits fingerprint data to the Argus API
+ * Telemetry Module
+ *
+ * Handles submission of fingerprint data to the Argus API.
+ * Session results should be fetched separately by the caller.
+ *
+ * @module telemetry
  */
 
 // Types
@@ -11,23 +16,14 @@ export type {
   ArgusPayload,
   TelemetryConfig,
   TelemetrySubmission,
-  SimHashDetails,
-  FuzzyMatchInfo,
-  MatchResult,
   TelemetryResult,
-  SessionResponse,
 } from './types';
 
 // Payload builder
 export { buildPayload } from './payload';
 
 // API functions
-export {
-  SCHEMA_VERSION,
-  submitTelemetry,
-  parseSessionResponse,
-  getMatchTierLabel,
-} from './api';
+export { SCHEMA_VERSION, submitTelemetry, getMatchTierLabel } from './api';
 
 // Helpers (exported for testing)
 export {

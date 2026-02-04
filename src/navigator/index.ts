@@ -273,7 +273,7 @@ async function getUserAgentData(): Promise<UserAgentData | undefined> {
     // @ts-ignore
     const { brands, mobile } = navigator.userAgentData || {};
 
-    // Compress brand names (filter out "Not A Brand" entries)
+    /** Filters out "Not A Brand" entries and optionally appends version. */
     const compressedBrands = (
       brandList: Array<{ brand: string; version: string }>,
       captureVersion = false,
@@ -282,7 +282,7 @@ async function getUserAgentData(): Promise<UserAgentData | undefined> {
         .filter((obj) => !/Not/.test(obj.brand))
         .map((obj) => `${obj.brand}${captureVersion ? ` ${obj.version}` : ''}`);
 
-    // Remove Chromium if there are other brands
+    /** Removes Chromium from brand list when other brands are present. */
     const removeChromium = (brandList: string[]): string[] =>
       brandList.length > 1
         ? brandList.filter((brand) => !/Chromium/.test(brand))
@@ -337,6 +337,7 @@ async function getPermissions(): Promise<PermissionStates | undefined> {
       return undefined;
     }
 
+    /** Queries the state of a single permission by name. */
     const getPermissionState = async (
       name: string,
     ): Promise<{ name: string; state: string }> => {
@@ -389,6 +390,7 @@ async function getWebGpu(): Promise<WebGpuInfo | undefined> {
 
     const { limits = {}, features = [] } = adapter;
 
+    /** Extracts adapter info, features, and limits into a WebGpuInfo object. */
     const handleInfo = (info: {
       architecture?: string;
       description?: string;
@@ -462,6 +464,7 @@ export default async function getNavigator(
         lieProps['Navigator.mimeTypes']
       ) || false;
 
+    /** Marks the navigator fingerprint as containing a detected lie. */
     const setLied = () => {
       lied = true;
     };
@@ -477,6 +480,7 @@ export default async function getNavigator(
         'userAgent system failed',
       ),
 
+      /** Decrypts and normalizes the user agent into structured platform info. */
       userAgentParsed: await attempt(async () => {
         const reportedUserAgent = caniuse(() => navigator.userAgent);
         const reportedSystem = getOS(reportedUserAgent);
@@ -501,6 +505,7 @@ export default async function getNavigator(
 
       uaPostReduction: isUAPostReduction(navigator?.userAgent),
 
+      /** Validates and normalizes the appVersion string. */
       appVersion: attempt(() => {
         const { appVersion } = navigator;
 
@@ -525,6 +530,7 @@ export default async function getNavigator(
         setLied,
       ),
 
+      /** Validates and returns the Do Not Track preference. */
       doNotTrack: attempt(() => {
         const { doNotTrack } = navigator;
         if (!VALID_DO_NOT_TRACK[doNotTrack as string]) {
@@ -533,6 +539,7 @@ export default async function getNavigator(
         return doNotTrack;
       }, 'doNotTrack failed'),
 
+      /** Validates and returns the Global Privacy Control preference. */
       globalPrivacyControl: attempt(() => {
         if (!('globalPrivacyControl' in navigator)) {
           return undefined;
@@ -548,6 +555,7 @@ export default async function getNavigator(
         return globalPrivacyControl;
       }, 'globalPrivacyControl failed'),
 
+      /** Validates hardware concurrency against worker scope. */
       hardwareConcurrency: attempt(() => {
         if (!('hardwareConcurrency' in navigator)) {
           return undefined;
@@ -562,6 +570,7 @@ export default async function getNavigator(
         return hardwareConcurrency;
       }, 'hardwareConcurrency failed'),
 
+      /** Validates language and languages consistency and worker scope match. */
       language: attempt(() => {
         const { language, languages } = navigator;
 
@@ -598,6 +607,7 @@ export default async function getNavigator(
         return `${language} ${languages}`;
       }, 'language(s) failed'),
 
+      /** Returns the maximum number of touch points supported. */
       maxTouchPoints: attempt(() => {
         if (!('maxTouchPoints' in navigator)) {
           return null;
@@ -607,6 +617,7 @@ export default async function getNavigator(
 
       vendor: attempt(() => navigator.vendor, 'vendor failed'),
 
+      /** Collects registered MIME type strings. */
       mimeTypes: attempt(() => {
         const { mimeTypes } = navigator;
         return mimeTypes ? [...mimeTypes].map((m) => m.type) : [];
@@ -617,6 +628,7 @@ export default async function getNavigator(
 
       plugins: getPlugins(setLied),
 
+      /** Enumerates the Navigator prototype property names. */
       properties: attempt(() => {
         const keys = Object.keys(Object.getPrototypeOf(navigator));
         return keys;

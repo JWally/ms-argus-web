@@ -114,10 +114,22 @@ export interface EngineMapsData {
   };
 }
 
+/**
+ * Load the stable browser features data.
+ * Contains known window, CSS, and JS keys for Chrome and Firefox.
+ *
+ * @returns The stable features data for supported browsers.
+ */
 export async function loadFeaturesStable(): Promise<StableFeaturesData> {
   return loadData<StableFeaturesData>('features-stable.json');
 }
 
+/**
+ * Load the engine feature maps data.
+ * Contains per-version JS, CSS, and window key differences for Blink and Gecko engines.
+ *
+ * @returns The engine maps data for Blink and Gecko.
+ */
 export async function loadFeaturesEngineMaps(): Promise<EngineMapsData> {
   return loadData<EngineMapsData>('features-engine-maps.json');
 }
@@ -126,6 +138,12 @@ export async function loadFeaturesEngineMaps(): Promise<EngineMapsData> {
 // Timezone Data
 // ============================================================================
 
+/**
+ * Load the list of timezone city names.
+ * Used for timezone fingerprint validation.
+ *
+ * @returns An array of known timezone city strings.
+ */
 export async function loadTimezoneCities(): Promise<string[]> {
   return loadData<string[]>('timezone-cities.json');
 }
@@ -134,10 +152,22 @@ export async function loadTimezoneCities(): Promise<string[]> {
 // WebGL Data
 // ============================================================================
 
+/**
+ * Load the list of known WebGL GPU capability strings.
+ * Used for validating GPU renderer and vendor information.
+ *
+ * @returns An array of known GPU capability identifier strings.
+ */
 export async function loadWebglGpuCapabilities(): Promise<string[]> {
   return loadData<string[]>('webgl-gpu-capabilities.json');
 }
 
+/**
+ * Load the list of known WebGL capability parameter values.
+ * Used for validating WebGL context parameter ranges.
+ *
+ * @returns An array of numeric WebGL capability values.
+ */
 export async function loadWebglCapabilities(): Promise<number[]> {
   return loadData<number[]>('webgl-capabilities.json');
 }
@@ -146,6 +176,10 @@ export async function loadWebglCapabilities(): Promise<number[]> {
 // Clear Cache (for testing)
 // ============================================================================
 
+/**
+ * Clear all cached data and pending requests.
+ * Primarily intended for use in tests to reset loader state.
+ */
 export function clearDataCache(): void {
   dataCache.clear();
   pendingRequests.clear();
