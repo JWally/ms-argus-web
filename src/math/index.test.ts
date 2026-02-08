@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MATH_FUNCTIONS_TO_CHECK,
-  MATH_TEST_CASES,
+  MATH_TEST_INPUTS,
   EQUALITY_CHECK_ARGS,
   DEFAULT_EQUALITY_ARGS,
 } from './constants';
@@ -47,38 +47,28 @@ describe('math constants', () => {
     });
   });
 
-  describe('MATH_TEST_CASES', () => {
-    it('has test case structure [fn, args, displayName, chrome, firefox, tor, safari]', () => {
-      for (const testCase of MATH_TEST_CASES) {
-        expect(testCase.length).toBe(7);
-        const [fn, args, displayName, chrome, firefox, torBrowser, safari] =
-          testCase;
+  describe('MATH_TEST_INPUTS', () => {
+    it('has test input structure [fn, args]', () => {
+      for (const testInput of MATH_TEST_INPUTS) {
+        expect(testInput.length).toBe(2);
+        const [fn, args] = testInput;
 
         // fn should be string
         expect(typeof fn).toBe('string');
 
         // args should be array or number (for polyfill)
         expect(Array.isArray(args) || typeof args === 'number').toBe(true);
-
-        // displayName should be string
-        expect(typeof displayName).toBe('string');
-
-        // Expected values should be numbers (NaN counts as number type)
-        expect(typeof chrome).toBe('number');
-        expect(typeof firefox).toBe('number');
-        expect(typeof torBrowser).toBe('number');
-        expect(typeof safari).toBe('number');
       }
     });
 
-    it('has reasonable number of test cases', () => {
-      // Should have ~85 test cases for comprehensive coverage
-      expect(MATH_TEST_CASES.length).toBeGreaterThan(50);
-      expect(MATH_TEST_CASES.length).toBeLessThan(150);
+    it('has reasonable number of test inputs', () => {
+      // Should have ~85 test inputs for comprehensive coverage
+      expect(MATH_TEST_INPUTS.length).toBeGreaterThan(50);
+      expect(MATH_TEST_INPUTS.length).toBeLessThan(150);
     });
 
     it('covers all major function categories', () => {
-      const functionNames = MATH_TEST_CASES.map((tc) => tc[0]);
+      const functionNames = MATH_TEST_INPUTS.map((ti) => ti[0]);
       const uniqueFunctions = new Set(functionNames);
 
       // Should test multiple different functions
@@ -104,29 +94,19 @@ describe('math constants', () => {
       expect(uniqueFunctions.has('expm1')).toBe(true);
     });
 
-    it('includes edge case tests with large numbers', () => {
-      const testNames = MATH_TEST_CASES.map((tc) => tc[2]);
-
-      // Should have tests with 1e308 (near max float)
-      const hasLargeNumber = testNames.some(
-        (name) => name.includes('1e308') || name.includes('1e300'),
-      );
+    it('includes tests with large numbers', () => {
+      const hasLargeNumber = MATH_TEST_INPUTS.some(([, args]) => {
+        if (Array.isArray(args)) {
+          return args.some((a) => Math.abs(a) > 1e100);
+        }
+        return Math.abs(args) > 1e100;
+      });
       expect(hasLargeNumber).toBe(true);
     });
 
-    it('includes Math constant tests', () => {
-      const testNames = MATH_TEST_CASES.map((tc) => tc[2]);
-
-      // Should test with Math constants
-      const hasMathPI = testNames.some((name) => name.includes('Math.PI'));
-      const hasMathE = testNames.some((name) => name.includes('Math.E'));
-      const hasMathSQRT2 = testNames.some(
-        (name) => name.includes('Math.SQRT2') || name.includes('Math.SQRT1_2'),
-      );
-
-      expect(hasMathPI).toBe(true);
-      expect(hasMathE).toBe(true);
-      expect(hasMathSQRT2).toBe(true);
+    it('includes polyfill detection test', () => {
+      const hasPolyfill = MATH_TEST_INPUTS.some(([fn]) => fn === 'polyfill');
+      expect(hasPolyfill).toBe(true);
     });
   });
 
@@ -213,48 +193,21 @@ describe('math fingerprinting patterns', () => {
     });
   });
 
-  describe('browser-specific result patterns', () => {
-    it('test case expected values are plausible', () => {
-      // Each test case should have a Chrome baseline value
-      // and variations for other browsers
-      for (const testCase of MATH_TEST_CASES) {
-        const [fn, args, , chrome] = testCase;
-
-        if (fn !== 'polyfill' && Array.isArray(args)) {
+  describe('test inputs produce valid results', () => {
+    it('all test inputs compute to finite numbers or NaN', () => {
+      for (const [fn, args] of MATH_TEST_INPUTS) {
+        let result: number;
+        if (fn === 'polyfill') {
+          result = args as number;
+        } else {
           const mathFn = Math[fn as keyof typeof Math] as (
             ...args: number[]
           ) => number;
-          const result = mathFn(...args);
-
-          // Result should be finite or NaN (not undefined)
-          expect(typeof result).toBe('number');
-
-          // If Chrome value is not NaN, it should be a valid number
-          if (!Number.isNaN(chrome)) {
-            expect(
-              Number.isFinite(chrome) ||
-                chrome === Infinity ||
-                chrome === -Infinity,
-            ).toBe(true);
-          }
+          result = mathFn(...(args as number[]));
         }
-      }
-    });
 
-    it('NaN in expected values indicates same-as-chrome', () => {
-      // By convention, NaN in firefox/tor/safari columns means "same as Chrome"
-      // This is a compression technique in the test data
-      for (const testCase of MATH_TEST_CASES) {
-        const [, , , chrome, firefox, torBrowser, safari] = testCase;
-
-        // Chrome should always have a defined value
-        expect(typeof chrome).toBe('number');
-
-        // Other browsers may have NaN to indicate "same as Chrome"
-        // or a different value if they differ
-        expect(typeof firefox).toBe('number');
-        expect(typeof torBrowser).toBe('number');
-        expect(typeof safari).toBe('number');
+        // Result should be a number type (includes NaN, Infinity)
+        expect(typeof result).toBe('number');
       }
     });
   });

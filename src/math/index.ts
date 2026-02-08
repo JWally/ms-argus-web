@@ -18,8 +18,8 @@
  * 4. **Privacy Browser Detection**: Tor Browser modifies some math precision for
  *    fingerprint resistance, which ironically makes it identifiable.
  *
- * The module tests ~85 specific inputs across 22 math functions, comparing results
- * against known browser-specific values to identify the JS engine.
+ * The module tests ~85 specific inputs across 22 math functions, collecting the
+ * raw computed values as a stable-order array for server-side analysis.
  *
  * @see https://nickcw.me/math-fingerprinting/ - Analysis of technique
  * @module math
@@ -30,11 +30,11 @@ import { lieProps, documentLie } from '../lies';
 import { createTimer, logTestResult } from '../utils/helpers';
 import {
   MATH_FUNCTIONS_TO_CHECK,
-  MATH_TEST_CASES,
+  MATH_TEST_INPUTS,
   EQUALITY_CHECK_ARGS,
   DEFAULT_EQUALITY_ARGS,
 } from './constants';
-import type { MathFingerprint, MathTestResult } from './types';
+import type { MathFingerprint } from './types';
 
 /**
  * Gets the test arguments for equality checking.
@@ -89,55 +89,38 @@ function checkMathEquality(): boolean {
 }
 
 /**
- * Runs a single math test and compares against known browser values.
+ * Computes the result of a single math test.
  *
- * Each test case contains expected values for Chrome, Firefox, Tor, and Safari.
- * NaN in expected values means "same as Chrome" (the reference).
- *
- * @param testCase - Test case from MATH_TEST_CASES
- * @returns Test result with browser matches, or undefined on error
+ * @param testInput - Test input from MATH_TEST_INPUTS
+ * @returns The computed number, or NaN on error
  */
-function runMathTest(
-  testCase: (typeof MATH_TEST_CASES)[number],
-): MathTestResult | undefined {
-  return attempt(() => {
-    const [fn, args, , chrome, firefox, torBrowser, safari] = testCase;
+function runMathTest(testInput: (typeof MATH_TEST_INPUTS)[number]): number {
+  const result = attempt(() => {
+    const [fn, args] = testInput;
 
-    // Calculate result (polyfill test uses pre-computed value)
-    const result =
-      fn !== 'polyfill'
-        ? // @ts-expect-error - Dynamic function access
-          Math[fn](...(args as number[]))
-        : (args as number);
+    // Polyfill test uses pre-computed value directly
+    if (fn === 'polyfill') {
+      return args as number;
+    }
 
-    // Compare against known browser values
-    return {
-      result,
-      chrome: result === chrome,
-      firefox: !isNaN(firefox) && result === firefox,
-      torBrowser: !isNaN(torBrowser) && result === torBrowser,
-      safari: !isNaN(safari) && result === safari,
-    };
+    // @ts-expect-error - Dynamic function access
+    return Math[fn](...(args as number[])) as number;
   });
+
+  return result ?? NaN;
 }
 
 /**
  * Runs all math fingerprinting tests.
  *
- * Tests ~85 specific inputs across 22 math functions. Each test produces
- * a floating-point result that is compared against known browser values.
+ * Tests ~85 specific inputs across 22 math functions. Returns the raw
+ * computed values as an ordered array. Failed tests produce NaN to
+ * maintain stable array length.
  *
- * @returns Map of test names to results
+ * @returns Ordered array of computed results
  */
-function runAllMathTests(): Record<string, MathTestResult | undefined> {
-  const data: Record<string, MathTestResult | undefined> = {};
-
-  for (const testCase of MATH_TEST_CASES) {
-    const testName = testCase[2]; // Display name is at index 2
-    data[testName] = runMathTest(testCase);
-  }
-
-  return data;
+function runAllMathTests(): number[] {
+  return MATH_TEST_INPUTS.map(runMathTest);
 }
 
 /**
@@ -145,9 +128,7 @@ function runAllMathTests(): Record<string, MathTestResult | undefined> {
  *
  * Performs two types of analysis:
  * 1. Equality checks - Detects if math functions have been tampered with
- * 2. Precision tests - Compares results against known browser values
- *
- * The combination provides both tamper detection and browser identification.
+ * 2. Precision tests - Collects raw computed values for server-side analysis
  *
  * @returns Math fingerprint data or undefined on error
  */
