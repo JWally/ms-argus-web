@@ -91,8 +91,8 @@ const getWorkerData = async () => {
   const engineCurrencyLocale = (1).toLocaleString(undefined, { style: 'currency', currency: 'USD', currencyDisplay: 'name', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   return {
-    lied: 0,
-    lies: { proto: false },
+    lied: false,
+    lies: {},
     locale: String(locale),
     systemCurrencyLocale,
     engineCurrencyLocale,
@@ -228,9 +228,9 @@ export interface WorkerDifference {
  * Raw data collected from a worker scope.
  */
 export interface WorkerScopeData {
-  lied: boolean | number;
+  lied: boolean;
   lies: {
-    proto?: Record<string, string[]> | false;
+    proto?: Record<string, string[]>;
     os?: string;
     engine?: string;
     version?: string;
@@ -734,8 +734,8 @@ export default async function getBestWorkerScope() {
     if (!workerScope?.userAgent) {
       logTestResult({ test: 'worker', passed: false });
       return {
-        lied: 0,
-        lies: { proto: false },
+        lied: false,
+        lies: {},
         locale: '',
         timezoneOffset: 0,
         timezoneLocation: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -922,8 +922,8 @@ export default async function getBestWorkerScope() {
       timezoneLocation: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
     return {
-      lied: 0,
-      lies: { proto: false },
+      lied: false,
+      lies: {},
       locale: '',
       timezoneOffset: 0,
       timezoneLocation: Intl.DateTimeFormat().resolvedOptions().timeZone,

@@ -579,6 +579,10 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
       ? undefined
       : {
           ...canvas2dComputed,
+          emojiSet: {
+            $simhash: simhashify(canvas2dComputed.emojiSet),
+            $len: canvas2dComputed.emojiSet.length,
+          },
           $hash: canvas2dHash,
           $fuzzy: simhashify(canvas2dComputed),
         },
@@ -616,6 +620,22 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
       ? undefined
       : {
           ...clientRectsComputed,
+          elementClientRects: {
+            $simhash: simhashify(clientRectsComputed.elementClientRects),
+            $len: clientRectsComputed.elementClientRects.length,
+          },
+          elementBoundingClientRect: {
+            $simhash: simhashify(clientRectsComputed.elementBoundingClientRect),
+            $len: clientRectsComputed.elementBoundingClientRect.length,
+          },
+          rangeClientRects: {
+            $simhash: simhashify(clientRectsComputed.rangeClientRects),
+            $len: clientRectsComputed.rangeClientRects.length,
+          },
+          rangeBoundingClientRect: {
+            $simhash: simhashify(clientRectsComputed.rangeBoundingClientRect),
+            $len: clientRectsComputed.rangeBoundingClientRect.length,
+          },
           $hash: rectsHash,
           $fuzzy: simhashify(clientRectsComputed),
         },
@@ -623,6 +643,14 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
       ? undefined
       : {
           ...offlineAudioContextComputed,
+          binsSample: {
+            $simhash: simhashify(offlineAudioContextComputed.binsSample),
+            $len: offlineAudioContextComputed.binsSample.length,
+          },
+          copySample: {
+            $simhash: simhashify(offlineAudioContextComputed.copySample),
+            $len: offlineAudioContextComputed.copySample.length,
+          },
           $hash: audioHash,
           $fuzzy: simhashify(offlineAudioContextComputed),
         },

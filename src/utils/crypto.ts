@@ -568,8 +568,6 @@ const compactFingerprint = (
 
   if (Array.isArray(obj)) {
     // Only SimHash large arrays of STRINGS (not numbers).
-    // Number arrays (like audio binsSample/copySample) have meaningful values
-    // that downstream consumers (vector extraction) need to access directly.
     if (obj.length > arrayThreshold) {
       const allStrings = obj.every((x) => typeof x === 'string');
 

@@ -81,7 +81,7 @@ describe('worker types', () => {
   describe('WorkerScopeData interface', () => {
     it('can represent complete scope data', () => {
       const data: WorkerScopeData = {
-        lied: 0,
+        lied: false,
         lies: {
           proto: { 'Navigator.platform': ['prototype has been modified'] },
           os: 'Linux platform and Windows user agent do not match',
@@ -118,7 +118,7 @@ describe('worker types', () => {
         },
       };
 
-      expect(data.lied).toBe(0);
+      expect(data.lied).toBe(false);
       expect(data.lies.proto).toBeDefined();
       expect(data.lies.os).toContain('platform');
       expect(data.hardwareConcurrency).toBe(16);
