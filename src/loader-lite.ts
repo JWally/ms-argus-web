@@ -86,6 +86,7 @@ function buildIframeScript(config: LoaderConfig): string {
   const opts = {
     enableSigint: config.enableSigint ?? false,
     sigint: config.sigint ?? {},
+    sessionId: config.sessionId,
   };
 
   // Script that loads argus.js and runs fingerprinting
@@ -290,7 +291,9 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
               // Send to endpoint if configured
               const endpoint = url.searchParams.get('endpoint');
               if (endpoint) {
-                const body = JSON.stringify(result);
+                const sessionId =
+                  url.searchParams.get('sessionId') || undefined;
+                const body = JSON.stringify({ ...result, sessionId });
                 if (navigator.sendBeacon) {
                   navigator.sendBeacon(
                     endpoint,
