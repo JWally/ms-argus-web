@@ -119,6 +119,7 @@ export function buildPayload(
     device: compactedDevice,
     deltaReport: hasDroppedKeys ? deltaReport : undefined,
     sigint: data.sigint ? { ...data.sigint } : undefined,
+    metadata: data.metadata,
     buildId: __BUILD_ID__,
   };
 

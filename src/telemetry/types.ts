@@ -63,6 +63,7 @@ export interface ArgusPayload {
   device: PayloadDevice;
   deltaReport?: Record<string, string[]>;
   sigint?: PayloadSigint;
+  metadata?: Record<string, string>;
   buildId?: string;
 }
 
@@ -86,6 +87,8 @@ export interface TelemetrySubmission {
   sigint?: SigintData;
   evercookie?: EvercookieData;
   cryptoId?: CryptoKeys;
+  /** Arbitrary key-value metadata forwarded into the payload (e.g., URL query params) */
+  metadata?: Record<string, string>;
 }
 
 // ============================================================================

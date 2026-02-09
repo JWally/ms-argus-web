@@ -138,6 +138,23 @@ export {
 // Unified load() function for lite loader compatibility
 // ============================================================================
 
+// Capture script-tag query params at parse time (document.currentScript is
+// only available during synchronous execution of the <script> element).
+const _scriptParams: Record<string, string> = (() => {
+  try {
+    const src = (document.currentScript as HTMLScriptElement | null)?.src;
+    if (!src) return {};
+    const params = new URL(src).searchParams;
+    const out: Record<string, string> = {};
+    params.forEach((v, k) => {
+      out[k] = v;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+})();
+
 import { collectFingerprint as _collectFingerprint } from './fingerprint';
 import {
   collectSigintData as _collectSigintData,
@@ -160,6 +177,8 @@ export interface LoadOptions {
   enableTelemetry?: boolean;
   /** Telemetry configuration */
   telemetry?: Partial<TelemetryConfig>;
+  /** Arbitrary key-value metadata forwarded into the telemetry payload */
+  metadata?: Record<string, string>;
 }
 
 export interface LoadResult {
@@ -220,12 +239,21 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
   // Submit telemetry if enabled
   let telemetryResult: TelemetryResult | undefined;
   if (opts.enableTelemetry && opts.telemetry?.baseDomain) {
+    // Merge script-tag query params with any explicitly passed metadata
+    const hasScriptParams = Object.keys(_scriptParams).length > 0;
+    const hasMeta = opts.metadata && Object.keys(opts.metadata).length > 0;
+    const metadata =
+      hasScriptParams || hasMeta
+        ? { ..._scriptParams, ...opts.metadata }
+        : undefined;
+
     telemetryResult = await _submitTelemetry(
       {
         fingerprint,
         sigint,
         evercookie: evercookieData,
         cryptoId: cryptoIdData,
+        metadata,
       },
       opts.telemetry as TelemetryConfig,
     );
