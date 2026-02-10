@@ -73,9 +73,30 @@ const RESERVED_SCRIPT_PARAMS = new Set([
   'enableStun',
 ]);
 
+/**
+ * Extract a clean session ID from a raw param value.
+ * Handles base64-encoded JSON blobs (e.g. the demo's cross-domain state)
+ * by extracting the inner `sessionId` field.  Plain strings pass through.
+ */
+function parseSessionIdParam(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  // If it looks like base64 (contains = padding or is long + alphanumeric), try to decode
+  try {
+    const decoded = atob(raw);
+    const obj = JSON.parse(decoded);
+    if (obj && typeof obj === 'object' && typeof obj.sessionId === 'string') {
+      return obj.sessionId;
+    }
+  } catch {
+    // Not base64 JSON — use raw value
+  }
+  return raw;
+}
+
 /** Resolve session ID from script-tag query params (hyphenated preferred). */
 function getScriptParamSessionId(): string | undefined {
-  return _scriptParams['session-id'] || _scriptParams['sessionId'] || undefined;
+  const raw = _scriptParams['session-id'] || _scriptParams['sessionId'];
+  return parseSessionIdParam(raw);
 }
 
 /* ------------------------------------------------------------------ */
@@ -624,8 +645,7 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
 
       load({
         endpoint: _scriptParams.endpoint || undefined,
-        sessionId:
-          _scriptParams['session-id'] || _scriptParams.sessionId || undefined,
+        sessionId: getScriptParamSessionId(),
         variant: _scriptParams.variant || undefined,
         timeout: parseInt(_scriptParams.timeout || '') || undefined,
         enableSigint,

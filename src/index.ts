@@ -197,6 +197,25 @@ export interface LoadResult {
 }
 
 /**
+ * Extract a clean session ID from a raw param value.
+ * Handles base64-encoded JSON blobs (e.g. the demo's cross-domain state)
+ * by extracting the inner `sessionId` field.  Plain strings pass through.
+ */
+function parseSessionIdParam(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const decoded = atob(raw);
+    const obj = JSON.parse(decoded);
+    if (obj && typeof obj === 'object' && typeof obj.sessionId === 'string') {
+      return obj.sessionId;
+    }
+  } catch {
+    // Not base64 JSON — use raw value
+  }
+  return raw;
+}
+
+/**
  * Unified load function - collects fingerprint, sigint data, and optionally submits telemetry.
  * Used by the lite loader to run fingerprinting inside an iframe.
  */
@@ -272,9 +291,9 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
 
     const sessionId =
       opts.sessionId ||
-      _scriptParams['session-id'] ||
-      _scriptParams['sessionId'] ||
-      undefined;
+      parseSessionIdParam(
+        _scriptParams['session-id'] || _scriptParams['sessionId'],
+      );
 
     telemetryResult = await _submitTelemetry(
       {

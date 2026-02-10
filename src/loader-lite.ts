@@ -258,6 +258,26 @@ export async function getFingerprint(config: LoaderConfig): Promise<unknown> {
 /*  Auto-run from script tag                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Extract a clean session ID from a raw param value.
+ * Handles base64-encoded JSON blobs by extracting the inner `sessionId` field.
+ */
+function parseSessionIdParam(
+  raw: string | null | undefined,
+): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const decoded = atob(raw);
+    const obj = JSON.parse(decoded);
+    if (obj && typeof obj === 'object' && typeof obj.sessionId === 'string') {
+      return obj.sessionId;
+    }
+  } catch {
+    // Not base64 JSON — use raw value
+  }
+  return raw;
+}
+
 declare const globalThis: { __ARGUS_TEST__?: boolean };
 
 if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
@@ -280,10 +300,10 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
             enableStun: url.searchParams.get('enableStun') === 'true',
           },
           endpoint: url.searchParams.get('endpoint') || undefined,
-          sessionId:
+          sessionId: parseSessionIdParam(
             url.searchParams.get('session-id') ||
-            url.searchParams.get('sessionId') ||
-            undefined,
+              url.searchParams.get('sessionId'),
+          ),
           timeout: parseInt(url.searchParams.get('timeout') || '') || undefined,
         })
           .then(
@@ -297,10 +317,10 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
               // Send to endpoint if configured
               const endpoint = url.searchParams.get('endpoint');
               if (endpoint) {
-                const sessionId =
+                const sessionId = parseSessionIdParam(
                   url.searchParams.get('session-id') ||
-                  url.searchParams.get('sessionId') ||
-                  undefined;
+                    url.searchParams.get('sessionId'),
+                );
                 const body = JSON.stringify({ ...result, sessionId });
                 if (navigator.sendBeacon) {
                   navigator.sendBeacon(
