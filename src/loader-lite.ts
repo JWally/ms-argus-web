@@ -259,23 +259,15 @@ export async function getFingerprint(config: LoaderConfig): Promise<unknown> {
 /* ------------------------------------------------------------------ */
 
 /**
- * Extract a clean session ID from a raw param value.
- * Handles base64-encoded JSON blobs by extracting the inner `sessionId` field.
+ * Normalize a raw session-id param to a URL-safe value.
+ * Converts standard base64 → base64url (replace +→-, /→_, strip =)
+ * so the value passes the API's /^[\w-]+$/ path-parameter validation.
  */
 function parseSessionIdParam(
   raw: string | null | undefined,
 ): string | undefined {
   if (!raw) return undefined;
-  try {
-    const decoded = atob(raw);
-    const obj = JSON.parse(decoded);
-    if (obj && typeof obj === 'object' && typeof obj.sessionId === 'string') {
-      return obj.sessionId;
-    }
-  } catch {
-    // Not base64 JSON — use raw value
-  }
-  return raw;
+  return raw.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 declare const globalThis: { __ARGUS_TEST__?: boolean };

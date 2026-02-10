@@ -74,23 +74,13 @@ const RESERVED_SCRIPT_PARAMS = new Set([
 ]);
 
 /**
- * Extract a clean session ID from a raw param value.
- * Handles base64-encoded JSON blobs (e.g. the demo's cross-domain state)
- * by extracting the inner `sessionId` field.  Plain strings pass through.
+ * Normalize a raw session-id param to a URL-safe value.
+ * Converts standard base64 → base64url (replace +→-, /→_, strip =)
+ * so the value passes the API's /^[\w-]+$/ path-parameter validation.
  */
 function parseSessionIdParam(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  // If it looks like base64 (contains = padding or is long + alphanumeric), try to decode
-  try {
-    const decoded = atob(raw);
-    const obj = JSON.parse(decoded);
-    if (obj && typeof obj === 'object' && typeof obj.sessionId === 'string') {
-      return obj.sessionId;
-    }
-  } catch {
-    // Not base64 JSON — use raw value
-  }
-  return raw;
+  return raw.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /** Resolve session ID from script-tag query params (hyphenated preferred). */
