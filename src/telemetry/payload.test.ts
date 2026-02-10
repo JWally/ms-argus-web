@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { buildPayload } from './payload';
 import type { TelemetrySubmission } from './types';
 import type { FingerprintResult } from '../fingerprint';
+import type { SigintData } from '../utils/sigint';
 
 // Mock fingerprint data for testing
 const createMockFingerprintResult = (
@@ -58,7 +59,6 @@ const createMockFingerprintResult = (
     fuzzy: '0123456789abcdef',
     loose: 'loose-hash-xyz',
     deviceOfTimezone: 'tz-hash',
-    bot: 'bot-hash',
   },
   botSignals: {
     isHeadless: false,
@@ -71,7 +71,17 @@ const createMockFingerprintResult = (
     botHash: 'bot-hash',
     likelyResidentialProxy: false,
   },
-  inconsistencies: [],
+  deltaReport: {
+    canvas2d: [],
+    canvasWebgl: [],
+    offlineAudioContext: [],
+    css: [],
+    cssMedia: [],
+    screen: [],
+    fonts: [],
+    media: [],
+    timezone: [],
+  },
   meta: {
     timestamp: Date.now(),
     durationMs: 150,
@@ -85,8 +95,17 @@ describe('buildPayload', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = {
       fingerprint,
-      evercookie: { id: 'evercookie-id-123' },
-      cryptoId: { publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...' },
+      evercookie: {
+        id: 'evercookie-id-123',
+        created: '2025-01-01T00:00:00.000Z',
+        lastSeen: '2025-01-01T00:00:00.000Z',
+      },
+      cryptoId: {
+        id: 'crypto-id-123',
+        publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
+        privateKey: {} as CryptoKey,
+        date: '2025-01-01T00:00:00.000Z',
+      },
     };
 
     const payload = buildPayload(submission, 'test-session-id');
@@ -168,14 +187,24 @@ describe('buildPayload', () => {
       fingerprint,
       sigint: {
         tlsFingerprint: {
+          id: 'visitor-1',
+          new: false,
           ip: '192.168.1.1',
           ja4: 't13d1516h2_8daaf6152771_e5627efa2ab1',
           ja3: '771,4865-4866-4867',
           asn: 'AS12345',
+          country: 'US',
         },
         tcpProbe: {
           rtt_fingerprint: {
             tcp_rtt_us: 15000,
+            tls_handshake_us: 5000,
+            http_first_byte_us: 2000,
+            total_connection_us: 22000,
+            snd_mss: 1460,
+            pmtu: 1500,
+            tls_to_tcp_ratio: 0.33,
+            total_to_tcp_ratio: 1.47,
             proxy_score: 0.1,
             vpn_score: 0.05,
           },
@@ -184,7 +213,7 @@ describe('buildPayload', () => {
           localIp: '10.0.0.1',
           publicIp: '192.168.1.1',
         },
-      },
+      } as unknown as SigintData,
     };
 
     const payload = buildPayload(submission, 'test-session-id');

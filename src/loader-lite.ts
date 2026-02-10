@@ -265,7 +265,10 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
     if (typeof document !== 'undefined' && document.currentScript) {
       const script = document.currentScript as HTMLScriptElement;
       const url = new URL(script.src);
-      const scriptUrl = url.searchParams.get('src');
+      const version = url.searchParams.get('version');
+      const scriptUrl = version
+        ? new URL(`${version}.js`, url.origin).href
+        : url.searchParams.get('src');
 
       if (scriptUrl) {
         load({
@@ -277,7 +280,10 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
             enableStun: url.searchParams.get('enableStun') === 'true',
           },
           endpoint: url.searchParams.get('endpoint') || undefined,
-          sessionId: url.searchParams.get('sessionId') || undefined,
+          sessionId:
+            url.searchParams.get('session-id') ||
+            url.searchParams.get('sessionId') ||
+            undefined,
           timeout: parseInt(url.searchParams.get('timeout') || '') || undefined,
         })
           .then(
@@ -292,7 +298,9 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
               const endpoint = url.searchParams.get('endpoint');
               if (endpoint) {
                 const sessionId =
-                  url.searchParams.get('sessionId') || undefined;
+                  url.searchParams.get('session-id') ||
+                  url.searchParams.get('sessionId') ||
+                  undefined;
                 const body = JSON.stringify({ ...result, sessionId });
                 if (navigator.sendBeacon) {
                   navigator.sendBeacon(

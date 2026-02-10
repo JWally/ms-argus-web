@@ -35,7 +35,7 @@ export async function submitTelemetry(
   config: TelemetryConfig,
 ): Promise<TelemetryResult> {
   const startTime = performance.now();
-  const sessionId = generateSessionId();
+  const sessionId = data.sessionId || generateSessionId();
 
   const { baseDomain, timeout = 10000 } = config;
 
@@ -72,7 +72,7 @@ export async function submitTelemetry(
             'Content-Encoding': 'gzip',
             'X-Argus-Schema-Version': SCHEMA_VERSION,
           },
-          body: gzippedBytes,
+          body: gzippedBytes as BodyInit,
           signal: controller.signal,
         });
       } else {

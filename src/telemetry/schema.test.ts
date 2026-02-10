@@ -27,7 +27,6 @@ const createMockFingerprintResult = (
     fuzzy: '0123456789abcdef',
     loose: 'loose-hash-xyz',
     deviceOfTimezone: 'tz-hash',
-    bot: 'bot-hash',
   },
   botSignals: {
     isHeadless: false,
@@ -40,7 +39,17 @@ const createMockFingerprintResult = (
     botHash: 'bot-hash',
     likelyResidentialProxy: false,
   },
-  inconsistencies: [],
+  deltaReport: {
+    canvas2d: [],
+    canvasWebgl: [],
+    offlineAudioContext: [],
+    css: [],
+    cssMedia: [],
+    screen: [],
+    fonts: [],
+    media: [],
+    timezone: [],
+  },
   meta: {
     timestamp: Date.now(),
     durationMs: 150,
@@ -59,7 +68,11 @@ describe('PayloadSchema', () => {
     const fingerprint = createMockFingerprintResult();
     const submission: TelemetrySubmission = {
       fingerprint,
-      evercookie: { id: 'test-id' },
+      evercookie: {
+        id: 'test-id',
+        created: '2025-01-01T00:00:00.000Z',
+        lastSeen: '2025-01-01T00:00:00.000Z',
+      },
     };
 
     const payload = buildPayload(submission, 'test-session-id');

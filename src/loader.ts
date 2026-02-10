@@ -10,6 +10,7 @@
  * - A/B testing ready with variant selection and feature flags
  * - Configurable modules, timeouts, and callbacks
  * - Sigint integration for server-side fingerprinting (JA3/JA4, TCP RTT, etc.)
+ * - Telemetry submission to /v1/collect with script-tag query params in identifiers
  */
 
 import { collectFingerprint, type FingerprintResult } from './fingerprint';
@@ -24,6 +25,58 @@ import {
   setCustomStunServers,
   clearCustomStunServers,
 } from './webrtc/constants';
+import { getEvercookieId } from './utils/evercookie';
+import { getCryptoId } from './utils/get-crypto-id';
+import {
+  submitTelemetry,
+  getMatchTierLabel,
+  type TelemetryConfig,
+  type TelemetryResult,
+} from './telemetry';
+import { detectStageFromHostname } from './telemetry/helpers';
+
+// Re-export for consumers
+export { getMatchTierLabel } from './telemetry';
+
+// ---------------------------------------------------------------------------
+// Capture script-tag query params at parse time.
+// document.currentScript is only available during synchronous execution of
+// the <script> element — it becomes null once any async code runs.
+// ---------------------------------------------------------------------------
+const _scriptParams: Record<string, string> = (() => {
+  try {
+    const src = (document.currentScript as HTMLScriptElement | null)?.src;
+    if (!src) return {};
+    const url = new URL(src);
+    const out: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => {
+      out[k] = v;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+})();
+
+const RESERVED_SCRIPT_PARAMS = new Set([
+  'session-id',
+  'sessionId',
+  'version',
+  'src',
+  'autorun',
+  'endpoint',
+  'variant',
+  'timeout',
+  'enableSigint',
+  'sigintDomain',
+  'sigintStage',
+  'enableStun',
+]);
+
+/** Resolve session ID from script-tag query params (hyphenated preferred). */
+function getScriptParamSessionId(): string | undefined {
+  return _scriptParams['session-id'] || _scriptParams['sessionId'] || undefined;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -68,6 +121,12 @@ export interface LoaderConfig {
 
   /** Sigint configuration (domain, stage, etc.) */
   sigint?: Partial<SigintConfig>;
+
+  /** Enable telemetry submission to /v1/collect (default: false) */
+  enableTelemetry?: boolean;
+
+  /** Telemetry configuration */
+  telemetry?: Partial<TelemetryConfig>;
 }
 
 export interface LoaderResult {
@@ -81,6 +140,17 @@ export interface LoaderResult {
   isolated: boolean;
   /** Server-side fingerprint data from sigint (if enabled) */
   sigint?: SigintData;
+  /** Evercookie persistent identifier */
+  evercookie?: {
+    id: string;
+    created: string;
+    lastSeen: string;
+    recoveredFrom?: string;
+  };
+  /** Crypto ID (ECDSA public key) */
+  cryptoId?: { publicKey: string; date: string };
+  /** Telemetry submission result (if telemetry enabled) */
+  telemetry?: TelemetryResult;
 }
 
 /* ------------------------------------------------------------------ */
@@ -212,6 +282,101 @@ function waitForIframeReady(iframe: HTMLIFrameElement): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Telemetry Helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+/** Merge script-tag query params with any explicitly passed metadata. */
+function buildMetadata(
+  config: LoaderConfig,
+): Record<string, string> | undefined {
+  const hasScriptParams = Object.keys(_scriptParams).length > 0;
+  const hasConfigMeta =
+    config.metadata && Object.keys(config.metadata).length > 0;
+
+  if (!hasScriptParams && !hasConfigMeta) return undefined;
+
+  const merged: Record<string, string> = {};
+  // Script-tag params first (lower priority), filtering out reserved keys
+  for (const [k, v] of Object.entries(_scriptParams)) {
+    if (!RESERVED_SCRIPT_PARAMS.has(k)) {
+      merged[k] = v;
+    }
+  }
+  // Explicit config metadata wins
+  if (config.metadata) {
+    for (const [k, v] of Object.entries(config.metadata)) {
+      merged[k] = String(v);
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/** Submit telemetry and return the result (silent on failure). */
+async function submitTelemetryIfEnabled(
+  config: LoaderConfig,
+  collectionData: {
+    fingerprint: FingerprintResult;
+    sigintData?: SigintData;
+    evercookieData?: Awaited<ReturnType<typeof getEvercookieId>>;
+    cryptoIdData?: Awaited<ReturnType<typeof getCryptoId>>;
+  },
+): Promise<TelemetryResult | undefined> {
+  if (!config.enableTelemetry || !config.telemetry?.baseDomain) {
+    return undefined;
+  }
+
+  return submitTelemetry(
+    {
+      fingerprint: collectionData.fingerprint,
+      sigint: collectionData.sigintData,
+      evercookie: collectionData.evercookieData ?? undefined,
+      cryptoId: collectionData.cryptoIdData ?? undefined,
+      metadata: buildMetadata(config),
+      sessionId: config.sessionId || getScriptParamSessionId(),
+    },
+    config.telemetry as TelemetryConfig,
+  );
+}
+
+/** Build the LoaderResult from collected data + telemetry. */
+function buildResult(
+  startTime: number,
+  config: LoaderConfig,
+  data: {
+    fingerprint: FingerprintResult;
+    sigintData?: SigintData;
+    evercookieData?: Awaited<ReturnType<typeof getEvercookieId>>;
+    cryptoIdData?: Awaited<ReturnType<typeof getCryptoId>>;
+    telemetryResult?: TelemetryResult;
+    isolated: boolean;
+  },
+): LoaderResult {
+  const endTime = performance.now();
+  return {
+    fingerprint: data.fingerprint,
+    variant: config.variant,
+    timing: { start: startTime, end: endTime, duration: endTime - startTime },
+    isolated: data.isolated,
+    sigint: data.sigintData,
+    evercookie: data.evercookieData
+      ? {
+          id: data.evercookieData.id,
+          created: data.evercookieData.created,
+          lastSeen: data.evercookieData.lastSeen,
+          recoveredFrom: data.evercookieData.recoveredFrom,
+        }
+      : undefined,
+    cryptoId: data.cryptoIdData
+      ? {
+          publicKey: data.cryptoIdData.publicKey,
+          date: data.cryptoIdData.date,
+        }
+      : undefined,
+    telemetry: data.telemetryResult,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Core Loader                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -237,33 +402,38 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
 
   // Configure STUN servers for WebRTC if sigint is enabled
   if (config.enableSigint && config.sigint?.baseDomain) {
-    const stunUri = getStunServerUri(config.sigint);
+    const stunUri = getStunServerUri(config.sigint as SigintConfig);
     setCustomStunServers([stunUri]);
   }
 
   // Skip isolation if requested (for debugging or specific use cases)
   if (config.skipIsolation) {
     try {
-      // Run fingerprint and sigint collection in parallel if enabled
-      const [fingerprint, sigintData] = await Promise.all([
-        collectFingerprint(),
-        config.enableSigint
-          ? collectSigintData(config.sigint || {})
-          : Promise.resolve(undefined),
-      ]);
-      const endTime = performance.now();
+      const [fingerprint, sigintData, evercookieData, cryptoIdData] =
+        await Promise.all([
+          collectFingerprint(),
+          config.enableSigint
+            ? collectSigintData(config.sigint as SigintConfig)
+            : Promise.resolve(undefined),
+          getEvercookieId(),
+          getCryptoId(),
+        ]);
 
-      const result: LoaderResult = {
+      const telemetryResult = await submitTelemetryIfEnabled(config, {
         fingerprint,
-        variant: config.variant,
-        timing: {
-          start: startTime,
-          end: endTime,
-          duration: endTime - startTime,
-        },
+        sigintData,
+        evercookieData,
+        cryptoIdData,
+      });
+
+      const result = buildResult(startTime, config, {
+        fingerprint,
+        sigintData,
+        evercookieData,
+        cryptoIdData,
+        telemetryResult,
         isolated: false,
-        sigint: sigintData,
-      };
+      });
 
       config.onComplete?.(fingerprint);
       return result;
@@ -298,51 +468,41 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
       throw new Error('Failed to access iframe contentWindow');
     }
 
-    // Run fingerprint collection inside iframe (and sigint in parallel if enabled)
-    // Since srcdoc is same-origin, we have full access
-    /**
-     * Runs fingerprint and optional sigint collection in parallel within the
-     * iframe's clean environment.
-     */
+    // Run all collection in parallel, race against timeout.
+    // Fingerprint + sigint use the iframe's clean environment (via same-origin access).
+    // Evercookie + cryptoId run in main context (need localStorage/IndexedDB).
     const collectionPromise = (async () => {
-      // The iframe has a clean JS environment, but we need to run our code there.
-      // We inject the collectFingerprint function and run it.
-      //
-      // Note: In the bundled version, collectFingerprint will be inlined.
-      // The iframe's clean environment protects against prototype pollution
-      // and API tampering that might exist in the parent page.
-
-      // For now, we run in the parent context but could inject into iframe
-      // if deeper isolation is needed. The srcdoc approach still helps by
-      // providing a clean DOM to query if needed.
-      const [fingerprint, sigintData] = await Promise.all([
-        collectFingerprint(),
-        config.enableSigint
-          ? collectSigintData(config.sigint || {})
-          : Promise.resolve(undefined),
-      ]);
-      return { fingerprint, sigintData };
+      const [fingerprint, sigintData, evercookieData, cryptoIdData] =
+        await Promise.all([
+          collectFingerprint(),
+          config.enableSigint
+            ? collectSigintData(config.sigint as SigintConfig)
+            : Promise.resolve(undefined),
+          getEvercookieId(),
+          getCryptoId(),
+        ]);
+      return { fingerprint, sigintData, evercookieData, cryptoIdData };
     })();
 
     // Race between collection and timeout
-    const { fingerprint, sigintData } = await Promise.race([
-      collectionPromise,
-      timeoutPromise,
-    ]);
+    const { fingerprint, sigintData, evercookieData, cryptoIdData } =
+      await Promise.race([collectionPromise, timeoutPromise]);
 
-    const endTime = performance.now();
-
-    const result: LoaderResult = {
+    const telemetryResult = await submitTelemetryIfEnabled(config, {
       fingerprint,
-      variant: config.variant,
-      timing: {
-        start: startTime,
-        end: endTime,
-        duration: endTime - startTime,
-      },
+      sigintData,
+      evercookieData,
+      cryptoIdData,
+    });
+
+    const result = buildResult(startTime, config, {
+      fingerprint,
+      sigintData,
+      evercookieData,
+      cryptoIdData,
+      telemetryResult,
       isolated: true,
-      sigint: sigintData,
-    };
+    });
 
     config.onComplete?.(fingerprint);
 
@@ -423,14 +583,14 @@ export async function getFingerprint(): Promise<FingerprintResult> {
  */
 export async function getFingerprintHash(): Promise<string> {
   const result = await load();
-  return result.fingerprint.$hash;
+  return result.fingerprint.hashes.stable;
 }
 
 /* ------------------------------------------------------------------ */
 /*  Auto-run Support                                                   */
 /* ------------------------------------------------------------------ */
 
-// For script tag usage: <script src="argus-loader.js?endpoint=...&sessionId=...">
+// For script tag usage: <script src="argus-loader.js?autorun&sessionId=...">
 // Disabled during testing
 declare const globalThis: { __ARGUS_TEST__?: boolean };
 
@@ -442,37 +602,42 @@ if (typeof globalThis !== 'undefined' && !globalThis.__ARGUS_TEST__) {
   const autoRun = (() => {
     try {
       if (typeof document === 'undefined') return false;
-      const script = document.currentScript as HTMLScriptElement | null;
-      if (!script?.src) return false;
-      const url = new URL(script.src);
-      return (
-        url.searchParams.has('autorun') || url.searchParams.has('endpoint')
-      );
+      return 'autorun' in _scriptParams || 'endpoint' in _scriptParams;
     } catch {
-      // URL parsing failed - auto-run not applicable
       return false;
     }
   })();
 
   if (autoRun) {
-    const script = document.currentScript as HTMLScriptElement;
-    const url = new URL(script.src);
-
     // Parse sigint config from URL params
-    const sigintConfig = parseSigintConfigFromUrl(url);
-    const enableSigint =
-      url.searchParams.has('sigintDomain') ||
-      url.searchParams.get('enableSigint') === 'true';
+    try {
+      const scriptSrc = (document.currentScript as HTMLScriptElement)?.src;
+      const url = scriptSrc ? new URL(scriptSrc) : undefined;
+      const sigintConfig = url ? parseSigintConfigFromUrl(url) : undefined;
+      const enableSigint =
+        'sigintDomain' in _scriptParams ||
+        _scriptParams.enableSigint === 'true';
 
-    load({
-      endpoint: url.searchParams.get('endpoint') || undefined,
-      sessionId: url.searchParams.get('sessionId') || undefined,
-      variant: url.searchParams.get('variant') || undefined,
-      timeout: parseInt(url.searchParams.get('timeout') || '') || undefined,
-      enableSigint,
-      sigint: enableSigint ? sigintConfig : undefined,
-    }).catch((err) => {
+      // Auto-detect telemetry config from hostname
+      const baseDomain = 'argus.pw';
+      const stagePrefix = detectStageFromHostname();
+
+      load({
+        endpoint: _scriptParams.endpoint || undefined,
+        sessionId:
+          _scriptParams['session-id'] || _scriptParams.sessionId || undefined,
+        variant: _scriptParams.variant || undefined,
+        timeout: parseInt(_scriptParams.timeout || '') || undefined,
+        enableSigint,
+        sigint: enableSigint ? sigintConfig : undefined,
+        enableTelemetry: true,
+        telemetry: { baseDomain, stagePrefix },
+        skipIsolation: true,
+      }).catch((err) => {
+        console.warn('[Argus] Auto-run failed:', err);
+      });
+    } catch (err) {
       console.warn('[Argus] Auto-run failed:', err);
-    });
+    }
   }
 }

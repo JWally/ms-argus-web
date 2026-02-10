@@ -124,7 +124,6 @@ export {
   type TelemetryConfig,
   type TelemetrySubmission,
   type TelemetryResult,
-  type MatchResult,
 } from './telemetry';
 
 // WebRTC STUN configuration
@@ -179,6 +178,8 @@ export interface LoadOptions {
   telemetry?: Partial<TelemetryConfig>;
   /** Arbitrary key-value metadata forwarded into the telemetry payload */
   metadata?: Record<string, string>;
+  /** Session ID — forwarded to telemetry if provided */
+  sessionId?: string;
 }
 
 export interface LoadResult {
@@ -186,11 +187,11 @@ export interface LoadResult {
   sigint?: Awaited<ReturnType<typeof _collectSigintData>>;
   evercookie?: {
     id: string;
-    created: number;
-    lastSeen: number;
+    created: string;
+    lastSeen: string;
     recoveredFrom?: string;
   };
-  cryptoId?: { publicKey: string; date: number };
+  cryptoId?: { publicKey: string; date: string };
   telemetry?: TelemetryResult;
   timing: { start: number; end: number; duration: number };
 }
@@ -213,7 +214,7 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
     [
       _collectFingerprint(),
       opts.enableSigint
-        ? _collectSigintData(opts.sigint || {})
+        ? _collectSigintData(opts.sigint as SigintConfig)
         : Promise.resolve(undefined),
       _getEvercookieId(),
       _getCryptoId(),
@@ -239,13 +240,41 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
   // Submit telemetry if enabled
   let telemetryResult: TelemetryResult | undefined;
   if (opts.enableTelemetry && opts.telemetry?.baseDomain) {
-    // Merge script-tag query params with any explicitly passed metadata
-    const hasScriptParams = Object.keys(_scriptParams).length > 0;
-    const hasMeta = opts.metadata && Object.keys(opts.metadata).length > 0;
-    const metadata =
-      hasScriptParams || hasMeta
-        ? { ..._scriptParams, ...opts.metadata }
-        : undefined;
+    // Merge script-tag query params with any explicitly passed metadata,
+    // filtering out reserved keys that have dedicated handling
+    const RESERVED_SCRIPT_PARAMS = new Set([
+      'session-id',
+      'sessionId',
+      'version',
+      'src',
+      'autorun',
+      'endpoint',
+      'variant',
+      'timeout',
+      'enableSigint',
+      'sigintDomain',
+      'sigintStage',
+      'enableStun',
+    ]);
+
+    const merged: Record<string, string> = {};
+    for (const [k, v] of Object.entries(_scriptParams)) {
+      if (!RESERVED_SCRIPT_PARAMS.has(k)) {
+        merged[k] = v;
+      }
+    }
+    if (opts.metadata) {
+      for (const [k, v] of Object.entries(opts.metadata)) {
+        merged[k] = v;
+      }
+    }
+    const metadata = Object.keys(merged).length > 0 ? merged : undefined;
+
+    const sessionId =
+      opts.sessionId ||
+      _scriptParams['session-id'] ||
+      _scriptParams['sessionId'] ||
+      undefined;
 
     telemetryResult = await _submitTelemetry(
       {
@@ -254,6 +283,7 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
         evercookie: evercookieData,
         cryptoId: cryptoIdData,
         metadata,
+        sessionId,
       },
       opts.telemetry as TelemetryConfig,
     );

@@ -94,6 +94,7 @@ export function buildPayload(
     evercookie_id: data.evercookie?.id,
     public_key: data.cryptoId?.publicKey,
     ground_truth: extractGroundTruth(),
+    metadata: data.metadata,
   };
 
   // Build hashes section: stable, fuzzy, + all module hashes from loose
@@ -117,9 +118,10 @@ export function buildPayload(
     identifiers,
     hashes,
     device: compactedDevice,
-    deltaReport: hasDroppedKeys ? deltaReport : undefined,
+    deltaReport: hasDroppedKeys
+      ? (deltaReport as unknown as Record<string, string[]>)
+      : undefined,
     sigint: data.sigint ? { ...data.sigint } : undefined,
-    metadata: data.metadata,
     buildId: __BUILD_ID__,
   };
 

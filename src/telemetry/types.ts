@@ -17,6 +17,8 @@ export interface PayloadIdentifiers {
   public_key?: string;
   /** Ground truth data for test validation (e.g., BrowserStack capabilities) */
   ground_truth?: GroundTruth;
+  /** Arbitrary metadata forwarded from script-tag query params / caller config */
+  metadata?: Record<string, string>;
 }
 
 /**
@@ -63,7 +65,6 @@ export interface ArgusPayload {
   device: PayloadDevice;
   deltaReport?: Record<string, string[]>;
   sigint?: PayloadSigint;
-  metadata?: Record<string, string>;
   buildId?: string;
 }
 
@@ -89,6 +90,8 @@ export interface TelemetrySubmission {
   cryptoId?: CryptoKeys;
   /** Arbitrary key-value metadata forwarded into the payload (e.g., URL query params) */
   metadata?: Record<string, string>;
+  /** Explicit session ID — if provided, used instead of auto-generating one */
+  sessionId?: string;
 }
 
 // ============================================================================
