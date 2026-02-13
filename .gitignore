@@ -20,5 +20,11 @@ wasm/simd-pkg/
 rust/wasm-fingerprint/target/
 rust/wasm-fingerprint/Cargo.lock
 
+# Generated docs (typedoc)
+docs/
+
+# Rollup build output in public
+public/argus.esm.js
+
 # Helper Script Ignores
 *.sick

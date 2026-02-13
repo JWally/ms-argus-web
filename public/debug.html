@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Argus Debug - Raw Payload</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #eee; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+    pre { background: #2a2a2a; padding: 15px; overflow: auto; max-height: 400px; font-size: 11px; }
+    .section { margin: 20px 0; }
+    h2 { color: #88f; margin-bottom: 5px; }
+    .hash { color: #8f8; }
+  </style>
+</head>
+<body>
+  <h1>Argus Debug - Raw Payload Dump</h1>
+  <p>Dumps the full fingerprint payload for verification testing.</p>
+
+  <button id="runBtn">Collect Fingerprint</button>
+
+  <div class="section">
+    <h2>Hashes</h2>
+    <pre id="hashes">--</pre>
+  </div>
+
+  <div class="section">
+    <h2>Fingerprint Payload (for verification)</h2>
+    <pre id="rawJson">--</pre>
+  </div>
+
+  <div class="section">
+    <h2>API Response</h2>
+    <pre id="apiResponse">--</pre>
+  </div>
+
+  <script type="module">
+    import { load } from '/dist/argus.esm.js';
+
+    document.getElementById('runBtn').addEventListener('click', async () => {
+      const hashesEl = document.getElementById('hashes');
+      const rawJsonEl = document.getElementById('rawJson');
+      const apiEl = document.getElementById('apiResponse');
+
+      hashesEl.textContent = 'Collecting...';
+      rawJsonEl.textContent = 'Collecting...';
+
+      try {
+        const result = await load({
+          enableTelemetry: true,
+          telemetry: {
+            baseDomain: 'argus.pw'
+          }
+        });
+
+        // Display hashes prominently
+        if (result.fingerprint?.hashes) {
+          hashesEl.innerHTML = Object.entries(result.fingerprint.hashes)
+            .map(([k, v]) => `<span class="hash">${k}:</span> ${v}`)
+            .join('\n');
+        }
+
+        // Full payload for verification - this is what the verify script will parse
+        const payload = {
+          fingerprint: result.fingerprint,
+          evercookie: result.evercookie,
+          cryptoId: result.cryptoId,
+          // Exclude timing/telemetry as they're volatile
+        };
+        rawJsonEl.textContent = JSON.stringify(payload, null, 2);
+
+        // API response
+        if (result.telemetry?.apiResponse) {
+          apiEl.textContent = JSON.stringify(result.telemetry.apiResponse, null, 2);
+        } else if (result.telemetry) {
+          apiEl.textContent = JSON.stringify(result.telemetry, null, 2);
+        }
+
+      } catch (err) {
+        hashesEl.textContent = `Error: ${err.message}`;
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
