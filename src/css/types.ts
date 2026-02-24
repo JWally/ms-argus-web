@@ -48,4 +48,6 @@ export interface CSSFingerprint {
   computedStyle: ComputedStyleResult | undefined;
   /** System colors and fonts */
   system: SystemStyles | undefined;
+  /** Named CSS color keyword → computed RGB value mapping */
+  namedColors: Record<string, string> | undefined;
 }

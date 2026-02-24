@@ -575,22 +575,25 @@ export async function performStunBinding(config: SigintConfig): Promise<{
       iceServers: [{ urls: stunServer }],
     });
 
+    const completeProbe = () => {
+      clearTimeout(timeout);
+      pc.close();
+
+      result.natDetected =
+        result.localIp !== null &&
+        result.reflexiveIp !== null &&
+        result.localIp !== result.reflexiveIp;
+
+      resolve({
+        data: result,
+        error: null,
+        durationMs: performance.now() - start,
+      });
+    };
+
     pc.onicecandidate = (event) => {
       if (!event.candidate) {
-        // ICE gathering complete
-        clearTimeout(timeout);
-        pc.close();
-
-        result.natDetected =
-          result.localIp !== null &&
-          result.reflexiveIp !== null &&
-          result.localIp !== result.reflexiveIp;
-
-        resolve({
-          data: result,
-          error: null,
-          durationMs: performance.now() - start,
-        });
+        completeProbe();
         return;
       }
 
@@ -619,19 +622,7 @@ export async function performStunBinding(config: SigintConfig): Promise<{
 
     pc.onicegatheringstatechange = () => {
       if (pc.iceGatheringState === 'complete') {
-        clearTimeout(timeout);
-        pc.close();
-
-        result.natDetected =
-          result.localIp !== null &&
-          result.reflexiveIp !== null &&
-          result.localIp !== result.reflexiveIp;
-
-        resolve({
-          data: result,
-          error: null,
-          durationMs: performance.now() - start,
-        });
+        completeProbe();
       }
     };
 

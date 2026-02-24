@@ -43,6 +43,8 @@ import getWebRTCData, { getWebRTCDevices } from './webrtc';
 import getWindowFeatures from './window';
 import getBestWorkerScope, { Scope, spawnWorker } from './worker';
 import getWebGpuCompute from './webgpu-compute';
+import getMathML from './mathml';
+import getAdBlock from './adblock';
 import getTimingFingerprint from './timing';
 import { analyzeInconsistencies } from './inconsistencies';
 import detectProxy from './proxy';
@@ -86,6 +88,8 @@ export interface DeltaReport {
   fonts: string[];
   media: string[];
   timezone: string[];
+  mathml: string[];
+  adblock: string[];
 }
 
 export interface FingerprintResult {
@@ -146,6 +150,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     intlComputed,
     webrtcComputed,
     webgpuComputeComputed,
+    mathmlComputed,
+    adblockComputed,
     timingComputed,
     proxyComputed,
     incognitoComputed,
@@ -167,6 +173,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     consoleErrorsRun2,
     timezoneRun2,
     mediaRun2,
+    mathmlRun2,
+    adblockRun2,
   ] = await Promise.all([
     getBestWorkerScope(),
     getVoices(),
@@ -189,6 +197,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     getIntl(),
     getWebRTCData(),
     getWebGpuCompute(),
+    getMathML(),
+    getAdBlock(),
     getTimingFingerprint(),
     detectProxy(),
     detectIncognito(),
@@ -210,6 +220,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     getConsoleErrors(),
     getTimezone(),
     getMedia(),
+    getMathML(),
+    getAdBlock(),
   ]).catch((error) => {
     console.error('Fingerprint collection error:', error.message);
     return [];
@@ -271,6 +283,10 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     removeVolatile(mediaComputed, mediaRun2) ?? mediaComputed;
   const timezoneStable: any =
     removeVolatile(timezoneComputed, timezoneRun2) ?? timezoneComputed;
+  const mathmlStable: any =
+    removeVolatile(mathmlComputed, mathmlRun2) ?? mathmlComputed;
+  const adblockStable: any =
+    removeVolatile(adblockComputed, adblockRun2) ?? adblockComputed;
 
   // Report which keys were dropped as volatile
   const deltaReport = {
@@ -286,6 +302,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     fonts: getDroppedKeys(fontsComputed, fontsStable),
     media: getDroppedKeys(mediaComputed, mediaStable),
     timezone: getDroppedKeys(timezoneComputed, timezoneStable),
+    mathml: getDroppedKeys(mathmlComputed, mathmlStable),
+    adblock: getDroppedKeys(adblockComputed, adblockStable),
   };
 
   // Augment incognito detection with delta-based private mode signal
@@ -359,6 +377,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     featuresHash,
     webrtcHash,
     webgpuComputeHash,
+    mathmlHash,
+    adblockHash,
     timingHash,
     proxyHash,
     incognitoHash,
@@ -412,6 +432,8 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     hashify(featuresComputed),
     hashify(webrtcComputed),
     hashify(webgpuComputeComputed),
+    hashify(mathmlComputed),
+    hashify(adblockComputed),
     hashify(timingComputed),
     hashify(proxyComputed),
     hashify(incognitoComputed),
@@ -711,6 +733,20 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
           ...webgpuComputeComputed,
           $hash: webgpuComputeHash,
           $fuzzy: simhashify(webgpuComputeComputed),
+        },
+    mathml: !mathmlComputed
+      ? undefined
+      : {
+          ...mathmlComputed,
+          $hash: mathmlHash,
+          $fuzzy: simhashify(mathmlComputed),
+        },
+    adblock: !adblockComputed
+      ? undefined
+      : {
+          ...adblockComputed,
+          $hash: adblockHash,
+          $fuzzy: simhashify(adblockComputed),
         },
     timing: !timingComputed
       ? undefined
@@ -1029,6 +1065,8 @@ export {
   getWebRTCDevices,
   getWindowFeatures,
   getBestWorkerScope,
+  getMathML,
+  getAdBlock,
 };
 
 // Export utilities

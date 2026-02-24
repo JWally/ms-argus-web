@@ -20,6 +20,8 @@ export type MathTestInput = [string, number[] | number];
 export interface MathFingerprint {
   /** Ordered array of computed results (NaN for failed tests) */
   data: number[];
+  /** IEEE 754 byte representation of test floats via shared ArrayBuffer */
+  floatBytes: number[];
   /** Whether tampering was detected */
   lied: boolean;
 }

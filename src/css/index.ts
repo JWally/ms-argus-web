@@ -25,6 +25,7 @@ import { createTimer, logTestResult } from '../utils/helpers';
 import {
   SYSTEM_COLORS,
   SYSTEM_FONTS,
+  NAMED_CSS_COLORS,
   CSS_VAR_REGEX,
   CAPS_REGEX,
 } from './constants';
@@ -227,11 +228,49 @@ function getSystemStyles(el?: HTMLElement | null): SystemStyles | undefined {
 }
 
 /**
+ * Resolves named CSS colors to their computed RGB values.
+ *
+ * Different browsers and color profiles may compute slightly different
+ * RGB values for the same named color keyword.
+ *
+ * @param el - Optional element to use for measurements
+ * @returns Map of color name → computed RGB string
+ */
+function getNamedColorResolution(
+  el?: HTMLElement | null,
+): Record<string, string> | undefined {
+  try {
+    const resolve = (element: HTMLElement): Record<string, string> => {
+      const result: Record<string, string> = {};
+      for (const color of NAMED_CSS_COLORS) {
+        element.style.color = color;
+        result[color] = getComputedStyle(element).color;
+      }
+      return result;
+    };
+
+    if (el) {
+      return resolve(el);
+    }
+
+    const tempEl = document.createElement('div');
+    document.body.appendChild(tempEl);
+    const result = resolve(tempEl);
+    tempEl.parentNode?.removeChild(tempEl);
+    return result;
+  } catch (error) {
+    captureError(error);
+    return undefined;
+  }
+}
+
+/**
  * Collects CSS fingerprint data.
  *
- * Gathers two types of CSS-based fingerprinting data:
+ * Gathers three types of CSS-based fingerprinting data:
  * 1. Computed style properties - The list of CSS properties
  * 2. System styles - OS-defined colors and fonts
+ * 3. Named color resolution - Computed RGB values for named CSS colors
  *
  * @returns CSS fingerprint data or undefined on error
  */
@@ -246,11 +285,17 @@ export default function getCSS(): CSSFingerprint | undefined {
     // Get system colors and fonts (use phantom element for isolation)
     const system = getSystemStyles(PARENT_PHANTOM as HTMLElement | null);
 
+    // Get named CSS color resolution
+    const namedColors = getNamedColorResolution(
+      PARENT_PHANTOM as HTMLElement | null,
+    );
+
     logTestResult({ time: timer.stop(), test: 'computed style', passed: true });
 
     return {
       computedStyle,
       system,
+      namedColors,
     };
   } catch (error) {
     logTestResult({ test: 'computed style', passed: false });

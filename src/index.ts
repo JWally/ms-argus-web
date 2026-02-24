@@ -41,6 +41,8 @@ export {
   getWebRTCDevices,
   getWindowFeatures,
   getBestWorkerScope,
+  getMathML,
+  getAdBlock,
   // Utilities
   hashify,
   hashMini,

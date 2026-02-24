@@ -247,6 +247,62 @@ function getPlugins(setLied: () => void): PluginInfo[] | undefined {
   }, 'plugins failed');
 }
 
+/**
+ * Detects Attribution Reporting API (Chromium) or
+ * Private Click Measurement (Safari).
+ *
+ * Creates a temporary `<a>` element and checks for engine-specific attributes.
+ *
+ * @returns Attribution API support info
+ */
+function detectAttributionApi(): {
+  supported: boolean;
+  variant: 'chromium' | 'safari' | 'none';
+} {
+  const a = document.createElement('a');
+  if ('attributionSrc' in a) {
+    return { supported: true, variant: 'chromium' };
+  }
+  // @ts-expect-error Safari Private Click Measurement
+  if ('attributionSourceId' in a) {
+    return { supported: true, variant: 'safari' };
+  }
+  return { supported: false, variant: 'none' };
+}
+
+/**
+ * Collects Network Information API data.
+ *
+ * Properties vary by connection type and are only available in Chromium.
+ * The combination of rtt, downlink, effectiveType, and saveData
+ * creates a network profile fingerprint.
+ *
+ * @returns Network connection info or undefined if unsupported
+ */
+function getNetworkInformation():
+  | {
+      rtt: number | undefined;
+      downlink: number | undefined;
+      effectiveType: string | undefined;
+      saveData: boolean | undefined;
+      type: string | undefined;
+    }
+  | undefined {
+  // @ts-expect-error Network Information API (Chromium only)
+  const conn =
+    navigator.connection ||
+    navigator.mozConnection ||
+    navigator.webkitConnection;
+  if (!conn) return undefined;
+  return {
+    rtt: conn.rtt,
+    downlink: conn.downlink,
+    effectiveType: conn.effectiveType,
+    saveData: conn.saveData,
+    type: conn.type,
+  };
+}
+
 // ============================================================================
 // ASYNC DATA COLLECTORS
 // ============================================================================
@@ -647,12 +703,26 @@ export default async function getNavigator(
 
     logTestResult({ time: timer.stop(), test: 'navigator', passed: true });
 
+    // Detect Attribution Reporting / Private Click Measurement
+    const attributionSupport = attempt(
+      () => detectAttributionApi(),
+      'attributionApi failed',
+    );
+
+    // Collect Network Information API
+    const networkInformation = attempt(
+      () => getNetworkInformation(),
+      'networkInformation failed',
+    );
+
     return {
       ...data,
       userAgentData,
       bluetoothAvailability,
       permissions,
       webgpu,
+      attributionSupport,
+      networkInformation,
       lied,
     };
   } catch (error) {

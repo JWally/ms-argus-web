@@ -124,6 +124,39 @@ function runAllMathTests(): number[] {
 }
 
 /**
+ * Probes IEEE 754 float byte layout via Float32Array/Uint8Array buffer sharing.
+ *
+ * Detects endianness and float implementation differences across platforms.
+ * The same logical float values produce identical byte representations on the
+ * same architecture, but differ across big-endian vs little-endian systems.
+ *
+ * @returns Byte representation as number[]
+ */
+function getFloatByteRepresentation(): number[] {
+  const testValues = [
+    1.0,
+    -1.0,
+    0.5,
+    Math.PI,
+    Math.E,
+    Number.MIN_VALUE,
+    Number.MAX_VALUE,
+    1 / 3,
+    Math.sqrt(2),
+    Math.LOG2E,
+  ];
+  const buffer = new ArrayBuffer(testValues.length * 4);
+  const floatView = new Float32Array(buffer);
+  const byteView = new Uint8Array(buffer);
+
+  for (let i = 0; i < testValues.length; i++) {
+    floatView[i] = testValues[i];
+  }
+
+  return [...byteView];
+}
+
+/**
  * Collects math fingerprint data.
  *
  * Performs two types of analysis:
@@ -143,9 +176,12 @@ export default function getMaths(): MathFingerprint | undefined {
     // Run all precision tests
     const data = runAllMathTests();
 
+    // Probe IEEE 754 byte layout
+    const floatBytes = getFloatByteRepresentation();
+
     logTestResult({ time: timer.stop(), test: 'math', passed: true });
 
-    return { data, lied };
+    return { data, floatBytes, lied };
   } catch (error) {
     logTestResult({ test: 'math', passed: false });
     captureError(error);

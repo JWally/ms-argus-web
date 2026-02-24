@@ -80,6 +80,20 @@ export interface WebGpuComputeFingerprint {
    */
   ratios?: TimingRatios;
 
+  /**
+   * Render pipeline pixel fingerprint.
+   * Draws a colored triangle at multiple rotation angles and hashes pixel output.
+   * Only present when supported=true.
+   */
+  renderPipeline?: {
+    /** Combined hash of all rotation pixel hashes */
+    pixelHash: string;
+    /** Individual hash per rotation angle */
+    transformHashes: string[];
+    /** Canvas size used for rendering */
+    canvasSize: number;
+  };
+
   /** Combined fingerprint hash */
   $hash: string;
 }

@@ -128,6 +128,22 @@ export interface NavigatorFingerprint {
   /** WebGPU adapter information */
   webgpu: WebGpuInfo | undefined;
 
+  /** Attribution Reporting API / Private Click Measurement support */
+  attributionSupport:
+    | { supported: boolean; variant: 'chromium' | 'safari' | 'none' }
+    | undefined;
+
+  /** Network Information API data (Chromium only) */
+  networkInformation:
+    | {
+        rtt: number | undefined;
+        downlink: number | undefined;
+        effectiveType: string | undefined;
+        saveData: boolean | undefined;
+        type: string | undefined;
+      }
+    | undefined;
+
   /** Whether tampering was detected */
   lied: boolean;
 }

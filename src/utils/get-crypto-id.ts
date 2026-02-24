@@ -17,20 +17,10 @@ import {
   EVERCOOKIE_DB_STORE,
 } from './constants';
 
+import { withTimeout } from './with-timeout';
+
 /** Timeout for IndexedDB operations (ms). Prevents infinite hangs in Firefox/private mode. */
 const IDB_TIMEOUT_MS = 2000;
-
-/** Races a promise against a timeout, returning fallback on timeout. */
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  fallback: T,
-): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
-}
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
 

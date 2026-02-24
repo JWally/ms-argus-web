@@ -27,6 +27,7 @@
  */
 
 import { captureError } from '../errors';
+import { hashMini } from '../utils/crypto';
 import { createTimer, logTestResult } from '../utils/helpers';
 import { expectFailure } from '../utils/expected-failure';
 import type { ConsoleErrorsFingerprint, JSEngine, LayoutEngine } from './types';
@@ -269,6 +270,46 @@ function parseUserAgentEngines(): { js: JSEngine; layout: LayoutEngine } {
 }
 
 /**
+ * Hash the error stack trace FORMAT to fingerprint the engine.
+ *
+ * Normalizes URLs and line:col numbers to capture only the structural
+ * format of the stack trace, which differs between V8, SpiderMonkey, and JSC.
+ *
+ * @returns Hash of the normalized stack format
+ */
+function getStackFormatHash(): string {
+  try {
+    // @ts-expect-error intentional null method call
+    null[0]();
+  } catch (e: any) {
+    const stack = (e.stack || '').toString();
+    // Replace URLs with placeholder, line:col with L:C
+    const normalized = stack
+      .replace(/https?:\/\/[^\s)]+/g, 'URL')
+      .replace(/\d+:\d+/g, 'L:C')
+      .replace(/<anonymous>/g, 'ANON');
+    return hashMini(normalized);
+  }
+  return '';
+}
+
+/**
+ * Returns `eval.toString().length`.
+ * This value varies by engine (V8 ≠ SpiderMonkey ≠ JSC).
+ */
+function getEvalToStringLength(): number {
+  return eval.toString().length;
+}
+
+/**
+ * Returns `Function.toString.call(eval).length`.
+ * Provides a second check that varies by engine.
+ */
+function getFunctionToStringLength(): number {
+  return Function.prototype.toString.call(eval).length;
+}
+
+/**
  * Test functions that trigger specific JavaScript errors.
  *
  * Each function is designed to trigger a specific type of error with
@@ -376,6 +417,11 @@ export default function getConsoleErrors():
         layoutEngine !== 'unknown' &&
         claimedEngine.layout !== layoutEngine);
 
+    // Stack format and eval fingerprinting
+    const stackFormatHash = getStackFormatHash();
+    const evalToStringLength = getEvalToStringLength();
+    const functionToStringLength = getFunctionToStringLength();
+
     logTestResult({ time: timer.stop(), test: 'console errors', passed: true });
     return {
       errors,
@@ -383,6 +429,9 @@ export default function getConsoleErrors():
       layoutEngine,
       claimedEngine,
       engineMismatch,
+      stackFormatHash,
+      evalToStringLength,
+      functionToStringLength,
     };
   } catch (error) {
     logTestResult({ test: 'console errors', passed: false });

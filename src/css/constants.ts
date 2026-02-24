@@ -74,6 +74,47 @@ export const SYSTEM_FONTS = [
 ] as const;
 
 /**
+ * Named CSS color keywords for resolution fingerprinting.
+ *
+ * Browsers may resolve these to slightly different computed RGB values
+ * depending on color profile, rendering engine, and OS color management.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/CSS/named-color
+ */
+export const NAMED_CSS_COLORS = [
+  'rebeccapurple',
+  'aliceblue',
+  'antiquewhite',
+  'aquamarine',
+  'blanchedalmond',
+  'chartreuse',
+  'cornsilk',
+  'darkgoldenrod',
+  'darkolivegreen',
+  'darkslategray',
+  'deeppink',
+  'dimgray',
+  'floralwhite',
+  'gainsboro',
+  'ghostwhite',
+  'honeydew',
+  'indianred',
+  'lavenderblush',
+  'lemonchiffon',
+  'lightcoral',
+  'lightgoldenrodyellow',
+  'lightskyblue',
+  'limegreen',
+  'mediumaquamarine',
+  'mediumslateblue',
+  'midnightblue',
+  'navajowhite',
+  'oldlace',
+  'olivedrab',
+  'papayawhip',
+] as const;
+
+/**
  * Regex to match CSS custom properties (variables).
  */
 export const CSS_VAR_REGEX = /^--.*$/;

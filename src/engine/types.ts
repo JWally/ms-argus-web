@@ -30,4 +30,10 @@ export interface ConsoleErrorsFingerprint {
   };
   /** True if detected engine doesn't match User-Agent claim */
   engineMismatch: boolean;
+  /** Hash of the stack trace format pattern (normalized) */
+  stackFormatHash: string;
+  /** Length of eval.toString() — varies by engine */
+  evalToStringLength: number;
+  /** Length of Function.toString.call(eval) — varies by engine */
+  functionToStringLength: number;
 }

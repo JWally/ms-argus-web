@@ -41,6 +41,7 @@ import { HEADLESS_ACTIVE_TEXT_COLOR, CHROME_INDEX_RANGE } from './constants';
 import getPlatformEstimate from './getPlatformEstimate';
 import { getSystemFonts } from './getSystemFonts';
 import type {
+  CdpSignals,
   HeadlessFingerprint,
   HeadlessDetectionInputs,
   LikeHeadlessSignals,
@@ -393,6 +394,288 @@ function hasBadWebGL(
   return !!(gpu && workerGPU && gpu !== workerGPU);
 }
 
+// ============================================================================
+// CDP / AUTOMATION FRAMEWORK DETECTION
+// ============================================================================
+
+const NATIVE_RE = /\{\s*\[native code\]\s*\}/;
+const HIDDEN_IFRAME_CSS = 'display:none;width:0;height:0;border:none';
+
+/** Regex matching known bot-injected window globals. */
+const BOT_LITTER_RE =
+  /^(__decryptedChallenge|__nextFlash|__captcha|__solver|__bot|__scrape|__crawl|__auto|__inject|__hook|__intercept|__proxy|__bypass|__patch|puppeteer_|playwright_|selenium_|webdriver_|cdc_|_phantom$|callPhantom$)/;
+
+/** Automation framework globals to probe. */
+const AUTOMATION_GLOBALS: [string, () => unknown][] = [
+  [
+    'playwright',
+    () => (window as unknown as Record<string, unknown>).__playwright,
+  ],
+  [
+    'puppeteer',
+    () => (window as unknown as Record<string, unknown>).__puppeteer,
+  ],
+  ['phantom', () => (window as unknown as Record<string, unknown>)._phantom],
+  [
+    'nightmare',
+    () => (window as unknown as Record<string, unknown>).__nightmare,
+  ],
+  [
+    'callPhantom',
+    () => (window as unknown as Record<string, unknown>).callPhantom,
+  ],
+  [
+    'selenium_unwrapped',
+    () => (document as unknown as Record<string, unknown>).__selenium_unwrapped,
+  ],
+  [
+    'webdriver_evaluate',
+    () => (document as unknown as Record<string, unknown>).__webdriver_evaluate,
+  ],
+  [
+    'driver_evaluate',
+    () => (document as unknown as Record<string, unknown>).__driver_evaluate,
+  ],
+];
+
+/** Checks for ChromeDriver `cdc_` globals on `document`. */
+function checkCdcGlobals(): boolean {
+  try {
+    for (const key of Object.getOwnPropertyNames(document)) {
+      if (/^(\$)?cdc_/.test(key)) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/** Checks for Playwright `__pw_` bindings on `window`. */
+function checkPwBindings(): boolean {
+  try {
+    for (const key of Object.getOwnPropertyNames(window)) {
+      if (/^__pw_/.test(key)) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/**
+ * Creates a hidden iframe in a closed Shadow DOM and returns its window.
+ * Bot's `addInitScript` patches main frame but not dynamically created iframes.
+ */
+function getPhantomWindow(): Window | null {
+  try {
+    const host = document.createElement('div');
+    const shadow = host.attachShadow({ mode: 'closed' });
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = HIDDEN_IFRAME_CSS;
+    shadow.appendChild(iframe);
+    document.body.appendChild(host);
+    const win = iframe.contentWindow;
+    setTimeout(() => host.remove(), 0);
+    return win;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Detects webdriver mismatch between main frame and a phantom iframe.
+ * Stealth tools patch main frame's navigator.webdriver but miss iframes.
+ */
+function checkPhantomMismatch(): boolean {
+  try {
+    const mainWebdriver = (navigator as unknown as Record<string, unknown>)
+      .webdriver;
+    const phantom = getPhantomWindow();
+    if (!phantom) return false;
+    const iframeWebdriver = (
+      phantom.navigator as unknown as Record<string, unknown>
+    ).webdriver;
+    if (!mainWebdriver && iframeWebdriver === true) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/**
+ * Scans window globals for known bot-injected properties.
+ * Returns the list of matching global names (max 5).
+ */
+function checkClientLitter(): string[] {
+  try {
+    const matches: string[] = [];
+    for (const key of Object.getOwnPropertyNames(window)) {
+      if (BOT_LITTER_RE.test(key)) matches.push(key);
+    }
+    return matches.slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+/** Checks for automation framework globals. */
+function checkAutomationGlobals(): string[] {
+  const found: string[] = [];
+  for (const [name, getFn] of AUTOMATION_GLOBALS) {
+    try {
+      if (getFn() != null) found.push(name);
+    } catch {
+      /* ignore */
+    }
+  }
+  return found;
+}
+
+/**
+ * Gets a clean Function.prototype.toString from a double-nested iframe.
+ *
+ * Bot's addInitScript patches main frame and sometimes first-level iframes,
+ * but rarely reaches a second-level iframe inside a closed Shadow DOM.
+ */
+function getCrossRealmToString(): typeof Function.prototype.toString | null {
+  try {
+    const host1 = document.createElement('div');
+    const shadow1 = host1.attachShadow({ mode: 'closed' });
+    const iframe1 = document.createElement('iframe');
+    iframe1.style.cssText = HIDDEN_IFRAME_CSS;
+    shadow1.appendChild(iframe1);
+    document.body.appendChild(host1);
+    const win1 = iframe1.contentWindow;
+    if (!win1) {
+      host1.remove();
+      return null;
+    }
+
+    const doc1 = win1.document;
+    const iframe2 = doc1.createElement('iframe');
+    iframe2.style.cssText = HIDDEN_IFRAME_CSS;
+    doc1.body.appendChild(iframe2);
+    const win2 = iframe2.contentWindow;
+    if (!win2) {
+      host1.remove();
+      return null;
+    }
+
+    const cleanToString = (
+      win2 as unknown as {
+        Function: {
+          prototype: { toString: typeof Function.prototype.toString };
+        };
+      }
+    ).Function.prototype.toString;
+
+    setTimeout(() => host1.remove(), 0);
+    return cleanToString;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cross-realm integrity check (PHANTOM_DARKNESS pattern).
+ *
+ * Compares Function.prototype.toString from the main frame against a clean
+ * copy from a double-nested iframe. If the main frame claims [native code]
+ * but the cross-realm copy disagrees, the API has been tampered with.
+ *
+ * This catches puppeteer-stealth, Patchright, Camoufox, and similar tools
+ * that use addInitScript to patch APIs.
+ */
+function detectCrossRealmTampering(): string[] {
+  const signals: string[] = [];
+  const cleanToString = getCrossRealmToString();
+  if (!cleanToString) return signals;
+
+  const checks: [string, () => unknown][] = [
+    [
+      'Element.getBoundingClientRect',
+      () => Element.prototype.getBoundingClientRect,
+    ],
+    [
+      'HTMLCanvasElement.getContext',
+      () => HTMLCanvasElement.prototype.getContext,
+    ],
+    [
+      'HTMLCanvasElement.toDataURL',
+      () => HTMLCanvasElement.prototype.toDataURL,
+    ],
+    ['Performance.now', () => Performance.prototype.now],
+    ['Date.getTimezoneOffset', () => Date.prototype.getTimezoneOffset],
+    ['Navigator.toString', () => Navigator.prototype.toString],
+  ];
+
+  for (const [name, getFn] of checks) {
+    try {
+      const fn = getFn();
+      if (typeof fn !== 'function') continue;
+      const mainResult = Function.prototype.toString.call(fn);
+      const crossResult = cleanToString.call(fn);
+      if (NATIVE_RE.test(mainResult) && !NATIVE_RE.test(crossResult)) {
+        signals.push(name);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return signals;
+}
+
+/**
+ * Collects all CDP / automation detection signals.
+ */
+function detectCdp(): CdpSignals {
+  const cdcGlobals = checkCdcGlobals();
+  const pwBindings = checkPwBindings();
+  const phantomMismatch = checkPhantomMismatch();
+  const clientLitter = checkClientLitter();
+  const automationGlobals = checkAutomationGlobals();
+  const crossRealmTampered = detectCrossRealmTampering();
+
+  return {
+    cdcGlobals,
+    pwBindings,
+    phantomMismatch,
+    clientLitter,
+    automationGlobals,
+    crossRealmTampered,
+  };
+}
+
+// ============================================================================
+// DEVELOPER TOOLS DETECTION
+// ============================================================================
+
+/**
+ * Detects whether developer tools appear to be open.
+ *
+ * Uses window size discrepancy: when DevTools is docked, outerWidth/outerHeight
+ * remain the same but innerWidth/innerHeight shrink, creating a large gap.
+ * A threshold of 160px avoids false positives from browser chrome.
+ *
+ * Also checks for the legacy Firebug debugger.
+ *
+ * @returns True if DevTools appears open
+ */
+function detectDevTools(): boolean {
+  // Size-based detection (docked DevTools)
+  if (outerWidth - innerWidth > 160 || outerHeight - innerHeight > 160) {
+    return true;
+  }
+
+  // Firebug legacy detection
+  // @ts-expect-error Firebug global
+  if (window.Firebug?.chrome?.isInitialized) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Calculates percentage of true signals.
  *
@@ -448,6 +731,7 @@ export default async function getHeadlessFeatures(
       noContentIndex: !!headlessEstimate?.noContentIndex,
       noContactsManager: !!headlessEstimate?.noContactsManager,
       noDownlinkMax: !!headlessEstimate?.noDownlinkMax,
+      devToolsOpen: detectDevTools(),
     };
 
     // Collect hard headless signals (definitive proof)
@@ -466,6 +750,9 @@ export default async function getHeadlessFeatures(
       hasBadWebGL: hasBadWebGL(webgl, workerScope),
     };
 
+    // Collect CDP / automation framework signals
+    const cdp = detectCdp();
+
     // Calculate detection ratings
     const likeHeadlessRating = calculateRating(likeHeadless);
     const headlessRating = calculateRating(headless);
@@ -478,6 +765,7 @@ export default async function getHeadlessFeatures(
       likeHeadless,
       headless,
       stealth,
+      cdp,
       likeHeadlessRating,
       headlessRating,
       stealthRating,

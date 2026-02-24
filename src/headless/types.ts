@@ -107,6 +107,12 @@ export interface LikeHeadlessSignals {
    * Present on Android/Chrome OS, missing elsewhere.
    */
   noDownlinkMax: boolean;
+
+  /**
+   * Developer tools appear to be open.
+   * Detected via window size discrepancy or console getter probe.
+   */
+  devToolsOpen: boolean;
 }
 
 /**
@@ -175,6 +181,36 @@ export interface StealthSignals {
 }
 
 /**
+ * CDP / automation framework detection signals.
+ *
+ * Detects Chrome DevTools Protocol markers, automation tool globals,
+ * and cross-realm API tampering. These catch modern evasion tools
+ * (puppeteer-stealth, Patchright, Camoufox) that bypass basic checks.
+ */
+export interface CdpSignals {
+  /** ChromeDriver `$cdc_` globals found on document */
+  cdcGlobals: boolean;
+
+  /** Playwright `__pw_` bindings found on window */
+  pwBindings: boolean;
+
+  /** navigator.webdriver differs between main frame and phantom iframe */
+  phantomMismatch: boolean;
+
+  /** Bot-injected globals matching known patterns (max 5) */
+  clientLitter: string[];
+
+  /** Automation framework globals found (playwright, puppeteer, etc.) */
+  automationGlobals: string[];
+
+  /**
+   * APIs where cross-realm toString disagrees with main frame.
+   * Indicates addInitScript-based API patching.
+   */
+  crossRealmTampered: string[];
+}
+
+/**
  * Platform confidence scores.
  *
  * Each platform gets a score from 0-1 based on how many
@@ -232,6 +268,9 @@ export interface HeadlessFingerprint {
 
   /** Stealth plugin detection signals */
   stealth: StealthSignals;
+
+  /** CDP / automation framework detection signals */
+  cdp: CdpSignals;
 
   /** Percentage of likeHeadless signals that are true (0-100) */
   likeHeadlessRating: number;

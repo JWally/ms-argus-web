@@ -73,8 +73,130 @@ export interface TimingFingerprint {
    */
   resolution: number;
 
+  /** Resource timing metrics from the page's own navigation and resources */
+  resourceTiming?: ResourceTimingData;
+
   /** Hash for quick comparison */
   $hash: string;
+}
+
+/**
+ * Resource timing data extracted from the Performance API.
+ *
+ * Captures connection lifecycle metrics that vary by network path
+ * and can detect proxies, VPNs, and unusual network configurations.
+ */
+export interface ResourceTimingData {
+  /** Navigation timing (the page itself) */
+  navigation: NavigationTimingMetrics | undefined;
+  /** First N resource entries summarized */
+  resources: ResourceTimingEntry[];
+}
+
+/**
+ * Key timing metrics from PerformanceNavigationTiming.
+ */
+export interface NavigationTimingMetrics {
+  /** DNS lookup duration (ms) */
+  dnsLookup: number;
+  /** TCP connection duration (ms) */
+  tcpConnect: number;
+  /** TLS handshake duration (ms), 0 if not HTTPS */
+  tlsHandshake: number;
+  /** Time to first byte (ms) */
+  ttfb: number;
+  /** Response download duration (ms) */
+  responseTime: number;
+  /** Total transfer size (bytes) */
+  transferSize: number;
+  /** Decoded body size (bytes) */
+  decodedBodySize: number;
+  /** Connection protocol (e.g., "h2", "h3") */
+  nextHopProtocol: string;
+}
+
+/**
+ * Summarized resource timing entry.
+ */
+export interface ResourceTimingEntry {
+  /** Resource type (script, css, img, etc.) */
+  initiatorType: string;
+  /** Connection protocol */
+  nextHopProtocol: string;
+  /** DNS lookup duration (ms) */
+  dnsLookup: number;
+  /** TCP connection duration (ms) */
+  tcpConnect: number;
+  /** TLS handshake duration (ms) */
+  tlsHandshake: number;
+  /** Time to first byte (ms) */
+  ttfb: number;
+  /** Transfer size (bytes) */
+  transferSize: number;
+}
+
+/**
+ * Rounds a timing value to 3 decimal places.
+ */
+function roundTiming(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+/**
+ * Collects resource timing data from the Performance API.
+ *
+ * Extracts navigation timing (the page load itself) and the first 10
+ * resource entries. Connection lifecycle metrics reveal network topology
+ * and can help detect proxies/VPNs server-side.
+ *
+ * @returns Resource timing data or undefined if unsupported
+ */
+function collectResourceTiming(): ResourceTimingData | undefined {
+  if (typeof performance.getEntriesByType !== 'function') return undefined;
+
+  let navigation: NavigationTimingMetrics | undefined;
+
+  const navEntries = performance.getEntriesByType(
+    'navigation',
+  ) as PerformanceNavigationTiming[];
+  if (navEntries.length > 0) {
+    const nav = navEntries[0];
+    navigation = {
+      dnsLookup: roundTiming(nav.domainLookupEnd - nav.domainLookupStart),
+      tcpConnect: roundTiming(nav.connectEnd - nav.connectStart),
+      tlsHandshake: roundTiming(
+        nav.secureConnectionStart > 0
+          ? nav.connectEnd - nav.secureConnectionStart
+          : 0,
+      ),
+      ttfb: roundTiming(nav.responseStart - nav.requestStart),
+      responseTime: roundTiming(nav.responseEnd - nav.responseStart),
+      transferSize: nav.transferSize,
+      decodedBodySize: nav.decodedBodySize,
+      nextHopProtocol: nav.nextHopProtocol,
+    };
+  }
+
+  const resourceEntries = performance.getEntriesByType(
+    'resource',
+  ) as PerformanceResourceTiming[];
+  const resources: ResourceTimingEntry[] = resourceEntries
+    .slice(0, 10)
+    .map((r) => ({
+      initiatorType: r.initiatorType,
+      nextHopProtocol: r.nextHopProtocol,
+      dnsLookup: roundTiming(r.domainLookupEnd - r.domainLookupStart),
+      tcpConnect: roundTiming(r.connectEnd - r.connectStart),
+      tlsHandshake: roundTiming(
+        r.secureConnectionStart > 0
+          ? r.connectEnd - r.secureConnectionStart
+          : 0,
+      ),
+      ttfb: roundTiming(r.responseStart - r.requestStart),
+      transferSize: r.transferSize,
+    }));
+
+  return { navigation, resources };
 }
 
 /**
@@ -212,6 +334,9 @@ export default async function getTimingFingerprint(): Promise<
     const dateElapsed = end.dateNow - start.dateNow;
     const drift = Math.abs(perfElapsed - dateElapsed);
 
+    // Collect resource timing metrics
+    const resourceTiming = collectResourceTiming();
+
     const result: TimingFingerprint = {
       highPrecision,
       start,
@@ -222,6 +347,7 @@ export default async function getTimingFingerprint(): Promise<
       timeOrigin: performance.timeOrigin,
       samples,
       resolution,
+      resourceTiming,
       $hash: hashMini({
         resolution,
         drift,

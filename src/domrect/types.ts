@@ -34,6 +34,10 @@ export interface DOMRectFingerprint {
   emojiSet: string[];
   /** Sum of unique emoji dimensions for fingerprinting */
   domrectSystemSum: number;
+  /** offsetHeight of element with .5px dotted transparent border */
+  subPixelHeight: number;
+  /** Whether sub-pixel border rendering is supported */
+  subPixelSupported: boolean;
   /** Whether tampering was detected */
   lied: boolean;
 }

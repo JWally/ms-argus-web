@@ -335,6 +335,34 @@ const SIMHASH_FEATURE_WEIGHTS: Record<string, number> = {
 // Increased from 64-bit for finer similarity granularity
 const SIMHASH_BITS = 256;
 
+/** Convert accumulated vote array to hex string (positive vote → 1 bit). */
+function votesToHex(votes: number[]): string {
+  let result = '';
+  for (let byteIdx = 0; byteIdx < votes.length / 8; byteIdx++) {
+    let byte = 0;
+    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+      if (votes[byteIdx * 8 + bitIdx] > 0) byte |= 1 << bitIdx;
+    }
+    result += ('0' + byte.toString(16)).slice(-2);
+  }
+  return result;
+}
+
+/** Accumulate SimHash bit votes from an array of tokens with equal weight. */
+function accumulateTokenVotes(tokens: string[]): number[] {
+  const votes = new Array(SIMHASH_BITS).fill(0);
+  for (const token of tokens) {
+    for (let h = 0; h < SIMHASH_BITS / 32; h++) {
+      const salt = h === 0 ? token : `${token}:${h}`;
+      const bits = parseInt(hashMini(salt), 16) >>> 0;
+      for (let b = 0; b < 32; b++) {
+        votes[h * 32 + b] += (bits >>> b) & 1 ? 1 : -1;
+      }
+    }
+  }
+  return votes;
+}
+
 /**
  * Generate a 64-bit SimHash from fingerprint data.
  * Returns a 16-character hex string.
@@ -400,21 +428,7 @@ const getFuzzyHash = async (
     }
   }
 
-  // Convert votes to binary: positive -> 1, non-positive -> 0
-  // Then pack into hex string
-  let result = '';
-  for (let byteIdx = 0; byteIdx < SIMHASH_BITS / 8; byteIdx++) {
-    let byte = 0;
-    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
-      const voteIdx = byteIdx * 8 + bitIdx;
-      if (votes[voteIdx] > 0) {
-        byte |= 1 << bitIdx;
-      }
-    }
-    result += ('0' + byte.toString(16)).slice(-2);
-  }
-
-  return result;
+  return votesToHex(votes);
 };
 
 /**
@@ -462,7 +476,6 @@ const simhashify = (x: unknown): string => {
   // Strip JSON syntax, keep colons for key:value structure
   const stripped = JSON.stringify(x).replace(/[{}\[\]",]/g, '');
 
-  const votes = new Array(SIMHASH_BITS).fill(0);
   const NGRAM_SIZE = 3;
 
   // Sliding window n-grams
@@ -476,27 +489,7 @@ const simhashify = (x: unknown): string => {
     }
   }
 
-  for (const token of tokens) {
-    // Generate enough bits by chaining hashMini calls
-    for (let h = 0; h < SIMHASH_BITS / 32; h++) {
-      const salt = h === 0 ? token : `${token}:${h}`;
-      const bits = parseInt(hashMini(salt), 16) >>> 0;
-      for (let b = 0; b < 32; b++) {
-        votes[h * 32 + b] += (bits >>> b) & 1 ? 1 : -1;
-      }
-    }
-  }
-
-  // Convert votes to hex
-  let result = '';
-  for (let byteIdx = 0; byteIdx < SIMHASH_BITS / 8; byteIdx++) {
-    let byte = 0;
-    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
-      if (votes[byteIdx * 8 + bitIdx] > 0) byte |= 1 << bitIdx;
-    }
-    result += ('0' + byte.toString(16)).slice(-2);
-  }
-  return result;
+  return votesToHex(accumulateTokenVotes(tokens));
 };
 
 /**
@@ -510,28 +503,7 @@ const simhashify = (x: unknown): string => {
  * @returns Hex string (SIMHASH_BITS / 4 characters)
  */
 const simHashArray = (arr: string[]): string => {
-  const votes = new Array(SIMHASH_BITS).fill(0);
-
-  for (const item of arr) {
-    // Generate enough bits by chaining hashMini calls
-    for (let h = 0; h < SIMHASH_BITS / 32; h++) {
-      const salt = h === 0 ? item : `${item}:${h}`;
-      const bits = parseInt(hashMini(salt), 16) >>> 0;
-      for (let b = 0; b < 32; b++) {
-        votes[h * 32 + b] += (bits >>> b) & 1 ? 1 : -1;
-      }
-    }
-  }
-
-  let result = '';
-  for (let byteIdx = 0; byteIdx < SIMHASH_BITS / 8; byteIdx++) {
-    let byte = 0;
-    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
-      if (votes[byteIdx * 8 + bitIdx] > 0) byte |= 1 << bitIdx;
-    }
-    result += ('0' + byte.toString(16)).slice(-2);
-  }
-  return result;
+  return votesToHex(accumulateTokenVotes(arr));
 };
 
 /** Result of compacting a large array or string */

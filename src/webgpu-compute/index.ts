@@ -114,6 +114,182 @@ const MEMORY_SHADER = /* wgsl */ `
 `;
 
 /**
+ * WGSL vertex + fragment shaders for render pipeline fingerprinting.
+ *
+ * Draws a colored triangle (red/green/blue vertices) with a uniform
+ * rotation transform. The interpolated colors and rasterization differ
+ * subtly between GPU implementations.
+ */
+const RENDER_VERTEX_SHADER = /* wgsl */ `
+  struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) color: vec3<f32>,
+  }
+
+  @group(0) @binding(0) var<uniform> transform: mat4x4<f32>;
+
+  // Triangle vertices with RGB colors
+  const positions = array<vec2<f32>, 3>(
+    vec2<f32>(0.0, 0.5),
+    vec2<f32>(-0.5, -0.5),
+    vec2<f32>(0.5, -0.5),
+  );
+  const colors = array<vec3<f32>, 3>(
+    vec3<f32>(1.0, 0.0, 0.0),
+    vec3<f32>(0.0, 1.0, 0.0),
+    vec3<f32>(0.0, 0.0, 1.0),
+  );
+
+  @vertex
+  fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
+    var out: VertexOutput;
+    let pos = vec4<f32>(positions[idx], 0.0, 1.0);
+    out.position = transform * pos;
+    out.color = colors[idx];
+    return out;
+  }
+`;
+
+const RENDER_FRAGMENT_SHADER = /* wgsl */ `
+  @fragment
+  fn fs_main(@location(0) color: vec3<f32>) -> @location(0) vec4<f32> {
+    return vec4<f32>(color, 1.0);
+  }
+`;
+
+/** Canvas size for render pipeline test */
+const RENDER_CANVAS_SIZE = 64;
+
+/** Rotation angles in radians */
+const ROTATION_ANGLES = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4];
+
+/**
+ * Creates a 4×4 rotation matrix around the Z axis.
+ */
+function makeRotationZ(angle: number): Float32Array {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  // Column-major order for WGSL mat4x4
+  return new Float32Array([c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+}
+
+/**
+ * Runs the render pipeline pixel fingerprint test.
+ *
+ * Renders a colored triangle at multiple rotation angles into a 64×64
+ * offscreen texture, reads back pixel data, and hashes each frame.
+ *
+ * @param device - Active GPUDevice
+ * @returns Render pipeline fingerprint or undefined on error
+ */
+async function runRenderPipelineTest(
+  device: GPUDevice,
+): Promise<
+  | { pixelHash: string; transformHashes: string[]; canvasSize: number }
+  | undefined
+> {
+  try {
+    const size = RENDER_CANVAS_SIZE;
+
+    // Create shader module (both stages in one module)
+    const shaderModule = device.createShaderModule({
+      code: RENDER_VERTEX_SHADER + RENDER_FRAGMENT_SHADER,
+    });
+
+    // Create render pipeline
+    const pipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: shaderModule, entryPoint: 'vs_main' },
+      fragment: {
+        module: shaderModule,
+        entryPoint: 'fs_main',
+        targets: [{ format: 'rgba8unorm' }],
+      },
+      primitive: { topology: 'triangle-list' },
+    });
+
+    // Uniform buffer for transform matrix
+    const uniformBuffer = device.createBuffer({
+      size: 64, // mat4x4<f32> = 16 floats × 4 bytes
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+    });
+
+    // Offscreen render texture
+    const texture = device.createTexture({
+      size: [size, size],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+
+    // Staging buffer for reading pixels
+    const bytesPerRow = Math.ceil((size * 4) / 256) * 256;
+    const stagingBuffer = device.createBuffer({
+      size: bytesPerRow * size,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
+    const transformHashes: string[] = [];
+
+    for (const angle of ROTATION_ANGLES) {
+      // Write rotation matrix
+      device.queue.writeBuffer(uniformBuffer, 0, makeRotationZ(angle));
+
+      const encoder = device.createCommandEncoder();
+
+      // Render pass
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: texture.createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: 'clear' as GPULoadOp,
+            storeOp: 'store' as GPUStoreOp,
+          },
+        ],
+      });
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.draw(3);
+      pass.end();
+
+      // Copy texture to staging buffer
+      encoder.copyTextureToBuffer(
+        { texture },
+        { buffer: stagingBuffer, bytesPerRow },
+        [size, size],
+      );
+
+      device.queue.submit([encoder.finish()]);
+
+      // Read pixels
+      await stagingBuffer.mapAsync(GPUMapMode.READ);
+      const data = new Uint8Array(stagingBuffer.getMappedRange().slice(0));
+      stagingBuffer.unmap();
+
+      transformHashes.push(hashMini(data));
+    }
+
+    // Cleanup
+    uniformBuffer.destroy();
+    texture.destroy();
+    stagingBuffer.destroy();
+
+    return {
+      pixelHash: hashMini(transformHashes),
+      transformHashes,
+      canvasSize: size,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Number of timing samples to collect per test.
  * More samples = more stable fingerprint, but slower.
  */
@@ -174,31 +350,31 @@ function createPipeline(
 }
 
 /**
- * Runs the contention test and collects timing samples.
+ * Creates a standard output + staging buffer pair for GPU readback.
  */
-async function runContentionTest(
+function createOutputBuffers(
   device: GPUDevice,
-): Promise<{ timings: number[]; resultHash: string }> {
-  const pipeline = createPipeline(device, CONTENTION_SHADER, 'contention_test');
-
-  // Create output buffer
+  size: number,
+): { outputBuffer: GPUBuffer; readBuffer: GPUBuffer } {
   const outputBuffer = device.createBuffer({
-    size: TOTAL_THREADS * 4,
+    size,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
   });
-
-  // Create read buffer for results
   const readBuffer = device.createBuffer({
-    size: TOTAL_THREADS * 4,
+    size,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
+  return { outputBuffer, readBuffer };
+}
 
-  const bindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: outputBuffer } }],
-  });
-
-  // Collect timing samples
+/**
+ * Collects timing samples by running a compute pipeline repeatedly.
+ */
+async function collectTimings(
+  device: GPUDevice,
+  pipeline: GPUComputePipeline,
+  bindGroup: GPUBindGroup,
+): Promise<number[]> {
   const timings: number[] = [];
   for (let i = 0; i < TIMING_SAMPLES; i++) {
     const time = await runTimedCompute(
@@ -209,30 +385,86 @@ async function runContentionTest(
     );
     timings.push(time);
   }
+  return timings;
+}
 
-  // Read final results for hashing
+/**
+ * Reads GPU buffer contents back to CPU.
+ */
+async function readGpuBuffer<T extends Uint32Array | Float32Array>(
+  device: GPUDevice,
+  outputBuffer: GPUBuffer,
+  readBuffer: GPUBuffer,
+  size: number,
+  TypedArray: { new (buffer: ArrayBuffer): T },
+): Promise<T> {
   const encoder = device.createCommandEncoder();
-  encoder.copyBufferToBuffer(outputBuffer, 0, readBuffer, 0, TOTAL_THREADS * 4);
+  encoder.copyBufferToBuffer(outputBuffer, 0, readBuffer, 0, size);
   device.queue.submit([encoder.finish()]);
-
   await readBuffer.mapAsync(GPUMapMode.READ);
-  const results = new Uint32Array(readBuffer.getMappedRange().slice(0));
+  const results = new TypedArray(readBuffer.getMappedRange().slice(0));
   readBuffer.unmap();
+  return results;
+}
 
-  // Cleanup
-  outputBuffer.destroy();
-  readBuffer.destroy();
-
-  // XOR all results for a fingerprint hash
+/**
+ * XOR-reduces a Uint32Array to a hex hash string.
+ */
+function xorHash(results: Uint32Array): string {
   let xorResult = 0;
   for (let i = 0; i < results.length; i++) {
     xorResult ^= results[i];
   }
+  return xorResult.toString(16).padStart(8, '0');
+}
 
-  return {
-    timings,
-    resultHash: xorResult.toString(16).padStart(8, '0'),
-  };
+/**
+ * Runs a single-output-buffer compute test (contention or arithmetic).
+ */
+async function runSingleBufferTest<T extends Uint32Array | Float32Array>(
+  device: GPUDevice,
+  shaderCode: string,
+  entryPoint: string,
+  TypedArray: { new (buffer: ArrayBuffer): T },
+  hashFn: (results: T) => string,
+): Promise<{ timings: number[]; resultHash: string }> {
+  const pipeline = createPipeline(device, shaderCode, entryPoint);
+  const bufferSize = TOTAL_THREADS * 4;
+  const { outputBuffer, readBuffer } = createOutputBuffers(device, bufferSize);
+
+  const bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [{ binding: 0, resource: { buffer: outputBuffer } }],
+  });
+
+  const timings = await collectTimings(device, pipeline, bindGroup);
+  const results = await readGpuBuffer(
+    device,
+    outputBuffer,
+    readBuffer,
+    bufferSize,
+    TypedArray,
+  );
+
+  outputBuffer.destroy();
+  readBuffer.destroy();
+
+  return { timings, resultHash: hashFn(results) };
+}
+
+/**
+ * Runs the contention test and collects timing samples.
+ */
+async function runContentionTest(
+  device: GPUDevice,
+): Promise<{ timings: number[]; resultHash: string }> {
+  return runSingleBufferTest(
+    device,
+    CONTENTION_SHADER,
+    'contention_test',
+    Uint32Array,
+    xorHash,
+  );
 }
 
 /**
@@ -241,56 +473,17 @@ async function runContentionTest(
 async function runArithmeticTest(
   device: GPUDevice,
 ): Promise<{ timings: number[]; resultHash: string }> {
-  const pipeline = createPipeline(device, ARITHMETIC_SHADER, 'arithmetic_test');
-
-  const outputBuffer = device.createBuffer({
-    size: TOTAL_THREADS * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
-
-  const readBuffer = device.createBuffer({
-    size: TOTAL_THREADS * 4,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-  });
-
-  const bindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: outputBuffer } }],
-  });
-
-  const timings: number[] = [];
-  for (let i = 0; i < TIMING_SAMPLES; i++) {
-    const time = await runTimedCompute(
-      device,
-      pipeline,
-      bindGroup,
-      NUM_WORKGROUPS,
-    );
-    timings.push(time);
-  }
-
-  // Read results
-  const encoder = device.createCommandEncoder();
-  encoder.copyBufferToBuffer(outputBuffer, 0, readBuffer, 0, TOTAL_THREADS * 4);
-  device.queue.submit([encoder.finish()]);
-
-  await readBuffer.mapAsync(GPUMapMode.READ);
-  const results = new Float32Array(readBuffer.getMappedRange().slice(0));
-  readBuffer.unmap();
-
-  outputBuffer.destroy();
-  readBuffer.destroy();
-
-  // Sum for fingerprint (float results)
-  let sum = 0;
-  for (let i = 0; i < results.length; i++) {
-    sum += results[i];
-  }
-
-  return {
-    timings,
-    resultHash: hashMini(sum),
-  };
+  return runSingleBufferTest(
+    device,
+    ARITHMETIC_SHADER,
+    'arithmetic_test',
+    Float32Array,
+    (results) => {
+      let sum = 0;
+      for (let i = 0; i < results.length; i++) sum += results[i];
+      return hashMini(sum);
+    },
+  );
 }
 
 /**
@@ -300,6 +493,7 @@ async function runMemoryTest(
   device: GPUDevice,
 ): Promise<{ timings: number[]; resultHash: string }> {
   const pipeline = createPipeline(device, MEMORY_SHADER, 'memory_test');
+  const bufferSize = TOTAL_THREADS * 4;
 
   // Create input buffer with pseudo-random data
   const inputSize = 1024 * 64; // 64KB
@@ -314,15 +508,7 @@ async function runMemoryTest(
   });
   device.queue.writeBuffer(inputBuffer, 0, inputData);
 
-  const outputBuffer = device.createBuffer({
-    size: TOTAL_THREADS * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
-
-  const readBuffer = device.createBuffer({
-    size: TOTAL_THREADS * 4,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-  });
+  const { outputBuffer, readBuffer } = createOutputBuffers(device, bufferSize);
 
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
@@ -332,39 +518,20 @@ async function runMemoryTest(
     ],
   });
 
-  const timings: number[] = [];
-  for (let i = 0; i < TIMING_SAMPLES; i++) {
-    const time = await runTimedCompute(
-      device,
-      pipeline,
-      bindGroup,
-      NUM_WORKGROUPS,
-    );
-    timings.push(time);
-  }
-
-  // Read results
-  const encoder = device.createCommandEncoder();
-  encoder.copyBufferToBuffer(outputBuffer, 0, readBuffer, 0, TOTAL_THREADS * 4);
-  device.queue.submit([encoder.finish()]);
-
-  await readBuffer.mapAsync(GPUMapMode.READ);
-  const results = new Uint32Array(readBuffer.getMappedRange().slice(0));
-  readBuffer.unmap();
+  const timings = await collectTimings(device, pipeline, bindGroup);
+  const results = await readGpuBuffer(
+    device,
+    outputBuffer,
+    readBuffer,
+    bufferSize,
+    Uint32Array,
+  );
 
   inputBuffer.destroy();
   outputBuffer.destroy();
   readBuffer.destroy();
 
-  let xorResult = 0;
-  for (let i = 0; i < results.length; i++) {
-    xorResult ^= results[i];
-  }
-
-  return {
-    timings,
-    resultHash: xorResult.toString(16).padStart(8, '0'),
-  };
+  return { timings, resultHash: xorHash(results) };
 }
 
 /**
@@ -453,6 +620,9 @@ export default async function getWebGpuCompute(): Promise<
         Math.round((contentionStats.mean / memoryStats.mean) * 1000) / 1000,
     };
 
+    // Run render pipeline pixel fingerprint
+    const renderPipeline = await runRenderPipelineTest(device);
+
     // Cleanup
     device.destroy();
 
@@ -476,12 +646,16 @@ export default async function getWebGpuCompute(): Promise<
       // Timing ratios (more stable across browser versions)
       ratios,
 
+      // Render pipeline pixel fingerprint
+      renderPipeline: renderPipeline || undefined,
+
       // Combined fingerprint hash
       $hash: hashMini({
         c: contentionResult.resultHash,
         a: arithmeticResult.resultHash,
         m: memoryResult.resultHash,
         r: ratios,
+        rp: renderPipeline?.pixelHash,
       }),
     };
   } catch (error) {

@@ -417,37 +417,42 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
     setCustomStunServers([stunUri]);
   }
 
+  /** Collect all data (fingerprint, sigint, evercookie, crypto ID) in parallel. */
+  const collectAllData = () =>
+    Promise.all([
+      collectFingerprint(),
+      config.enableSigint
+        ? collectSigintData(config.sigint as SigintConfig)
+        : Promise.resolve(undefined),
+      getEvercookieId(),
+      getCryptoId(),
+    ]).then(([fingerprint, sigintData, evercookieData, cryptoIdData]) => ({
+      fingerprint,
+      sigintData,
+      evercookieData,
+      cryptoIdData,
+    }));
+
+  /** Submit telemetry, build result, and fire onComplete. */
+  const finalizeResult = async (
+    collected: Awaited<ReturnType<typeof collectAllData>>,
+    isolated: boolean,
+  ): Promise<LoaderResult> => {
+    const telemetryResult = await submitTelemetryIfEnabled(config, collected);
+    const result = buildResult(startTime, config, {
+      ...collected,
+      telemetryResult,
+      isolated,
+    });
+    config.onComplete?.(collected.fingerprint);
+    return result;
+  };
+
   // Skip isolation if requested (for debugging or specific use cases)
   if (config.skipIsolation) {
     try {
-      const [fingerprint, sigintData, evercookieData, cryptoIdData] =
-        await Promise.all([
-          collectFingerprint(),
-          config.enableSigint
-            ? collectSigintData(config.sigint as SigintConfig)
-            : Promise.resolve(undefined),
-          getEvercookieId(),
-          getCryptoId(),
-        ]);
-
-      const telemetryResult = await submitTelemetryIfEnabled(config, {
-        fingerprint,
-        sigintData,
-        evercookieData,
-        cryptoIdData,
-      });
-
-      const result = buildResult(startTime, config, {
-        fingerprint,
-        sigintData,
-        evercookieData,
-        cryptoIdData,
-        telemetryResult,
-        isolated: false,
-      });
-
-      config.onComplete?.(fingerprint);
-      return result;
+      const collected = await collectAllData();
+      return await finalizeResult(collected, false);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       config.onError?.(err);
@@ -482,40 +487,8 @@ export async function load(config: LoaderConfig = {}): Promise<LoaderResult> {
     // Run all collection in parallel, race against timeout.
     // Fingerprint + sigint use the iframe's clean environment (via same-origin access).
     // Evercookie + cryptoId run in main context (need localStorage/IndexedDB).
-    const collectionPromise = (async () => {
-      const [fingerprint, sigintData, evercookieData, cryptoIdData] =
-        await Promise.all([
-          collectFingerprint(),
-          config.enableSigint
-            ? collectSigintData(config.sigint as SigintConfig)
-            : Promise.resolve(undefined),
-          getEvercookieId(),
-          getCryptoId(),
-        ]);
-      return { fingerprint, sigintData, evercookieData, cryptoIdData };
-    })();
-
-    // Race between collection and timeout
-    const { fingerprint, sigintData, evercookieData, cryptoIdData } =
-      await Promise.race([collectionPromise, timeoutPromise]);
-
-    const telemetryResult = await submitTelemetryIfEnabled(config, {
-      fingerprint,
-      sigintData,
-      evercookieData,
-      cryptoIdData,
-    });
-
-    const result = buildResult(startTime, config, {
-      fingerprint,
-      sigintData,
-      evercookieData,
-      cryptoIdData,
-      telemetryResult,
-      isolated: true,
-    });
-
-    config.onComplete?.(fingerprint);
+    const collected = await Promise.race([collectAllData(), timeoutPromise]);
+    const result = await finalizeResult(collected, true);
 
     // Send to endpoint if configured
     if (config.endpoint) {

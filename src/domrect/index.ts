@@ -306,6 +306,15 @@ export default async function getClientRects(): Promise<
       documentLie('Element.getClientRects', 'unknown ghost dimensions');
     }
 
+    // Measure sub-pixel border rendering support
+    const subPixelDiv = DOC.createElement('div');
+    subPixelDiv.style.cssText =
+      'border: .5px dotted transparent; width: 100px; height: 0; position: absolute;';
+    DOC.body.appendChild(subPixelDiv);
+    const subPixelHeight = subPixelDiv.offsetHeight;
+    const subPixelSupported = subPixelHeight > 0;
+    DOC.body.removeChild(subPixelDiv);
+
     // Cleanup
     const container = DOC.getElementById(containerId);
     if (container) DOC.body.removeChild(container);
@@ -319,6 +328,8 @@ export default async function getClientRects(): Promise<
       rangeBoundingClientRect,
       emojiSet,
       domrectSystemSum,
+      subPixelHeight,
+      subPixelSupported,
       lied,
     };
   } catch (error) {
