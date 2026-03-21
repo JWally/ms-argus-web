@@ -16,6 +16,7 @@ import {
   getH2Fingerprint,
   type SigintConfig,
   type SigintData,
+  type EncryptedProbeResponse,
 } from './sigint';
 
 describe('sigint URL builders', () => {
@@ -625,7 +626,8 @@ describe('fetchTcpProbe median calculation', () => {
     // Should return the response closest to median (1.1)
     // Sorted ratios: [1.0, 1.05, 1.1, 5.0, 15.0] -> median = 1.1
     expect(result.data).not.toBe(null);
-    expect(result.data?.rtt_fingerprint?.tls_to_tcp_ratio).toBe(1.1);
+    const tcpData = result.data as import('./sigint').TcpProbeResponse;
+    expect(tcpData?.rtt_fingerprint?.tls_to_tcp_ratio).toBe(1.1);
     expect(result.error).toBe(null);
   });
 
@@ -683,5 +685,124 @@ describe('fetchTcpProbe median calculation', () => {
     // Should still succeed with 3 valid responses
     expect(result.data).not.toBe(null);
     expect(result.error).toBe(null);
+  });
+
+  it('passes through encrypted response without validation', async () => {
+    const encryptedBlob: EncryptedProbeResponse = {
+      v: 1,
+      data: 'base64ciphertext==',
+    };
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(encryptedBlob),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const config: SigintConfig = { baseDomain: 'test.io', timeout: 1000 };
+    const result = await fetchTcpProbe(config);
+
+    expect(result.data).toEqual(encryptedBlob);
+    expect(result.error).toBe(null);
+  });
+
+  it('returns encrypted response even when some requests fail', async () => {
+    const encryptedBlob: EncryptedProbeResponse = { v: 1, data: 'abc==' };
+    let callIndex = 0;
+    const mockFetch = vi.fn().mockImplementation(() => {
+      callIndex++;
+      if (callIndex === 1) return Promise.reject(new Error('fail'));
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(encryptedBlob),
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const config: SigintConfig = { baseDomain: 'test.io', timeout: 1000 };
+    const result = await fetchTcpProbe(config);
+
+    expect(result.data).toEqual(encryptedBlob);
+    expect(result.error).toBe(null);
+  });
+});
+
+describe('fetchH2Probe — encrypted responses', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('passes through encrypted h2 response as-is', async () => {
+    const encryptedBlob: EncryptedProbeResponse = {
+      v: 1,
+      data: 'h2ciphertext==',
+    };
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(encryptedBlob),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const config: SigintConfig = { baseDomain: 'test.io', timeout: 1000 };
+    const result = await fetchH2Probe(config);
+
+    expect(result.data).toEqual(encryptedBlob);
+    expect(result.error).toBe(null);
+  });
+});
+
+describe('getProxyScore — encrypted probe', () => {
+  const baseData: SigintData = {
+    tlsFingerprint: null,
+    tcpProbe: null,
+    h2Probe: null,
+    stun: null,
+    faviconCache: null,
+    timing: {
+      tlsFingerprintMs: null,
+      tcpProbeMs: null,
+      h2ProbeMs: null,
+      stunMs: null,
+      faviconCacheMs: null,
+      totalMs: 0,
+    },
+    errors: [],
+  };
+
+  it('returns 0 when tcpProbe is an encrypted blob', () => {
+    const data: SigintData = {
+      ...baseData,
+      tcpProbe: { v: 1, data: 'encrypted==' },
+    };
+    expect(getProxyScore(data)).toBe(0);
+  });
+});
+
+describe('getH2Fingerprint — encrypted probe', () => {
+  const baseData: SigintData = {
+    tlsFingerprint: null,
+    tcpProbe: null,
+    h2Probe: null,
+    stun: null,
+    faviconCache: null,
+    timing: {
+      tlsFingerprintMs: null,
+      tcpProbeMs: null,
+      h2ProbeMs: null,
+      stunMs: null,
+      faviconCacheMs: null,
+      totalMs: 0,
+    },
+    errors: [],
+  };
+
+  it('returns null when h2Probe is an encrypted blob', () => {
+    const data: SigintData = {
+      ...baseData,
+      h2Probe: { v: 1, data: 'encrypted==' },
+    };
+    expect(getH2Fingerprint(data)).toBe(null);
   });
 });
