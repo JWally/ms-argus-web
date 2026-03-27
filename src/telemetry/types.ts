@@ -98,6 +98,15 @@ export interface TelemetrySubmission {
 // Result Types
 // ============================================================================
 
+/** Match result returned by GET /v1/session/{sessionId} */
+export interface MatchResult {
+  session_id: string;
+  device_id: string;
+  match_tier: number;
+  confidence: number;
+  status: 'pending' | 'complete' | 'degraded';
+}
+
 export interface TelemetryResult {
   /** Session ID to use for fetching results from GET /v1/session/{sessionId} */
   sessionId: string;
@@ -110,4 +119,9 @@ export interface TelemetryResult {
     submitMs: number;
     totalMs: number;
   };
+  /** Match result from GET /v1/session/{sessionId} — present when polling succeeded */
+  matchResult?: MatchResult;
+  /** Full raw API response from GET /v1/session/{sessionId} */
+   
+  apiResponse?: Record<string, any>;
 }

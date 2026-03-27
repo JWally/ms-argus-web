@@ -120,14 +120,17 @@ export function queryLies(
       spawnErr: () => new apiFunction(),
     }),
 
-    // Test 6: Class extension should throw TypeError (not in WebKit)
+    // Test 6: Class extension should throw TypeError (Blink only)
+    // Chrome throws when extending non-constructable native methods; Firefox and Safari do not.
+    // NOTE: Must use `new (class extends fn)()` (not a class declaration) to prevent Terser from
+    // removing the class as an "unused declaration". A class expression inside `new` is always
+    // preserved by minifiers since constructor calls are always considered side-effectful.
     ['failed class extends error']:
       !isWebKit &&
+      !isGecko &&
       failsTypeError({
-        spawnErr: () => {
-          // @ts-expect-error - Testing invalid usage
-          class Fake extends apiFunction {}
-        },
+        // @ts-expect-error - Testing invalid usage
+        spawnErr: () => void new (class extends apiFunction {})(),
       }),
 
     // Test 7: Setting null prototype and calling toString should throw

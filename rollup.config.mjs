@@ -218,6 +218,7 @@ export default [
       file: 'dist/argus.esm.js',
       format: 'es',
       sourcemap: true,
+      inlineDynamicImports: true,
     },
     plugins: [
       wasmBase64Plugin(),
@@ -237,6 +238,7 @@ export default [
       file: 'dist/argus.esm.min.js',
       format: 'es',
       sourcemap: true,
+      inlineDynamicImports: true,
     },
     plugins: [
       wasmBase64Plugin(),
@@ -258,6 +260,7 @@ export default [
       format: 'iife',
       name: 'Argus',
       sourcemap: true,
+      inlineDynamicImports: true,
     },
     plugins: [
       wasmBase64Plugin(),
@@ -278,6 +281,7 @@ export default [
       format: 'iife',
       name: 'Argus',
       sourcemap: true,
+      inlineDynamicImports: true,
     },
     plugins: [
       wasmBase64Plugin(),
@@ -302,6 +306,7 @@ export default [
       file: 'dist/argus.lite.esm.min.js',
       format: 'es',
       sourcemap: true,
+      inlineDynamicImports: true,
     },
     plugins: [
       wasmBase64Plugin(),
@@ -323,6 +328,7 @@ export default [
       format: 'iife',
       name: 'Argus',
       sourcemap: true,
+      inlineDynamicImports: true,
     },
     plugins: [
       wasmBase64Plugin(),

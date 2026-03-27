@@ -17,13 +17,19 @@ export type {
   TelemetryConfig,
   TelemetrySubmission,
   TelemetryResult,
+  MatchResult,
 } from './types';
 
 // Payload builder
 export { buildPayload } from './payload';
 
 // API functions
-export { SCHEMA_VERSION, submitTelemetry, getMatchTierLabel } from './api';
+export {
+  SCHEMA_VERSION,
+  submitTelemetry,
+  fetchSessionResult,
+  getMatchTierLabel,
+} from './api';
 
 // Helpers (exported for testing)
 export {

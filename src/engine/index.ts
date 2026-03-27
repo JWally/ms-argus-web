@@ -409,13 +409,12 @@ export default function getConsoleErrors():
     const claimedEngine = parseUserAgentEngines();
 
     // Check for mismatch (spoofing indicator)
+    // Layout engine check excluded: window.chrome removal by Brave/privacy-focused
+    // Chromium forks causes systematic false positives (detected WebKit, claimed Blink).
     const engineMismatch =
-      (claimedEngine.js !== 'unknown' &&
-        jsEngine !== 'unknown' &&
-        claimedEngine.js !== jsEngine) ||
-      (claimedEngine.layout !== 'unknown' &&
-        layoutEngine !== 'unknown' &&
-        claimedEngine.layout !== layoutEngine);
+      claimedEngine.js !== 'unknown' &&
+      jsEngine !== 'unknown' &&
+      claimedEngine.js !== jsEngine;
 
     // Stack format and eval fingerprinting
     const stackFormatHash = getStackFormatHash();

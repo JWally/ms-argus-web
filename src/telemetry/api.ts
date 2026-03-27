@@ -10,6 +10,7 @@ import type {
   TelemetryConfig,
   TelemetrySubmission,
   TelemetryResult,
+  MatchResult,
 } from './types';
 import { buildPayload } from './payload';
 import {
@@ -111,6 +112,62 @@ export async function submitTelemetry(
 
   result.timing.totalMs = performance.now() - startTime;
   return result;
+}
+
+/**
+ * Poll GET /v1/session/{sessionId} until matching completes or timeout.
+ *
+ * The matching pipeline is async (SQS → matching-worker), so the session
+ * starts as "pending" and transitions to "complete" or "degraded" once done.
+ * Polls every 250ms, gives up after maxWaitMs (default 5000ms).
+ *
+ * @returns The full API response and parsed match result, or undefined on failure
+ */
+export async function fetchSessionResult(
+  sessionId: string,
+  apiBase: string,
+  maxWaitMs = 5000,
+): Promise<
+  { matchResult: MatchResult; apiResponse: Record<string, unknown> } | undefined
+> {
+  const pollIntervalMs = 250;
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const resp = await fetch(`${apiBase}/v1/session/${sessionId}`);
+
+      if (resp.status === 404) {
+        // Session not yet in cache — matching still in progress, keep polling
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+        continue;
+      }
+      if (!resp.ok) return undefined;
+
+       
+      const data: Record<string, any> = await resp.json();
+
+      // API returns nested structure: identifiers.device_id, analysis.status, etc.
+      const matchResult: MatchResult = {
+        session_id: data.identifiers?.session_id ?? sessionId,
+        device_id: data.identifiers?.device_id ?? 'unknown',
+        match_tier: data.analysis?.match_tier ?? -1,
+        confidence: data.analysis?.confidence ?? 0,
+        status: data.analysis?.status ?? 'complete',
+      };
+
+      if (matchResult.status !== 'pending') {
+        return { matchResult, apiResponse: data };
+      }
+
+      // Still pending — wait before next poll
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
 }
 
 /**

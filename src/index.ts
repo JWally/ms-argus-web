@@ -117,11 +117,13 @@ export {
   type H2PriorityFrame,
   type ClientHints,
   type StunResult,
+  type ProbeTokenResponse,
 } from './utils/sigint';
 
 // Telemetry - API submission and match results
 export {
   submitTelemetry,
+  fetchSessionResult,
   getMatchTierLabel,
   type TelemetryConfig,
   type TelemetrySubmission,
@@ -167,9 +169,12 @@ import { getEvercookieId as _getEvercookieId } from './utils/evercookie';
 import { getCryptoId as _getCryptoId } from './utils/get-crypto-id';
 import {
   submitTelemetry as _submitTelemetry,
+  fetchSessionResult,
   type TelemetryConfig,
   type TelemetryResult,
 } from './telemetry';
+import { runArgusVm, prefetchArgusVm } from './vm/argus-vm';
+import { detectApiBaseFromHostname } from './telemetry/helpers';
 
 export interface LoadOptions {
   enableSigint?: boolean;
@@ -195,6 +200,8 @@ export interface LoadResult {
   };
   cryptoId?: { publicKey: string; date: string };
   telemetry?: TelemetryResult;
+  /** Session ID returned by /v1/collect after successful VM submission */
+  sessionId?: string;
   timing: { start: number; end: number; duration: number };
 }
 
@@ -221,17 +228,22 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
     _setCustomStunServers([stunUri]);
   }
 
-  // Run fingerprint, sigint, evercookie, and cryptoId in parallel
-  const [fingerprint, sigint, evercookieData, cryptoIdData] = await Promise.all(
-    [
-      _collectFingerprint(),
-      opts.enableSigint
-        ? _collectSigintData(opts.sigint as SigintConfig)
-        : Promise.resolve(undefined),
-      _getEvercookieId(),
-      _getCryptoId(),
-    ],
-  );
+  const useVm = opts.enableTelemetry && !!opts.telemetry?.baseDomain;
+  const apiBase = useVm
+    ? detectApiBaseFromHostname(opts.telemetry!.baseDomain)
+    : '';
+
+  // Kick off handshake + bytecode load as early as possible so they overlap
+  // with fingerprint collection rather than running after it.
+  if (useVm) prefetchArgusVm(apiBase);
+
+  // Run fingerprint, evercookie, and cryptoId in parallel.
+  // Sigint is handled inside the VM; the fallback path collects it explicitly.
+  const [fingerprint, evercookieData, cryptoIdData] = await Promise.all([
+    _collectFingerprint(),
+    _getEvercookieId(),
+    _getCryptoId(),
+  ]);
 
   const evercookie = evercookieData
     ? {
@@ -249,9 +261,36 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
       }
     : undefined;
 
-  // Submit telemetry if enabled
+  let sigint: Awaited<ReturnType<typeof _collectSigintData>> | undefined;
   let telemetryResult: TelemetryResult | undefined;
-  if (opts.enableTelemetry && opts.telemetry?.baseDomain) {
+  let sessionId: string | undefined;
+
+  if (useVm) {
+    // VM path: handshake → bot detection + sigint probes + ECDH encrypt + POST /v1/collect
+    // The handshake fetches the server pubkey from /v1/handshake internally.
+    // Falls back gracefully (empty sessionId) if handshake or VM fails.
+    const sigintConfig = opts.enableSigint
+      ? (opts.sigint as SigintConfig)
+      : undefined;
+    const vmResult = await runArgusVm(
+      fingerprint,
+      apiBase,
+      sigintConfig,
+      evercookieData,
+      cryptoIdData,
+    );
+    sessionId = vmResult.sessionId || undefined;
+    telemetryResult = {
+      sessionId: vmResult.sessionId,
+      submitted: !!vmResult.sessionId,
+      timing: { submitMs: 0, totalMs: 0 },
+    };
+  } else if (opts.enableTelemetry && opts.telemetry?.baseDomain) {
+    // Fallback: collect sigint explicitly, then submit via plaintext JSON
+    sigint = opts.enableSigint
+      ? await _collectSigintData(opts.sigint as SigintConfig)
+      : undefined;
+
     // Merge script-tag query params with any explicitly passed metadata,
     // filtering out reserved keys that have dedicated handling
     const RESERVED_SCRIPT_PARAMS = new Set([
@@ -282,7 +321,7 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
     }
     const metadata = Object.keys(merged).length > 0 ? merged : undefined;
 
-    const sessionId =
+    const explicitSessionId =
       opts.sessionId ||
       parseSessionIdParam(
         _scriptParams['session-id'] || _scriptParams['sessionId'],
@@ -295,10 +334,23 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
         evercookie: evercookieData,
         cryptoId: cryptoIdData,
         metadata,
-        sessionId,
+        sessionId: explicitSessionId,
       },
       opts.telemetry as TelemetryConfig,
     );
+    sessionId = telemetryResult.sessionId || undefined;
+  } else if (opts.enableSigint) {
+    sigint = await _collectSigintData(opts.sigint as SigintConfig);
+  }
+
+  // Poll GET /v1/session/{sessionId} to retrieve the match result (device_id, tier, confidence).
+  // The matching pipeline is async (SQS → matching-worker), so we poll until complete or timeout.
+  if (sessionId && apiBase && telemetryResult?.submitted) {
+    const sessionResult = await fetchSessionResult(sessionId, apiBase);
+    if (sessionResult && telemetryResult) {
+      telemetryResult.matchResult = sessionResult.matchResult;
+      telemetryResult.apiResponse = sessionResult.apiResponse;
+    }
   }
 
   const end = performance.now();
@@ -309,6 +361,7 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
     evercookie,
     cryptoId,
     telemetry: telemetryResult,
+    sessionId,
     timing: { start, end, duration: end - start },
   };
 }

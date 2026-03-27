@@ -47,7 +47,6 @@ import getMathML from './mathml';
 import getAdBlock from './adblock';
 import getTimingFingerprint from './timing';
 import { analyzeInconsistencies } from './inconsistencies';
-import detectProxy from './proxy';
 import { detectIncognito, detectPrivateFromDelta } from './incognito';
 
 // Types for the fingerprint result
@@ -153,7 +152,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     mathmlComputed,
     adblockComputed,
     timingComputed,
-    proxyComputed,
     incognitoComputed,
     // Delta pass (second run of safe modules, runs concurrently with first)
     canvas2dRun2,
@@ -200,7 +198,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     getMathML(),
     getAdBlock(),
     getTimingFingerprint(),
-    detectProxy(),
     detectIncognito(),
     // Second run of safe modules (parallel with above)
     getCanvas2d(),
@@ -380,7 +377,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     mathmlHash,
     adblockHash,
     timingHash,
-    proxyHash,
     incognitoHash,
     deviceOfTimezoneHash,
   ] = await Promise.all([
@@ -435,7 +431,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     hashify(mathmlComputed),
     hashify(adblockComputed),
     hashify(timingComputed),
-    hashify(proxyComputed),
     hashify(incognitoComputed),
     hashify(
       (() => {
@@ -755,13 +750,6 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
           $hash: timingHash,
           $fuzzy: simhashify(timingComputed),
         },
-    proxy: !proxyComputed
-      ? undefined
-      : {
-          ...proxyComputed,
-          $hash: proxyHash,
-          $fuzzy: simhashify(proxyComputed),
-        },
     incognito: !incognitoComputed
       ? undefined
       : {
@@ -1009,7 +997,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     hasLies: !!(liesComputed && liesComputed.totalLies > 0),
     lieCount: totalLies || 0,
     stealthSignals: stealth || {},
-    likelyResidentialProxy: proxyComputed?.likelyResidentialProxy || false,
+    likelyResidentialProxy: false,
     engineMismatch: consoleErrorsComputed?.engineMismatch || false,
     isPrivate: incognitoComputed?.isPrivate || false,
   };

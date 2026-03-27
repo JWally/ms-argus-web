@@ -140,7 +140,10 @@ export interface Http2Fingerprint {
   protocol: string;
 }
 
-/** Response from H2 Probe service */
+/**
+ * Response from H2 Probe service (legacy plaintext format).
+ * New deployments return ProbeTokenResponse instead.
+ */
 export interface H2ProbeResponse {
   h2_fingerprint: Http2Fingerprint | null;
   client_ip: string;
@@ -158,6 +161,17 @@ export interface EncryptedProbeResponse {
   data: string;
 }
 
+/**
+ * Token response returned by tcp-probe and h2-probe.
+ * The probe stores the full fingerprint in DynamoDB keyed by this token and returns
+ * only the token to the client. The client forwards it to ms-argus-api, which
+ * verifies the HMAC and fetches the fingerprint server-side.
+ * Format: {nonce_hex}.{expiry_ms}.{hmac_hex} — 90-second TTL.
+ */
+export interface ProbeTokenResponse {
+  token: string;
+}
+
 /** Client Hints captured by TCP Probe */
 export interface ClientHints {
   ua?: string;
@@ -173,7 +187,10 @@ export interface ClientHints {
   network_rtt?: string;
 }
 
-/** Response from TCP Probe service */
+/**
+ * Response from TCP Probe service (legacy plaintext format).
+ * New deployments return ProbeTokenResponse instead.
+ */
 export interface TcpProbeResponse {
   tcp_info: TcpInfo | null;
   rtt_fingerprint: RttFingerprint | null;
@@ -201,10 +218,14 @@ export interface StunResult {
 export interface SigintData {
   /** TLS fingerprint data from CloudFront edge */
   tlsFingerprint: TlsFingerprintResponse | null;
-  /** TCP probe data (RTT, proxy detection), or encrypted blob when SIGINT_AES_KEY is active */
-  tcpProbe: TcpProbeResponse | EncryptedProbeResponse | null;
-  /** H2 probe data (HTTP/2 protocol fingerprint), or encrypted blob when SIGINT_AES_KEY is active */
-  h2Probe: H2ProbeResponse | EncryptedProbeResponse | null;
+  /** TCP probe data: token (current), encrypted blob (legacy encrypted), or plaintext (legacy) */
+  tcpProbe:
+    | TcpProbeResponse
+    | EncryptedProbeResponse
+    | ProbeTokenResponse
+    | null;
+  /** H2 probe data: token (current), encrypted blob (legacy encrypted), or plaintext (legacy) */
+  h2Probe: H2ProbeResponse | EncryptedProbeResponse | ProbeTokenResponse | null;
   /** STUN/WebRTC data */
   stun: StunResult | null;
   /** Favicon cache device ID */
@@ -229,7 +250,7 @@ export interface SigintData {
 const DEFAULT_CONFIG: Required<SigintConfig> = {
   baseDomain: 'argus.pw',
   stagePrefix: '',
-  timeout: 2000,
+  timeout: 7000,
   enableCookie: true,
   enableTcpProbe: true,
   enableH2Probe: true,
@@ -343,18 +364,11 @@ async function fetchWithTimeout<T>(
   timeout: number,
   options: RequestInit = {},
 ): Promise<{ data: T | null; error: string | null; durationMs: number }> {
-  const isH2 = url.includes('-h2.');
-  if (isH2) console.log('[H2_DEBUG] fetchWithTimeout START for:', url);
-
   const start = performance.now();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    if (isH2) console.log('[H2_DEBUG] TIMEOUT triggered for:', url);
-    controller.abort();
-  }, timeout);
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    if (isH2) console.log('[H2_DEBUG] About to call fetch() for:', url);
     // Note: credentials: 'include' requires server to return specific origin, not '*'
     // If server returns Access-Control-Allow-Origin: *, use 'same-origin' instead
     const response = await fetch(url, {
@@ -362,19 +376,11 @@ async function fetchWithTimeout<T>(
       signal: controller.signal,
       credentials: 'omit', // Omit cookies to allow wildcard CORS (server fix needed for cookie support)
     });
-    if (isH2)
-      console.log('[H2_DEBUG] fetch() returned, status:', response.status);
 
     clearTimeout(timeoutId);
     const durationMs = performance.now() - start;
 
     if (!response.ok) {
-      if (isH2)
-        console.log(
-          '[H2_DEBUG] Response not OK:',
-          response.status,
-          response.statusText,
-        );
       return {
         data: null,
         error: `HTTP ${response.status}: ${response.statusText}`,
@@ -383,13 +389,10 @@ async function fetchWithTimeout<T>(
     }
 
     const data = (await response.json()) as T;
-    if (isH2) console.log('[H2_DEBUG] Parsed JSON data:', data);
     return { data, error: null, durationMs };
   } catch (err) {
     clearTimeout(timeoutId);
     const durationMs = performance.now() - start;
-
-    if (isH2) console.error('[H2_DEBUG] fetch() CAUGHT ERROR:', err);
 
     if (err instanceof Error) {
       if (err.name === 'AbortError') {
@@ -458,8 +461,16 @@ function isEncryptedProbeResponse(
   );
 }
 
+function isProbeTokenResponse(data: unknown): data is ProbeTokenResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof (data as Record<string, unknown>).token === 'string'
+  );
+}
+
 export async function fetchTcpProbe(config: SigintConfig): Promise<{
-  data: TcpProbeResponse | EncryptedProbeResponse | null;
+  data: TcpProbeResponse | EncryptedProbeResponse | ProbeTokenResponse | null;
   error: string | null;
   durationMs: number;
 }> {
@@ -467,39 +478,51 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
   const url = getTcpProbeEndpoint(config);
   const start = performance.now();
 
-  // Make parallel requests for median calculation
-  const requests = Array.from({ length: TCP_PROBE_SAMPLE_COUNT }, () =>
-    fetchWithTimeout<TcpProbeResponse | EncryptedProbeResponse>(
-      url,
-      merged.timeout,
-    ),
-  );
+  // Probe a single request first to detect response format
+  const probe = await fetchWithTimeout<
+    TcpProbeResponse | EncryptedProbeResponse | ProbeTokenResponse
+  >(url, merged.timeout);
 
-  const results = await Promise.all(requests);
-  const durationMs = performance.now() - start;
-
-  // If the probe is encrypting responses, pass the first successful blob through opaquely —
-  // we can't validate rtt_fingerprint on an encrypted payload.
-  const firstEncrypted = results.find(
-    (r) => r.data !== null && isEncryptedProbeResponse(r.data),
-  );
-  if (firstEncrypted) {
-    return { data: firstEncrypted.data, error: null, durationMs };
+  // Token response: probe stores fingerprint server-side, forward token to API
+  if (probe.data !== null && isProbeTokenResponse(probe.data)) {
+    return {
+      data: probe.data,
+      error: null,
+      durationMs: performance.now() - start,
+    };
   }
 
-  // Filter successful plaintext responses with valid ratio data
-  const validResults = results.filter(
+  // Encrypted response: pass through opaquely
+  if (probe.data !== null && isEncryptedProbeResponse(probe.data)) {
+    return {
+      data: probe.data,
+      error: null,
+      durationMs: performance.now() - start,
+    };
+  }
+
+  // Legacy plaintext response: make multiple parallel requests for median calculation
+  const requests = Array.from({ length: TCP_PROBE_SAMPLE_COUNT - 1 }, () =>
+    fetchWithTimeout<TcpProbeResponse>(url, merged.timeout),
+  );
+  const rest = await Promise.all(requests);
+  const durationMs = performance.now() - start;
+
+  // Filter valid plaintext responses with ratio data
+  const allResults = [probe, ...rest];
+  const validResults = allResults.filter(
     (r): r is typeof r & { data: TcpProbeResponse } =>
       r.data !== null &&
       !isEncryptedProbeResponse(r.data) &&
-      r.data.rtt_fingerprint !== null &&
-      typeof r.data.rtt_fingerprint.tls_to_tcp_ratio === 'number' &&
-      !isNaN(r.data.rtt_fingerprint.tls_to_tcp_ratio),
+      !isProbeTokenResponse(r.data) &&
+      (r.data as TcpProbeResponse).rtt_fingerprint !== null &&
+      typeof (r.data as TcpProbeResponse).rtt_fingerprint!.tls_to_tcp_ratio ===
+        'number' &&
+      !isNaN((r.data as TcpProbeResponse).rtt_fingerprint!.tls_to_tcp_ratio),
   );
 
-  // If no valid results, return the first error or a generic error
   if (validResults.length === 0) {
-    const firstError = results.find((r) => r.error !== null);
+    const firstError = allResults.find((r) => r.error !== null);
     return {
       data: null,
       error: firstError?.error || 'All TCP probe requests failed',
@@ -507,13 +530,12 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
     };
   }
 
-  // Calculate median ratio
+  // Return the result closest to the median ratio
   const ratios = validResults.map(
     (r) => r.data!.rtt_fingerprint!.tls_to_tcp_ratio,
   );
   const medianRatio = median(ratios);
 
-  // Find the result closest to the median (to return complete data)
   let closestResult = validResults[0];
   let closestDiff = Math.abs(
     closestResult.data!.rtt_fingerprint!.tls_to_tcp_ratio - medianRatio,
@@ -529,11 +551,7 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
     }
   }
 
-  return {
-    data: closestResult.data,
-    error: null,
-    durationMs,
-  };
+  return { data: closestResult.data, error: null, durationMs };
 }
 
 /**
@@ -543,25 +561,15 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
  * @returns Object containing H2 probe data, any error message, and request duration in ms
  */
 export async function fetchH2Probe(config: SigintConfig): Promise<{
-  data: H2ProbeResponse | EncryptedProbeResponse | null;
+  data: H2ProbeResponse | EncryptedProbeResponse | ProbeTokenResponse | null;
   error: string | null;
   durationMs: number;
 }> {
-  console.log('[H2_DEBUG] fetchH2Probe called');
-  const merged = { ...DEFAULT_CONFIG, ...config };
   const url = getH2ProbeEndpoint(config);
-  console.log('[H2_DEBUG] H2 URL:', url);
-  console.log('[H2_DEBUG] H2 timeout:', merged.timeout);
-  try {
-    const result = await fetchWithTimeout<
-      H2ProbeResponse | EncryptedProbeResponse
-    >(url, merged.timeout);
-    console.log('[H2_DEBUG] H2 fetch result:', result);
-    return result;
-  } catch (err) {
-    console.error('[H2_DEBUG] H2 fetch threw:', err);
-    throw err;
-  }
+  const merged = { ...DEFAULT_CONFIG, ...config };
+  return fetchWithTimeout<
+    H2ProbeResponse | EncryptedProbeResponse | ProbeTokenResponse
+  >(url, merged.timeout);
 }
 
 /**
@@ -720,9 +728,6 @@ export async function collectSigintData(
   config: SigintConfig,
 ): Promise<SigintData> {
   const merged = { ...DEFAULT_CONFIG, ...config };
-  console.log('[H2_DEBUG] collectSigintData called');
-  console.log('[H2_DEBUG] config passed in:', JSON.stringify(config));
-  console.log('[H2_DEBUG] merged.enableH2Probe:', merged.enableH2Probe);
   const start = performance.now();
   const errors: string[] = [];
 
@@ -741,11 +746,8 @@ export async function collectSigintData(
   }
 
   if (merged.enableH2Probe) {
-    console.log('[H2_DEBUG] Adding H2 probe to requests');
     requests.push(fetchH2Probe(config));
     requestTypes.push('h2');
-  } else {
-    console.log('[H2_DEBUG] H2 probe DISABLED, not adding');
   }
 
   if (merged.enableStun) {
@@ -764,9 +766,17 @@ export async function collectSigintData(
   // Parse results
   let tlsFingerprint: TlsFingerprintResponse | null = null;
   let tlsFingerprintMs: number | null = null;
-  let tcpProbe: TcpProbeResponse | null = null;
+  let tcpProbe:
+    | TcpProbeResponse
+    | EncryptedProbeResponse
+    | ProbeTokenResponse
+    | null = null;
   let tcpProbeMs: number | null = null;
-  let h2Probe: H2ProbeResponse | null = null;
+  let h2Probe:
+    | H2ProbeResponse
+    | EncryptedProbeResponse
+    | ProbeTokenResponse
+    | null = null;
   let h2ProbeMs: number | null = null;
   let stun: StunResult | null = null;
   let stunMs: number | null = null;
@@ -791,11 +801,19 @@ export async function collectSigintData(
         tlsFingerprintMs = result.durationMs;
         break;
       case 'tcp':
-        tcpProbe = result.data as TcpProbeResponse | null;
+        tcpProbe = result.data as
+          | TcpProbeResponse
+          | EncryptedProbeResponse
+          | ProbeTokenResponse
+          | null;
         tcpProbeMs = result.durationMs;
         break;
       case 'h2':
-        h2Probe = result.data as H2ProbeResponse | null;
+        h2Probe = result.data as
+          | H2ProbeResponse
+          | EncryptedProbeResponse
+          | ProbeTokenResponse
+          | null;
         h2ProbeMs = result.durationMs;
         break;
       case 'stun':
@@ -900,13 +918,19 @@ export function parseSigintConfigFromUrl(
  * Quick check if we're likely behind a proxy or VPN.
  *
  * Returns the higher of the proxy and VPN likelihood scores from the TCP probe
- * RTT fingerprint, or 0 if TCP probe data is unavailable.
+ * RTT fingerprint. Only available for legacy plaintext responses — token and
+ * encrypted responses require server-side lookup via ms-argus-api.
  *
  * @param data - Collected sigint data containing TCP probe results
  * @returns Score from 0.0 (unlikely) to 1.0 (very likely) indicating proxy/VPN presence
  */
 export function getProxyScore(data: SigintData): number {
-  if (!data.tcpProbe || isEncryptedProbeResponse(data.tcpProbe)) return 0;
+  if (!data.tcpProbe) return 0;
+  if (
+    isEncryptedProbeResponse(data.tcpProbe) ||
+    isProbeTokenResponse(data.tcpProbe)
+  )
+    return 0;
   if (!data.tcpProbe.rtt_fingerprint) return 0;
   return Math.max(
     data.tcpProbe.rtt_fingerprint.proxy_score,
@@ -948,10 +972,18 @@ export function getFaviconCacheDeviceId(data: SigintData): string | null {
 /**
  * Get the HTTP/2 protocol fingerprint string.
  *
+ * Only available for legacy plaintext responses — token and encrypted responses
+ * require server-side lookup via ms-argus-api.
+ *
  * @param data - Collected sigint data containing H2 probe results
  * @returns H2 fingerprint string (Akamai-style), or null if H2 probe data is unavailable
  */
 export function getH2Fingerprint(data: SigintData): string | null {
-  if (!data.h2Probe || isEncryptedProbeResponse(data.h2Probe)) return null;
+  if (!data.h2Probe) return null;
+  if (
+    isEncryptedProbeResponse(data.h2Probe) ||
+    isProbeTokenResponse(data.h2Probe)
+  )
+    return null;
   return data.h2Probe.h2_fingerprint?.fingerprint || null;
 }
