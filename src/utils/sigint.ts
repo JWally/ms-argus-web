@@ -510,6 +510,16 @@ export async function fetchTcpProbe(config: SigintConfig): Promise<{
 
   // Filter valid plaintext responses with ratio data
   const allResults = [probe, ...rest];
+
+  // If any retry returned an encrypted/token response, use it
+  for (const r of allResults) {
+    if (r.data !== null && isProbeTokenResponse(r.data)) {
+      return { data: r.data, error: null, durationMs };
+    }
+    if (r.data !== null && isEncryptedProbeResponse(r.data)) {
+      return { data: r.data, error: null, durationMs };
+    }
+  }
   const validResults = allResults.filter(
     (r): r is typeof r & { data: TcpProbeResponse } =>
       r.data !== null &&
