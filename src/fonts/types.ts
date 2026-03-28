@@ -44,5 +44,5 @@ export interface FontFingerprint {
   pixelSizeSystemSum: number;
 
   /** Whether tampering was detected */
-  lied: string[] | false;
+  lied: number | false;
 }

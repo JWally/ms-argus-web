@@ -186,7 +186,7 @@ export default async function getVoices(): Promise<SpeechFingerprint | null> {
       }
     } catch (error) {
       logTestResult({ test: 'speech', passed: false });
-      captureError(error);
+      captureError(error as Error);
       return resolve(null);
     }
   });

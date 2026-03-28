@@ -35,7 +35,10 @@ echo ""
 check "class extends (Terser-safe form)" "new \(?class extends [a-zA-Z]+"
 
 # Tests 20-24: proxy detection section exists
-check "proxy detection tests" "proxy1|proxy2|proxy3"
+# NOTE: Terser renames proxy1/proxy2/proxy3 to single-char vars — check lie type strings instead
+check "proxy detection: chain cycle test" "failed at chain cycle error"
+check "proxy detection: proto recursion test" "failed at too much recursion __proto__ error"
+check "proxy detection: reflect set proto test" "failed at reflect set proto"
 
 # Sanity: lie type strings present
 check "lie type strings" "failed class extends error"

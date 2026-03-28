@@ -24,7 +24,7 @@ import { getReportedPlatform } from './helpers';
  * @param x - The value to hash (will be JSON-serialized)
  * @returns An 8-character hexadecimal hash string
  */
-const hashMini = (x) => {
+const hashMini = (x: any) => {
   const json = `${JSON.stringify(x)}`;
   const hash = json.split('').reduce((hash, char, i) => {
     return (Math.imul(31, hash) + json.charCodeAt(i)) | 0;
@@ -45,7 +45,7 @@ const instanceId =
  * @param algorithm - The digest algorithm to use (defaults to SHA-256)
  * @returns A promise resolving to the hexadecimal hash string
  */
-const hashify = (x, algorithm = 'SHA-256') => {
+const hashify = (x: any, algorithm = 'SHA-256') => {
   const json = `${JSON.stringify(x)}`;
 
   // Fallback for non-secure contexts (HTTP) where crypto.subtle is unavailable
@@ -116,7 +116,7 @@ async function cipher(data: any): Promise<string[]> {
  * @param imports - Utility imports providing getFeaturesLie and computeWindowsRelease
  * @returns An object containing the binary botHash string and the first matching bad bot pattern key
  */
-const getBotHash = (fp, imports) => {
+const getBotHash = (fp: any, imports: any) => {
   const { getFeaturesLie, computeWindowsRelease } = imports;
   const outsideFeaturesVersion = getFeaturesLie(fp);
   const workerScopeIsBlocked =
@@ -176,12 +176,13 @@ const getBotHash = (fp, imports) => {
     crowdBlendingScoreIsLow: false, // csl
   };
 
-  const botHash = Object.keys(botPatterns)
-    .map((key) => (botPatterns[key] ? '1' : '0'))
+  const bp = botPatterns as Record<string, boolean>;
+  const botHash = Object.keys(bp)
+    .map((key) => (bp[key] ? '1' : '0'))
     .join('');
   return {
     botHash,
-    badBot: Object.keys(botPatterns).find((key) => botPatterns[key]),
+    badBot: Object.keys(bp).find((key) => bp[key]),
   };
 };
 

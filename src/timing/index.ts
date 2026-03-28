@@ -277,7 +277,6 @@ async function getHighPrecisionTime(): Promise<number | null> {
       const blob = new Blob([workerCode], { type: 'application/javascript' });
       const worker = new Worker(URL.createObjectURL(blob));
 
-      // @ts-expect-error - Passing SAB to worker
       worker.postMessage({ sab });
 
       // Let worker run briefly then read counter
@@ -359,7 +358,7 @@ export default async function getTimingFingerprint(): Promise<
     return result;
   } catch (error) {
     logTestResult({ test: 'timing', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

@@ -94,7 +94,7 @@ function extractTimezoneAbbreviation(date: Date): string {
  *
  * @returns Lie array or false if no tampering detected
  */
-function detectTimezoneLies(): string[] | false {
+function detectTimezoneLies(): number | false {
   return (
     lieProps['Date.getTimezoneOffset'] ||
     lieProps['Intl.DateTimeFormat.resolvedOptions'] ||
@@ -152,7 +152,7 @@ export default async function getTimezone(): Promise<
     return data;
   } catch (error) {
     logTestResult({ test: 'timezone', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

@@ -152,7 +152,7 @@ export default function getWindowFeatures():
     return { keys, apple, moz, webkit };
   } catch (error) {
     logTestResult({ test: 'window', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

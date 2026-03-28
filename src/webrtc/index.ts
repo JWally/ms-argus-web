@@ -234,10 +234,10 @@ function getMediaConfig(
         },
     audio: !/^audio/.test(codec)
       ? undefined
-      : {
+      : ({
           contentType: codec,
           ...audio,
-        },
+        } as unknown as AudioConfiguration),
   };
 }
 
@@ -261,7 +261,6 @@ export async function getMediaCapabilities(): Promise<Record<
         VIDEO_TEST_CONFIG,
         AUDIO_TEST_CONFIG,
       );
-      // @ts-expect-error - mediaCapabilities may not be fully typed
       return navigator.mediaCapabilities
         .decodingInfo(config)
         .then(

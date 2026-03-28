@@ -203,7 +203,7 @@ export default async function getScreen(
     return data;
   } catch (error) {
     log && logTestResult({ test: 'screen', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

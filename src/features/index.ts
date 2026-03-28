@@ -123,7 +123,7 @@ function getJSCoreFeatures(win: Window & typeof globalThis): string[] {
 
     return features.sort();
   } catch (error) {
-    captureError(error);
+    captureError(error as Error);
     return [];
   }
 }
@@ -183,7 +183,7 @@ export default async function getEngineFeatures({
     };
   } catch (error) {
     logTestResult({ test: 'features', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

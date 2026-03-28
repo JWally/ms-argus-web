@@ -60,8 +60,8 @@ describe('webgpu-compute types', () => {
       expect(typeof fingerprint.contentionHash).toBe('string');
       expect(typeof fingerprint.arithmeticHash).toBe('string');
       expect(typeof fingerprint.memoryHash).toBe('string');
-      expect(fingerprint.timings.contention.mean).toBe(2.5);
-      expect(fingerprint.ratios.contentionToArithmetic).toBe(1.389);
+      expect(fingerprint.timings!.contention.mean).toBe(2.5);
+      expect(fingerprint.ratios!.contentionToArithmetic).toBe(1.389);
       expect(typeof fingerprint.$hash).toBe('string');
     });
   });

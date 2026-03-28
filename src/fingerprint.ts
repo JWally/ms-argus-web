@@ -46,7 +46,10 @@ import getWebGpuCompute from './webgpu-compute';
 import getMathML from './mathml';
 import getAdBlock from './adblock';
 import getTimingFingerprint from './timing';
-import { analyzeInconsistencies } from './inconsistencies';
+import {
+  analyzeInconsistencies,
+  type InconsistencyResult,
+} from './inconsistencies';
 import { detectIncognito, detectPrivateFromDelta } from './incognito';
 
 // Types for the fingerprint result
@@ -96,6 +99,7 @@ export interface FingerprintResult {
   stable: Record<string, any>;
   hashes: FingerprintHashes;
   botSignals: BotSignals;
+  inconsistencies?: InconsistencyResult;
   deltaReport: DeltaReport;
   meta: FingerprintMeta;
 }
@@ -122,7 +126,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
   const isBrave = IS_BLINK ? await braveBrowser() : false;
   const braveMode = isBrave ? getBraveMode() : {};
   const braveFingerprintingBlocking =
-    isBrave && (braveMode.standard || braveMode.strict);
+    isBrave && ((braveMode as any).standard || (braveMode as any).strict);
 
   // Collect all fingerprint data in parallel.
   // Safe modules run twice concurrently for delta-based volatility detection.
@@ -322,7 +326,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
   const { parameters: gpuParameter } = canvasWebglComputed || {};
   const reducedGPUParameters = {
     ...(braveFingerprintingBlocking
-      ? getBraveUnprotectedParameters(gpuParameter)
+      ? getBraveUnprotectedParameters(gpuParameter ?? {})
       : gpuParameter),
     RENDERER: undefined,
     SHADING_LANGUAGE_VERSION: undefined,
@@ -398,10 +402,10 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     hashify((canvasWebglComputed || {}).dataURI),
     hashify(reducedGPUParameters),
     ((canvasWebglComputed || {}).pixels || []).length
-      ? hashify(canvasWebglComputed.pixels)
+      ? hashify(canvasWebglComputed!.pixels)
       : undefined,
     ((canvasWebglComputed || {}).pixels2 || []).length
-      ? hashify(canvasWebglComputed.pixels2)
+      ? hashify(canvasWebglComputed!.pixels2)
       : undefined,
     hashify((mathsComputed || {}).data),
     hashify((consoleErrorsComputed || {}).errors),
@@ -464,7 +468,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
           system: systemWorker,
           timezoneLocation: locationWorker,
           userAgentData: userAgentDataWorker,
-        } = workerScopeComputed || {};
+        } = (workerScopeComputed as any) || {};
         const { compressedGPU, confidence } = gpu || {};
         const {
           architecture: architectureWorker,
@@ -772,7 +776,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
 
   const privacyResistFingerprinting =
     resistanceComputed &&
-    /^(tor browser|firefox)$/i.test(resistanceComputed.privacy);
+    /^(tor browser|firefox)$/i.test(resistanceComputed.privacy ?? '');
 
   /** Returns GPU renderer/vendor only when confidence is not low. */
   const hardenGPU = (canvasWebgl: any) => {
@@ -820,42 +824,33 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
             colorDepth: screenStable.colorDepth,
             lied: screenStable.lied,
           }),
-    workerScope:
-      !workerScopeComputed || workerScopeComputed.lied
-        ? undefined
-        : {
-            deviceMemory: braveFingerprintingBlocking
-              ? undefined
-              : workerScopeComputed.deviceMemory,
-            hardwareConcurrency: braveFingerprintingBlocking
-              ? undefined
-              : workerScopeComputed.hardwareConcurrency,
-            language: !LowerEntropy.TIME_ZONE
-              ? workerScopeComputed.language
-              : undefined,
-            platform: workerScopeComputed.platform,
-            system: workerScopeComputed.system,
-            device: workerScopeComputed.device,
-            timezoneLocation: !LowerEntropy.TIME_ZONE
-              ? hardenEntropy(
-                  workerScopeComputed,
-                  workerScopeComputed.timezoneLocation,
-                )
-              : undefined,
-            webglRenderer:
-              workerScopeComputed.gpu.confidence != 'low'
-                ? workerScopeComputed.gpu.compressedGPU
-                : undefined,
-            webglVendor:
-              workerScopeComputed.gpu.confidence != 'low'
-                ? workerScopeComputed.webglVendor
-                : undefined,
-            userAgentData: {
-              ...workerScopeComputed.userAgentData,
-              brandsVersion: undefined,
-              uaFullVersion: undefined,
-            },
-          },
+    workerScope: (() => {
+      if (!workerScopeComputed || workerScopeComputed.lied) return undefined;
+      const wsc = workerScopeComputed as any;
+      return {
+        deviceMemory: braveFingerprintingBlocking
+          ? undefined
+          : wsc.deviceMemory,
+        hardwareConcurrency: braveFingerprintingBlocking
+          ? undefined
+          : wsc.hardwareConcurrency,
+        language: !LowerEntropy.TIME_ZONE ? wsc.language : undefined,
+        platform: wsc.platform,
+        system: wsc.system,
+        device: wsc.device,
+        timezoneLocation: !LowerEntropy.TIME_ZONE
+          ? hardenEntropy(workerScopeComputed, wsc.timezoneLocation)
+          : undefined,
+        webglRenderer:
+          wsc.gpu?.confidence != 'low' ? wsc.gpu?.compressedGPU : undefined,
+        webglVendor: wsc.gpu?.confidence != 'low' ? wsc.webglVendor : undefined,
+        userAgentData: {
+          ...(wsc.userAgentData || {}),
+          brandsVersion: undefined,
+          uaFullVersion: undefined,
+        },
+      };
+    })(),
     media: mediaStable,
     canvas2d: ((canvas2d) => {
       if (!canvas2d) {
@@ -996,7 +991,7 @@ export async function collectFingerprint(): Promise<FingerprintResult> {
     ),
     hasLies: !!(liesComputed && liesComputed.totalLies > 0),
     lieCount: totalLies || 0,
-    stealthSignals: stealth || {},
+    stealthSignals: (stealth || {}) as Record<string, boolean>,
     likelyResidentialProxy: false,
     engineMismatch: consoleErrorsComputed?.engineMismatch || false,
     isPrivate: incognitoComputed?.isPrivate || false,

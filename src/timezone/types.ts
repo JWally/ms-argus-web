@@ -57,5 +57,5 @@ export interface TimezoneFingerprint {
    * - Intl.DateTimeFormat.resolvedOptions
    * - Intl.RelativeTimeFormat.resolvedOptions
    */
-  lied: string[] | false;
+  lied: number | false;
 }

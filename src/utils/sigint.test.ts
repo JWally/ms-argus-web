@@ -481,9 +481,12 @@ describe('collectSigintData', () => {
       ja4: 'ja4-hash',
     };
 
+    // id endpoint returns text/plain: base64(json).signature_hex
+    const signedPayload =
+      btoa(JSON.stringify(mockResponse)) + '.deadbeefcafe0000';
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(signedPayload),
     });
     vi.stubGlobal('fetch', mockFetch);
 

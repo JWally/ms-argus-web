@@ -49,6 +49,8 @@ const createMockFingerprintResult = (
     fonts: [],
     media: [],
     timezone: [],
+    mathml: [],
+    adblock: [],
   },
   meta: {
     timestamp: Date.now(),

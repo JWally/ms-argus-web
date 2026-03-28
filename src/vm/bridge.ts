@@ -95,7 +95,7 @@ export interface ArgusVmContext {
   getPayload: () => Record<string, unknown>;
   /** Stable fingerprint hash — included in vmHash computation to tie hash to payload */
   getStableHash: () => string;
-  /** Raw P-256 server public key (88-char base64) extracted from handshake token */
+  /** Raw P-256 server public key (88-char base64) — from h2-probe */
   getServerPubKey: () => string;
   /** Called when tamper signals are detected — sets tampered=true in payload */
   onImmolate: (signals: string[]) => void;
@@ -103,8 +103,10 @@ export interface ArgusVmContext {
   sigintConfig?: SigintConfig;
   /** POST target, e.g. "https://api.argus.pw/v1/collect" */
   apiEndpoint: string;
-  /** Opaque handshake token returned by /v1/handshake — forwarded as X-Argus-Session */
+  /** Opaque session correlation token — forwarded as X-Argus-Session */
   sessionToken: string;
+  /** Pre-started h2-probe token promise — reused to avoid a duplicate fetch */
+  h2Promise?: Promise<string>;
 }
 
 const HIDDEN_CSS =
@@ -149,11 +151,11 @@ export function createArgusVmBridge(ctx: ArgusVmContext): ApiBridge {
   let coalescedStr = '';
   let predictedStr = '';
   let perfNowStr = '';
-   
+
   let coalescedFn: any = null;
-   
+
   let predictedFn: any = null;
-   
+
   let perfNowFn: any = null;
   try {
     coalescedFn = PointerEvent.prototype.getCoalescedEvents;
@@ -539,19 +541,30 @@ export function createArgusVmBridge(ctx: ArgusVmContext): ApiBridge {
 
   const tcpPromise: Promise<string> = ctx.sigintConfig
     ? fetchTcpProbe(ctx.sigintConfig)
-        .then((r) =>
-          r && typeof r === 'object' && 'token' in r ? r.token : '',
-        )
+        .then((r) => {
+          const data = r.data;
+          return data && typeof data === 'object' && 'token' in data
+            ? (data as { token: string }).token
+            : '';
+        })
         .catch(() => '')
     : Promise.resolve('');
 
-  const h2Promise: Promise<string> = ctx.sigintConfig
-    ? fetchH2Probe(ctx.sigintConfig)
-        .then((r) =>
-          r && typeof r === 'object' && 'token' in r ? r.token : '',
-        )
-        .catch(() => '')
-    : Promise.resolve('');
+  // Reuse the h2-probe fetch started by prefetchArgusVm() if available — avoids
+  // a duplicate request. Falls back to starting a fresh fetch when bridge is
+  // constructed outside the normal prefetch flow.
+  const h2Promise: Promise<string> =
+    ctx.h2Promise ??
+    (ctx.sigintConfig
+      ? fetchH2Probe(ctx.sigintConfig)
+          .then((r) => {
+            const data = r.data;
+            return data && typeof data === 'object' && 'token' in data
+              ? (data as { token: string }).token
+              : '';
+          })
+          .catch(() => '')
+      : Promise.resolve(''));
 
   // 0x40: fetch TLS fingerprint — awaits pre-started promise
   bridge.register(BridgeApi.FETCH_TLS_FP, {

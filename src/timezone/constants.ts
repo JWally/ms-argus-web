@@ -42,7 +42,7 @@ export async function getTimezoneCities(): Promise<string[]> {
       'loadTimezoneCities',
       'External timezone data load failed, using inline',
     );
-    return TIMEZONE_CITIES_INLINE;
+    return TIMEZONE_CITIES_INLINE as unknown as string[];
   }
 }
 

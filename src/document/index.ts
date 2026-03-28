@@ -80,7 +80,7 @@ export default function getHTMLElementVersion():
     return { keys };
   } catch (error) {
     logTestResult({ test: 'html element', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

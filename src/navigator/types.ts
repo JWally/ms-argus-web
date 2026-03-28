@@ -69,7 +69,7 @@ export interface NavigatorFingerprint {
   system: string | undefined;
 
   /** Parsed user agent details */
-  userAgentParsed: ParsedUserAgent | undefined;
+  userAgentParsed: ParsedUserAgent | string | undefined;
 
   /** Device type from user agent */
   device: string | undefined;
@@ -87,7 +87,7 @@ export interface NavigatorFingerprint {
   deviceMemory: number | undefined;
 
   /** Do Not Track preference */
-  doNotTrack: string | undefined;
+  doNotTrack: string | null | undefined;
 
   /** Global Privacy Control preference */
   globalPrivacyControl: string | undefined;

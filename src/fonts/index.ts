@@ -291,7 +291,7 @@ function detectDesktopApps(fonts: string[]): string[] {
  *
  * @returns Lie array or false if no tampering detected
  */
-function detectFontLies(): string[] | false {
+function detectFontLies(): number | false {
   return (
     lieProps['FontFace.load'] ||
     lieProps['FontFace.family'] ||
@@ -357,7 +357,7 @@ export default async function getFonts(): Promise<FontFingerprint | undefined> {
     };
   } catch (error) {
     logTestResult({ test: 'fonts', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

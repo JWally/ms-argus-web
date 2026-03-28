@@ -77,7 +77,7 @@ export default function getMathML(): MathMLFingerprint | undefined {
     return { supported, rects, dimensionSum, lied: false };
   } catch (error) {
     logTestResult({ test: 'mathml', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

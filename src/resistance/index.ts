@@ -388,7 +388,7 @@ export default async function getResistance(): Promise<
     return data;
   } catch (error) {
     logTestResult({ test: 'resistance', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

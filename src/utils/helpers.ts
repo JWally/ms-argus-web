@@ -305,7 +305,7 @@ const getUserAgentPlatform = ({
             ).replace(/\./g, '_');
             const isOSX = /^10/.test(version);
             const id = isOSX ? version : (/^\d{2,}/.exec(version) || [])[0];
-            const codeName = versionMap[id];
+            const codeName = id ? versionMap[id] : undefined;
             return codeName ? `macOS ${codeName}` : release;
           }
           return x;
@@ -345,11 +345,11 @@ const getUserAgentPlatform = ({
 const computeWindowsRelease = ({
   platform,
   platformVersion,
-  fontPlatformVersion,
+  fontPlatformVersion = '',
 }: {
   platform: string;
   platformVersion: string;
-  fontPlatformVersion: string;
+  fontPlatformVersion?: string;
 }): string | undefined => {
   if (
     platform != 'Windows' ||

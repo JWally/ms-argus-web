@@ -142,10 +142,10 @@ export interface WebGLFingerprint {
   parameters: WebGLParameters;
 
   /** Whether parameter/extension APIs show signs of tampering */
-  parameterOrExtensionLie: string[] | false;
+  parameterOrExtensionLie: number | false;
 
   /** Whether any WebGL API shows signs of tampering */
-  lied: string[] | false;
+  lied: number | false;
 
   /** GPU analysis (confidence, compressed name) */
   gpu: GpuConfidence & {

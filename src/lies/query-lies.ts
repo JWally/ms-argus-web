@@ -203,9 +203,7 @@ export function queryLies(
     // Test 17: Arguments/caller access should fail in strict mode (Gecko)
     ['failed at incompatible proxy error']: failsTypeError({
       spawnErr: () => {
-        // @ts-expect-error - Testing invalid usage
         apiFunction.arguments;
-        // @ts-expect-error - Testing invalid usage
         apiFunction.caller;
       },
       withStack: (err) =>
@@ -215,9 +213,7 @@ export function queryLies(
     // Test 18: toString's arguments/caller should also fail
     ['failed at toString incompatible proxy error']: failsTypeError({
       spawnErr: () => {
-        // @ts-expect-error - Testing invalid usage
         apiFunction.toString.arguments;
-        // @ts-expect-error - Testing invalid usage
         apiFunction.toString.caller;
       },
       withStack: (err) =>

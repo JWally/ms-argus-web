@@ -168,7 +168,6 @@ import { setCustomStunServers as _setCustomStunServers } from './webrtc/constant
 import { getEvercookieId as _getEvercookieId } from './utils/evercookie';
 import { getCryptoId as _getCryptoId } from './utils/get-crypto-id';
 import {
-  submitTelemetry as _submitTelemetry,
   fetchSessionResult,
   type TelemetryConfig,
   type TelemetryResult,
@@ -230,15 +229,22 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
 
   const useVm = opts.enableTelemetry && !!opts.telemetry?.baseDomain;
   const apiBase = useVm
-    ? detectApiBaseFromHostname(opts.telemetry!.baseDomain)
+    ? detectApiBaseFromHostname(opts.telemetry!.baseDomain!)
     : '';
 
-  // Kick off handshake + bytecode load as early as possible so they overlap
+  // Compute sigintConfig early so it can be passed to prefetchArgusVm.
+  // This lets the h2-probe start immediately alongside bytecode loading,
+  // and its response carries the server ECDH pubkey — no /v1/handshake needed.
+  const sigintConfig = opts.enableSigint
+    ? (opts.sigint as SigintConfig)
+    : undefined;
+
+  // Kick off h2-probe + bytecode load as early as possible so they overlap
   // with fingerprint collection rather than running after it.
-  if (useVm) prefetchArgusVm(apiBase);
+  if (useVm) prefetchArgusVm(sigintConfig);
 
   // Run fingerprint, evercookie, and cryptoId in parallel.
-  // Sigint is handled inside the VM; the fallback path collects it explicitly.
+  // Sigint is handled inside the VM.
   const [fingerprint, evercookieData, cryptoIdData] = await Promise.all([
     _collectFingerprint(),
     _getEvercookieId(),
@@ -266,12 +272,8 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
   let sessionId: string | undefined;
 
   if (useVm) {
-    // VM path: handshake → bot detection + sigint probes + ECDH encrypt + POST /v1/collect
-    // The handshake fetches the server pubkey from /v1/handshake internally.
-    // Falls back gracefully (empty sessionId) if handshake or VM fails.
-    const sigintConfig = opts.enableSigint
-      ? (opts.sigint as SigintConfig)
-      : undefined;
+    // VM path: h2-probe pubkey → bot detection + sigint probes + ECDH encrypt + POST /v1/collect
+    // Falls back gracefully (empty sessionId) if h2-probe or VM fails.
     const vmResult = await runArgusVm(
       fingerprint,
       apiBase,
@@ -285,60 +287,6 @@ export async function load(opts: LoadOptions = {}): Promise<LoadResult> {
       submitted: !!vmResult.sessionId,
       timing: { submitMs: 0, totalMs: 0 },
     };
-  } else if (opts.enableTelemetry && opts.telemetry?.baseDomain) {
-    // Fallback: collect sigint explicitly, then submit via plaintext JSON
-    sigint = opts.enableSigint
-      ? await _collectSigintData(opts.sigint as SigintConfig)
-      : undefined;
-
-    // Merge script-tag query params with any explicitly passed metadata,
-    // filtering out reserved keys that have dedicated handling
-    const RESERVED_SCRIPT_PARAMS = new Set([
-      'session-id',
-      'sessionId',
-      'version',
-      'src',
-      'autorun',
-      'endpoint',
-      'variant',
-      'timeout',
-      'enableSigint',
-      'sigintDomain',
-      'sigintStage',
-      'enableStun',
-    ]);
-
-    const merged: Record<string, string> = {};
-    for (const [k, v] of Object.entries(_scriptParams)) {
-      if (!RESERVED_SCRIPT_PARAMS.has(k)) {
-        merged[k] = v;
-      }
-    }
-    if (opts.metadata) {
-      for (const [k, v] of Object.entries(opts.metadata)) {
-        merged[k] = v;
-      }
-    }
-    const metadata = Object.keys(merged).length > 0 ? merged : undefined;
-
-    const explicitSessionId =
-      opts.sessionId ||
-      parseSessionIdParam(
-        _scriptParams['session-id'] || _scriptParams['sessionId'],
-      );
-
-    telemetryResult = await _submitTelemetry(
-      {
-        fingerprint,
-        sigint,
-        evercookie: evercookieData,
-        cryptoId: cryptoIdData,
-        metadata,
-        sessionId: explicitSessionId,
-      },
-      opts.telemetry as TelemetryConfig,
-    );
-    sessionId = telemetryResult.sessionId || undefined;
   } else if (opts.enableSigint) {
     sigint = await _collectSigintData(opts.sigint as SigintConfig);
   }

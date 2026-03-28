@@ -566,7 +566,7 @@ describe('helpers module', () => {
       const fastPromise = Promise.resolve(new Response('test'));
       const result = await getPromiseRaceFulfilled({
         promise: fastPromise,
-        responseType: Response,
+        responseType: Response as any,
         limit: 1000,
       });
       expect(result).toBeInstanceOf(Response);
@@ -578,7 +578,7 @@ describe('helpers module', () => {
       );
       const result = await getPromiseRaceFulfilled({
         promise: slowPromise,
-        responseType: Response,
+        responseType: Response as any,
         limit: 10,
       });
       expect(result).toBeUndefined();
@@ -588,7 +588,7 @@ describe('helpers module', () => {
       const rejectingPromise = Promise.reject(new Error('test error'));
       const result = await getPromiseRaceFulfilled({
         promise: rejectingPromise,
-        responseType: Response,
+        responseType: Response as any,
         limit: 1000,
       });
       expect(result).toBeUndefined();
@@ -598,7 +598,7 @@ describe('helpers module', () => {
       const wrongTypePromise = Promise.resolve({ not: 'Response' });
       const result = await getPromiseRaceFulfilled({
         promise: wrongTypePromise,
-        responseType: Response,
+        responseType: Response as any,
         limit: 1000,
       });
       expect(result).toBeUndefined();
@@ -607,8 +607,10 @@ describe('helpers module', () => {
 
   describe('getUserAgentPlatform() additional cases', () => {
     it('returns unknown for null/undefined', () => {
-      expect(getUserAgentPlatform({ userAgent: null })).toBe('unknown');
-      expect(getUserAgentPlatform({ userAgent: undefined })).toBe('unknown');
+      expect(getUserAgentPlatform({ userAgent: null as any })).toBe('unknown');
+      expect(getUserAgentPlatform({ userAgent: undefined as any })).toBe(
+        'unknown',
+      );
       expect(getUserAgentPlatform({ userAgent: '' })).toBe('unknown');
     });
 

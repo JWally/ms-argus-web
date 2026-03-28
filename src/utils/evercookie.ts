@@ -576,7 +576,12 @@ export async function clearEvercookieId(): Promise<void> {
 
   // Cache API
   if (typeof caches !== 'undefined') {
-    clearPromises.push(caches.delete(EVERCOOKIE_CACHE_NAME).catch(() => {}));
+    clearPromises.push(
+      caches
+        .delete(EVERCOOKIE_CACHE_NAME)
+        .then(() => {})
+        .catch(() => {}),
+    );
   }
 
   // Favicon cache

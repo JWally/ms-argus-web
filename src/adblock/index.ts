@@ -109,7 +109,7 @@ export default async function getAdBlock(): Promise<
     };
   } catch (error) {
     logTestResult({ test: 'adblock', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

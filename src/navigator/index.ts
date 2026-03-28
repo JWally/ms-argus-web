@@ -166,15 +166,14 @@ function getDeviceMemory(
   workerScope: { deviceMemory?: number },
   setLied: () => void,
 ): number | undefined {
-  return attempt(() => {
+  return attempt((): number | undefined => {
     if (!('deviceMemory' in navigator)) {
       return undefined;
     }
 
-    // @ts-ignore
-    const { deviceMemory } = navigator;
+    const deviceMemory = (navigator as any).deviceMemory as number | undefined;
 
-    if (!VALID_DEVICE_MEMORY[deviceMemory]) {
+    if (deviceMemory !== undefined && !VALID_DEVICE_MEMORY[deviceMemory]) {
       sendToTrash(
         'deviceMemory',
         `${deviceMemory} is not a valid value [0.25, 0.5, 1, 2, 4, 8]`,
@@ -185,7 +184,7 @@ function getDeviceMemory(
     // @ts-expect-error memory is undefined if not supported
     const memory = performance?.memory?.jsHeapSizeLimit || null;
     const memoryInGigabytes = memory ? +(memory / 1073741824).toFixed(1) : 0;
-    if (memoryInGigabytes > deviceMemory) {
+    if (deviceMemory !== undefined && memoryInGigabytes > deviceMemory) {
       sendToTrash(
         'deviceMemory',
         `available memory ${memoryInGigabytes}GB is greater than device memory ${deviceMemory}GB`,
@@ -263,8 +262,7 @@ function detectAttributionApi(): {
   if ('attributionSrc' in a) {
     return { supported: true, variant: 'chromium' };
   }
-  // @ts-expect-error Safari Private Click Measurement
-  if ('attributionSourceId' in a) {
+  if ('attributionSourceId' in (a as any)) {
     return { supported: true, variant: 'safari' };
   }
   return { supported: false, variant: 'none' };
@@ -288,11 +286,8 @@ function getNetworkInformation():
       type: string | undefined;
     }
   | undefined {
-  // @ts-expect-error Network Information API (Chromium only)
-  const conn =
-    navigator.connection ||
-    navigator.mozConnection ||
-    navigator.webkitConnection;
+  const nav = navigator as any;
+  const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
   if (!conn) return undefined;
   return {
     rtt: conn.rtt,
@@ -440,8 +435,7 @@ async function getWebGpu(): Promise<WebGpuInfo | undefined> {
       return undefined;
     }
 
-    // @ts-expect-error if unsupported
-    const adapter = await navigator.gpu.requestAdapter();
+    const adapter = await (navigator as any).gpu?.requestAdapter();
     if (!adapter) return undefined;
 
     const { limits = {}, features = [] } = adapter;
@@ -474,7 +468,7 @@ async function getWebGpu(): Promise<WebGpuInfo | undefined> {
     const { info } = adapter;
     return info
       ? handleInfo(info)
-      : adapter.requestAdapterInfo().then(handleInfo);
+      : (adapter as any).requestAdapterInfo().then(handleInfo);
   }, 'webgpu failed');
 }
 
@@ -600,9 +594,10 @@ export default async function getNavigator(
         if (!('globalPrivacyControl' in navigator)) {
           return undefined;
         }
-        // @ts-ignore
-        const { globalPrivacyControl } = navigator;
-        if (!VALID_DO_NOT_TRACK[globalPrivacyControl]) {
+        const globalPrivacyControl = (navigator as any).globalPrivacyControl as
+          | string
+          | undefined;
+        if (!VALID_DO_NOT_TRACK[globalPrivacyControl as string]) {
           sendToTrash(
             'globalPrivacyControl - unusual result',
             globalPrivacyControl,
@@ -727,7 +722,7 @@ export default async function getNavigator(
     };
   } catch (error) {
     logTestResult({ test: 'navigator', passed: false });
-    captureError(error, 'Navigator failed or blocked by client');
+    captureError(error as Error, 'Navigator failed or blocked by client');
     return undefined;
   }
 }

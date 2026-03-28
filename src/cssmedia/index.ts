@@ -364,7 +364,7 @@ export default function getCSSMedia(): CSSMediaFingerprint | undefined {
     return { mediaCSS, matchMediaCSS, screenQuery };
   } catch (error) {
     logTestResult({ test: 'css media', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

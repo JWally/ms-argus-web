@@ -14,18 +14,23 @@
  * @module errors
  */
 
+interface CapturedError {
+  trustedName: string | undefined;
+  trustedMessage: string | undefined;
+}
+
 /**
  * Creates an error capturing system that collects and sanitizes encountered errors.
  *
  * @returns Object with `getErrors()` and `captureError()` methods
  */
 const createErrorsCaptured = () => {
-  const errors = [];
+  const errors: CapturedError[] = [];
   return {
     getErrors: () => errors,
     /** Captures and sanitizes an error, storing its trusted name and message. */
-    captureError: (error, customMessage = '') => {
-      const type = {
+    captureError: (error: Error, customMessage = '') => {
+      const type: Record<string, boolean> = {
         Error: true,
         EvalError: true,
         InternalError: true,
@@ -37,7 +42,7 @@ const createErrorsCaptured = () => {
         InvalidStateError: true,
         SecurityError: true,
       };
-      const hasInnerSpace = (s) => /.+(\s).+/g.test(s); // ignore AOPR noise
+      const hasInnerSpace = (s: string) => /.+(\s).+/g.test(s); // ignore AOPR noise
       console.error(error); // log error to educate
       const { name, message } = error;
       const trustedMessage = !hasInnerSpace(message)
@@ -60,14 +65,14 @@ const { captureError } = errorsCaptured;
  * @param customMessage - An optional custom message to attach to any captured error.
  * @returns The return value of fn, or undefined if an error was captured.
  */
-const attempt = (fn, customMessage = '') => {
+const attempt = <T>(fn: () => T, customMessage = ''): T | undefined => {
   try {
     return fn();
   } catch (error) {
     if (customMessage) {
-      return captureError(error, customMessage);
+      return captureError(error as Error, customMessage);
     }
-    return captureError(error);
+    return captureError(error as Error);
   }
 };
 
@@ -79,7 +84,12 @@ const attempt = (fn, customMessage = '') => {
  * @param method - Whether to invoke the resolved chain as a method via apply.
  * @returns The resolved value, the method call result, or undefined if any step fails.
  */
-const caniuse = (fn, objChainList = [], args = [], method = false) => {
+const caniuse = (
+  fn: () => unknown,
+  objChainList: string[] = [],
+  args: unknown[] = [],
+  method = false,
+) => {
   let api;
   try {
     api = fn();
@@ -88,7 +98,8 @@ const caniuse = (fn, objChainList = [], args = [], method = false) => {
   }
   let i;
   const len = objChainList.length;
-  let chain = api;
+   
+  let chain: any = api;
   try {
     for (i = 0; i < len; i++) {
       const obj = objChainList[i];
@@ -109,23 +120,23 @@ const caniuse = (fn, objChainList = [], args = [], method = false) => {
  * @param logStart - An optional message to log when the timer starts.
  * @returns A function that, when called, returns the elapsed time in milliseconds and optionally logs it.
  */
-const timer = (logStart) => {
+const timer = (logStart?: string) => {
   logStart && console.log(logStart);
   let start = 0;
   try {
     start = performance.now();
   } catch (error) {
-    captureError(error);
+    captureError(error as Error);
   }
   /** Stops the timer and returns elapsed milliseconds. */
-  return (logEnd) => {
+  return (logEnd?: string) => {
     let end = 0;
     try {
       end = performance.now() - start;
       logEnd && console.log(`${logEnd}: ${end / 1000} seconds`);
       return end;
     } catch (error) {
-      captureError(error);
+      captureError(error as Error);
       return 0;
     }
   };

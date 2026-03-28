@@ -180,7 +180,7 @@ function getRelativeTimeFormat(): string | undefined {
  *
  * @returns Lie array or false if no tampering detected
  */
-function detectIntlLies(): string[] | false {
+function detectIntlLies(): number | false {
   return (
     lieProps['Intl.Collator.resolvedOptions'] ||
     lieProps['Intl.DateTimeFormat.resolvedOptions'] ||
@@ -234,7 +234,7 @@ export default async function getIntl(): Promise<IntlFingerprint | undefined> {
     };
   } catch (error) {
     logTestResult({ test: 'intl', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

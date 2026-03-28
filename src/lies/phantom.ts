@@ -69,7 +69,7 @@ export function getBehemothIframe(win: Window): Window | null {
     ][0] as HTMLIFrameElement;
     return iframe2.contentWindow;
   } catch (error) {
-    captureError(error, 'client blocked behemoth iframe');
+    captureError(error as Error, 'client blocked behemoth iframe');
     return win;
   }
 }
@@ -146,7 +146,7 @@ export function getPhantomIframe(
       div: shadowHost,
     };
   } catch (error) {
-    captureError(error, 'client blocked phantom iframe');
+    captureError(error as Error, 'client blocked phantom iframe');
     return { iframeWindow: domContext.self };
   }
 }

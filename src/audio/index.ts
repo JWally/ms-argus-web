@@ -410,9 +410,13 @@ export default async function getOfflineAudioContext(): Promise<
 
     // Ensure OfflineAudioContext is available
     try {
-      // @ts-expect-error webkitOfflineAudioContext fallback
       window.OfflineAudioContext =
-        OfflineAudioContext || webkitOfflineAudioContext;
+        OfflineAudioContext ||
+        (
+          window as Window & {
+            webkitOfflineAudioContext?: typeof OfflineAudioContext;
+          }
+        ).webkitOfflineAudioContext;
     } catch {
       expectFailure(
         'getOfflineAudioContext',
@@ -573,7 +577,10 @@ export default async function getOfflineAudioContext(): Promise<
     };
   } catch (error) {
     logTestResult({ test: 'audio', passed: false });
-    captureError(error, 'OfflineAudioContext failed or blocked by client');
+    captureError(
+      error as Error,
+      'OfflineAudioContext failed or blocked by client',
+    );
     return undefined;
   }
 }

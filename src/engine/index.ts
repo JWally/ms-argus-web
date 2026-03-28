@@ -218,7 +218,6 @@ function detectLayoutEngine(): LayoutEngine {
     }
 
     // WebKit (Safari) specific - check for webkit prefix without chrome
-    // @ts-expect-error vendor prefix
     const hasWebkit = typeof div.style.webkitAppearance !== 'undefined';
 
     // Check window properties for engine hints
@@ -434,7 +433,7 @@ export default function getConsoleErrors():
     };
   } catch (error) {
     logTestResult({ test: 'console errors', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

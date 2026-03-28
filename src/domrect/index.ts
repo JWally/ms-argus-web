@@ -334,7 +334,7 @@ export default async function getClientRects(): Promise<
     };
   } catch (error) {
     logTestResult({ test: 'rects', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

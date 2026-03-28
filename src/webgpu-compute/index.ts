@@ -1,3 +1,4 @@
+/// <reference types="@webgpu/types" />
 /**
  * WebGPU Compute Shader Fingerprinting Module
  *
@@ -237,7 +238,11 @@ async function runRenderPipelineTest(
 
     for (const angle of ROTATION_ANGLES) {
       // Write rotation matrix
-      device.queue.writeBuffer(uniformBuffer, 0, makeRotationZ(angle));
+      device.queue.writeBuffer(
+        uniformBuffer,
+        0,
+        makeRotationZ(angle) as unknown as ArrayBuffer,
+      );
 
       const encoder = device.createCommandEncoder();
 
@@ -577,7 +582,6 @@ export default async function getWebGpuCompute(): Promise<
     }
 
     // Request adapter
-    // @ts-expect-error WebGPU types may not be available
     const gpu = navigator.gpu;
     if (!gpu || typeof gpu.requestAdapter !== 'function') {
       logTestResult({ test: 'webgpu-compute', passed: true });
@@ -660,7 +664,7 @@ export default async function getWebGpuCompute(): Promise<
     };
   } catch (error) {
     logTestResult({ test: 'webgpu-compute', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

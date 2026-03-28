@@ -57,9 +57,9 @@ export function createTimer(): Timer {
  */
 export function queueEvent(timer: Timer, delay = 0): Promise<number | void> {
   timer.stop();
-  return new Promise((resolve) =>
+  return new Promise<number>((resolve) =>
     setTimeout(() => resolve(timer.start()), delay),
-  ).catch(() => {});
+  ).catch((): void => {});
 }
 
 /**

@@ -136,7 +136,7 @@ function hasKnownBgColor(): boolean {
   if (!IS_BLINK) return false;
 
   // Use phantom iframe if available, otherwise create temp element
-  let rendered: HTMLElement | null = PARENT_PHANTOM;
+  let rendered: HTMLElement | null = PARENT_PHANTOM ?? null;
   const needsCleanup = !PARENT_PHANTOM;
 
   if (needsCleanup) {
@@ -213,10 +213,11 @@ function hasVvpScreenRes(): boolean {
 
   if (!('visualViewport' in window)) return false;
 
-  // @ts-expect-error visualViewport may not be typed
-  return (
-    visualViewport.width === screen.width &&
-    visualViewport.height === screen.height
+  const vp = window.visualViewport;
+  return !!(
+    vp &&
+    vp.width === screen.width &&
+    vp.height === screen.height
   );
 }
 
@@ -346,26 +347,24 @@ function hasHighChromeIndex(): boolean {
  * @returns True if chrome.runtime is implemented incorrectly
  */
 function hasBadChromeRuntime(): boolean {
-  // @ts-expect-error chrome may not be defined
-  if (!('chrome' in window && 'runtime' in chrome)) {
+   
+  const chromeAny = (window as any).chrome;
+  if (!chromeAny || !('runtime' in chromeAny)) {
     return false;
   }
 
   try {
     // Real chrome.runtime methods don't have prototype
-    // @ts-expect-error accessing chrome.runtime
     if (
-      'prototype' in chrome.runtime.sendMessage ||
-      'prototype' in chrome.runtime.connect
+      'prototype' in chromeAny.runtime.sendMessage ||
+      'prototype' in chromeAny.runtime.connect
     ) {
       return true;
     }
 
     // Real chrome.runtime methods can't be called with new
-    // @ts-expect-error testing constructor call
-    new chrome.runtime.sendMessage();
-    // @ts-expect-error testing constructor call
-    new chrome.runtime.connect();
+    new chromeAny.runtime.sendMessage();
+    new chromeAny.runtime.connect();
 
     // If we get here, they're constructable (bad)
     return true;
@@ -754,9 +753,9 @@ export default async function getHeadlessFeatures(
     const cdp = detectCdp();
 
     // Calculate detection ratings
-    const likeHeadlessRating = calculateRating(likeHeadless);
-    const headlessRating = calculateRating(headless);
-    const stealthRating = calculateRating(stealth);
+    const likeHeadlessRating = calculateRating(likeHeadless as unknown as Record<string, boolean>);
+    const headlessRating = calculateRating(headless as unknown as Record<string, boolean>);
+    const stealthRating = calculateRating(stealth as unknown as Record<string, boolean>);
 
     logTestResult({ time: timer.stop(), test: 'headless', passed: true });
 
@@ -774,7 +773,7 @@ export default async function getHeadlessFeatures(
     };
   } catch (error) {
     logTestResult({ test: 'headless', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

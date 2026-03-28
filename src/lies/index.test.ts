@@ -266,7 +266,9 @@ describe('lies constants', () => {
         'URIError',
       ];
       for (const errorType of standardErrors) {
-        expect(VALID_ERROR_TYPES[errorType]).toBe(true);
+        expect((VALID_ERROR_TYPES as Record<string, boolean>)[errorType]).toBe(
+          true,
+        );
       }
     });
 
@@ -383,12 +385,15 @@ describe('lies detection patterns', () => {
       ];
       for (const ErrorType of standardErrors) {
         const error = new ErrorType('test');
-        expect(VALID_ERROR_TYPES[error.name]).toBe(true);
+        expect((VALID_ERROR_TYPES as Record<string, boolean>)[error.name]).toBe(
+          true,
+        );
       }
     });
 
     it('validates by name string', () => {
-      const isValidError = (name: string) => VALID_ERROR_TYPES[name] === true;
+      const isValidError = (name: string) =>
+        (VALID_ERROR_TYPES as Record<string, boolean>)[name] === true;
 
       expect(isValidError('TypeError')).toBe(true);
       expect(isValidError('CustomError')).toBe(false);

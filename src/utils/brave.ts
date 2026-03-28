@@ -183,7 +183,7 @@ export function getBraveUnprotectedParameters<
   const safeParameters: Partial<T> = {};
   for (const key of Object.keys(parameters)) {
     if (!BRAVE_BLOCKED_WEBGL_PARAMS.has(key)) {
-      safeParameters[key as keyof T] = parameters[key];
+      safeParameters[key as keyof T] = parameters[key as keyof T];
     }
   }
   return safeParameters;

@@ -77,9 +77,8 @@ function computeStyle(type: string): ComputedStyleResult | undefined {
         : type === 'HTMLElement.style'
           ? document.body.style
           : type === 'CSSRuleList.style'
-            ? // @ts-expect-error - Accessing first CSS rule
-              (document.styleSheets[0]?.cssRules[0]
-                ?.style as CSSStyleDeclaration)
+            ? (document.styleSheets[0]?.cssRules[0] as CSSStyleRule | null)
+                ?.style
             : undefined;
 
     if (!cssStyleDeclaration) {
@@ -96,7 +95,9 @@ function computeStyle(type: string): ComputedStyleResult | undefined {
     /** Filters enumerable properties, separating numeric-indexed values from named keys. */
     Object.keys(cssStyleDeclaration).forEach((key) => {
       const numericKey = !isNaN(+key);
-      const value = (cssStyleDeclaration as Record<string, string>)[key];
+      const value = (cssStyleDeclaration as unknown as Record<string, string>)[
+        key
+      ];
       const customPropKey = CSS_VAR_REGEX.test(key);
       const customPropValue = CSS_VAR_REGEX.test(value);
 
@@ -173,7 +174,7 @@ function computeStyle(type: string): ComputedStyleResult | undefined {
 
     return { keys, interfaceName };
   } catch (error) {
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }
@@ -222,7 +223,7 @@ function getSystemStyles(el?: HTMLElement | null): SystemStyles | undefined {
 
     return getStyles(el);
   } catch (error) {
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }
@@ -259,7 +260,7 @@ function getNamedColorResolution(
     tempEl.parentNode?.removeChild(tempEl);
     return result;
   } catch (error) {
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }
@@ -299,7 +300,7 @@ export default function getCSS(): CSSFingerprint | undefined {
     };
   } catch (error) {
     logTestResult({ test: 'computed style', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

@@ -280,7 +280,7 @@ export default async function getCanvas2d(): Promise<
     };
   } catch (error) {
     logTestResult({ test: 'canvas 2d', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

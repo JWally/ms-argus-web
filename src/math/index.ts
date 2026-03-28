@@ -184,7 +184,7 @@ export default function getMaths(): MathFingerprint | undefined {
     return { data, floatBytes, lied };
   } catch (error) {
     logTestResult({ test: 'math', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

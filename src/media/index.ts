@@ -107,7 +107,7 @@ export default async function getMedia(): Promise<
     return { mimeTypes };
   } catch (error) {
     logTestResult({ test: 'media', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

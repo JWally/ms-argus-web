@@ -15,7 +15,11 @@ import { decode } from './decoder';
 import { executeAsync } from './interpreter';
 import { createArgusVmBridge } from './bridge';
 import type { ArgusVmContext } from './bridge';
-import type { SigintConfig } from '../utils/sigint';
+import {
+  fetchH2Probe,
+  extractEcdhPubkeyFromVersionHash,
+  type SigintConfig,
+} from '../utils/sigint';
 import type { FingerprintResult } from '../fingerprint';
 import type { EvercookieData } from '../utils/evercookie';
 import type { CryptoKeys } from '../utils/get-crypto-id';
@@ -27,8 +31,14 @@ let bytecodeCache: { bytecode: string; key: string; secret: string } | null =
 /** Module-level prefetch slot — populated by prefetchArgusVm(), consumed by runArgusVm() */
 let _prefetchSlot: Promise<{
   modules: NonNullable<Awaited<ReturnType<typeof loadBytecodeModules>>>;
-  handshake: NonNullable<Awaited<ReturnType<typeof _fetchHandshake>>>;
+  handshake: { serverPubKey: string; sessionToken: string };
 } | null> | null = null;
+
+/**
+ * H2-probe token prefetch slot — populated by prefetchArgusVm() when sigintConfig
+ * is provided, passed to the bridge via ArgusVmContext to avoid a duplicate fetch.
+ */
+let _prefetchH2Slot: Promise<string> | null = null;
 
 async function loadBytecodeModules() {
   if (bytecodeCache) return bytecodeCache;
@@ -70,63 +80,63 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-// Raw P-256 uncompressed public key = 65 bytes = 88 chars base64 (with padding)
-const SERVER_PUBKEY_B64_LEN = 88;
-
 /**
- * Perform the handshake with /v1/handshake.
- *
- * Generates a throw-away P-256 keypair, sends the public key as X-Argus-Origin
- * (quid-pro-quo: show yours to get ours), and extracts the server public key
- * from the last 88 chars of the opaque token in the response.
- *
- * The token looks like a single opaque blob — the server pubkey is buried at
- * the end with no label. Returns null on any failure.
+ * Pre-warm: start bytecode load and h2-probe fetch immediately, before fingerprint
+ * collection. The h2-probe response carries the server's ECDH public key — there is
+ * no fallback key-retrieval path. Call this as early as possible.
+ * runArgusVm() will consume the result automatically.
  */
-async function _fetchHandshake(
-  apiBase: string,
-): Promise<{ serverPubKey: string; sessionToken: string } | null> {
-  try {
-    const keyPair = await crypto.subtle.generateKey(
-      { name: 'ECDH', namedCurve: 'P-256' },
-      false,
-      ['deriveBits'],
+type PrefetchResult = Promise<{
+  modules: NonNullable<Awaited<ReturnType<typeof loadBytecodeModules>>>;
+  handshake: { serverPubKey: string; sessionToken: string };
+} | null>;
+
+export function prefetchArgusVm(sigintConfig?: SigintConfig): PrefetchResult {
+  _prefetchH2Slot = null;
+
+  let slot: PrefetchResult;
+
+  if (sigintConfig) {
+    // Start h2-probe eagerly. Its response carries the server pubkey.
+    // Also store the token promise for bridge.ts reuse.
+    const h2Result = fetchH2Probe(sigintConfig)
+      .then((r) => {
+        const data = r.data;
+        let token = '';
+        let serverPubKey: string | null = null;
+        if (data && typeof data === 'object' && 'token' in data) {
+          token = (data as { token: string }).token;
+          const vh = (data as { 'x-api-version-hash'?: string })[
+            'x-api-version-hash'
+          ];
+          if (vh) serverPubKey = extractEcdhPubkeyFromVersionHash(vh);
+        }
+        return { token, serverPubKey };
+      })
+      .catch(() => ({ token: '', serverPubKey: null }));
+
+    // Expose just the token string for bridge.ts to reuse (avoids a duplicate request)
+    _prefetchH2Slot = h2Result.then((r) => r.token);
+
+    slot = Promise.all([loadBytecodeModules(), h2Result]).then(
+      ([modules, h2Data]) => {
+        if (!modules || !h2Data.serverPubKey) return null;
+        return {
+          modules,
+          handshake: {
+            serverPubKey: h2Data.serverPubKey,
+            sessionToken: crypto.randomUUID().replace(/-/g, ''),
+          },
+        };
+      },
     );
-    const rawPub = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-    const clientPubKeyB64 = btoa(
-      String.fromCharCode(...new Uint8Array(rawPub)),
-    );
-
-    const res = await fetch(`${apiBase}/v1/handshake`, {
-      headers: { 'X-Argus-Origin': clientPubKeyB64 },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as { token?: string };
-    const token = data.token;
-    if (!token || token.length < SERVER_PUBKEY_B64_LEN) return null;
-
-    return {
-      serverPubKey: token.slice(-SERVER_PUBKEY_B64_LEN),
-      sessionToken: token,
-    };
-  } catch {
-    return null;
+  } else {
+    // Without sigintConfig there's no way to obtain the server ECDH pubkey.
+    slot = Promise.resolve(null);
   }
-}
 
-/**
- * Pre-warm: start handshake + bytecode load immediately, before fingerprint collection.
- * Call this as early as possible. runArgusVm() will consume the result automatically.
- */
-export function prefetchArgusVm(apiBase: string): void {
-  _prefetchSlot = Promise.all([
-    loadBytecodeModules(),
-    _fetchHandshake(apiBase),
-  ]).then(([modules, handshake]) =>
-    modules && handshake ? { modules, handshake } : null,
-  );
+  _prefetchSlot = slot;
+  return slot;
 }
 
 export interface ArgusVmResult {
@@ -159,12 +169,12 @@ export async function runArgusVm(
   };
 
   // Consume prefetch slot if available (started by prefetchArgusVm() before fingerprint collection),
-  // otherwise fall back to fetching now.
+  // otherwise start fresh now. _prefetchH2Slot stays live for bridge.ts to reuse.
   const prefetched = _prefetchSlot;
   _prefetchSlot = null;
 
-  let modules: Awaited<ReturnType<typeof loadBytecodeModules>>;
-  let handshake: Awaited<ReturnType<typeof _fetchHandshake>>;
+  let modules: NonNullable<Awaited<ReturnType<typeof loadBytecodeModules>>>;
+  let handshake: { serverPubKey: string; sessionToken: string };
 
   if (prefetched) {
     const result = await prefetched;
@@ -172,11 +182,14 @@ export async function runArgusVm(
     modules = result.modules;
     handshake = result.handshake;
   } else {
-    [modules, handshake] = await Promise.all([
-      loadBytecodeModules(),
-      _fetchHandshake(apiBase),
-    ]);
-    if (!modules || !handshake) return fallback;
+    // No prefetch slot — start fresh. Without sigintConfig there's no way
+    // to obtain the server ECDH pubkey, so fail fast.
+    if (!sigintConfig) return fallback;
+    const result = await prefetchArgusVm(sigintConfig);
+    _prefetchSlot = null;
+    if (!result) return fallback;
+    modules = result.modules;
+    handshake = result.handshake;
   }
 
   try {
@@ -205,6 +218,7 @@ export async function runArgusVm(
       sigintConfig,
       apiEndpoint: `${apiBase}/v1/collect`,
       sessionToken: handshake.sessionToken,
+      h2Promise: _prefetchH2Slot ?? undefined,
     };
     const bridge = createArgusVmBridge(ctx);
 

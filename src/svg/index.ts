@@ -37,11 +37,11 @@ import type { SVGFingerprint } from './types';
  * SVGRect and similar objects have prototype-based properties.
  * This extracts all numeric values.
  */
-function reduceToObject(nativeObj: SVGRect): Record<string, number> {
+function reduceToObject(nativeObj: SVGRect | DOMRect): Record<string, number> {
   const keys = Object.keys(Object.getPrototypeOf(nativeObj));
   return keys.reduce(
     (acc, key) => {
-      const val = (nativeObj as Record<string, unknown>)[key];
+      const val = (nativeObj as unknown as Record<string, unknown>)[key];
       const isMethod = typeof val === 'function';
       return isMethod ? acc : { ...acc, [key]: val as number };
     },
@@ -52,10 +52,12 @@ function reduceToObject(nativeObj: SVGRect): Record<string, number> {
 /**
  * Sums all numeric properties of an SVG native object.
  */
-function reduceToSum(nativeObj: SVGRect): number {
+function reduceToSum(nativeObj: SVGRect | DOMRect): number {
   const keys = Object.keys(Object.getPrototypeOf(nativeObj));
   return keys.reduce((acc, key) => {
-    const val = (nativeObj as Record<string, unknown>)[key] as number;
+    const val = (nativeObj as unknown as Record<string, unknown>)[
+      key
+    ] as number;
     return isNaN(val) ? acc : acc + val;
   }, 0);
 }
@@ -182,7 +184,9 @@ export default async function getSVG(): Promise<SVGFingerprint | undefined> {
     createSVGContainer(doc);
 
     // Get SVG elements
-    const svgBox = doc.getElementById('svgBox') as SVGGraphicsElement;
+    const svgBox = doc.getElementById(
+      'svgBox',
+    ) as unknown as SVGGraphicsElement;
     const bBox = reduceToObject(svgBox.getBBox());
 
     // Get emoji text elements
@@ -207,7 +211,9 @@ export default async function getSVG(): Promise<SVGFingerprint | undefined> {
     // Collect measurements
     const data: SVGFingerprint = {
       bBox: getObjectSum(bBox),
-      extentOfChar: reduceToSum(svgElems[0].getExtentOfChar(EMOJIS[0])),
+      extentOfChar: reduceToSum(
+        svgElems[0].getExtentOfChar(EMOJIS[0] as unknown as number),
+      ),
       subStringLength: svgElems[0].getSubStringLength(0, 10),
       computedTextLength: svgElems[0].getComputedTextLength(),
       emojiSet,
@@ -223,7 +229,7 @@ export default async function getSVG(): Promise<SVGFingerprint | undefined> {
     return data;
   } catch (error) {
     logTestResult({ test: 'svg', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

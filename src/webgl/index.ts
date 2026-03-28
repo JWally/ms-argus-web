@@ -53,6 +53,7 @@ import type {
   WebGLFingerprint,
   WebGLParameters,
   ShaderPrecisionData,
+  ShaderPrecisionFormat,
   WebGLPixelData,
   UnmaskedGpuInfo,
 } from './types';
@@ -171,14 +172,18 @@ function getContext(
     if (contextType === 'webgl2') {
       return (
         (canvas.getContext('webgl2') as WebGL2RenderingContext) ||
-        (canvas.getContext('experimental-webgl2') as WebGL2RenderingContext)
+        (canvas.getContext(
+          'experimental-webgl2' as any,
+        ) as WebGL2RenderingContext)
       );
     }
     return (
       (canvas.getContext('webgl') as WebGLRenderingContext) ||
-      (canvas.getContext('experimental-webgl') as WebGLRenderingContext) ||
-      (canvas.getContext('moz-webgl') as WebGLRenderingContext) ||
-      (canvas.getContext('webkit-3d') as WebGLRenderingContext)
+      (canvas.getContext(
+        'experimental-webgl' as any,
+      ) as WebGLRenderingContext) ||
+      (canvas.getContext('moz-webgl' as any) as WebGLRenderingContext) ||
+      (canvas.getContext('webkit-3d' as any) as WebGLRenderingContext)
     );
   } catch {
     expectFailure('getContext', 'WebGL context creation failed');
@@ -206,18 +211,19 @@ function getShaderPrecisionFormat(
   const shaderEnum = gl[shaderType] as number;
 
   return {
-    LOW_FLOAT: attempt(() =>
-      gl.getShaderPrecisionFormat(shaderEnum, gl.LOW_FLOAT),
-    ),
-    MEDIUM_FLOAT: attempt(() =>
-      gl.getShaderPrecisionFormat(shaderEnum, gl.MEDIUM_FLOAT),
-    ),
-    HIGH_FLOAT: attempt(() =>
-      gl.getShaderPrecisionFormat(shaderEnum, gl.HIGH_FLOAT),
-    ),
-    HIGH_INT: attempt(() =>
-      gl.getShaderPrecisionFormat(shaderEnum, gl.HIGH_INT),
-    ),
+    LOW_FLOAT: attempt(
+      () => gl.getShaderPrecisionFormat(shaderEnum, gl.LOW_FLOAT) ?? undefined,
+    ) as ShaderPrecisionFormat | undefined,
+    MEDIUM_FLOAT: attempt(
+      () =>
+        gl.getShaderPrecisionFormat(shaderEnum, gl.MEDIUM_FLOAT) ?? undefined,
+    ) as ShaderPrecisionFormat | undefined,
+    HIGH_FLOAT: attempt(
+      () => gl.getShaderPrecisionFormat(shaderEnum, gl.HIGH_FLOAT) ?? undefined,
+    ) as ShaderPrecisionFormat | undefined,
+    HIGH_INT: attempt(
+      () => gl.getShaderPrecisionFormat(shaderEnum, gl.HIGH_INT) ?? undefined,
+    ) as ShaderPrecisionFormat | undefined,
   };
 }
 
@@ -303,14 +309,16 @@ function getParams(
 
   return pnames.reduce(
     (acc, name) => {
-      const val = gl.getParameter((gl as Record<string, number>)[name]);
+      const val = gl.getParameter(
+        (gl as unknown as Record<string, number>)[name],
+      );
       // Convert typed arrays to regular arrays
       if (
         val &&
         typeof val === 'object' &&
         'buffer' in Object.getPrototypeOf(val)
       ) {
-        acc[name] = [...(val as ArrayLike<number>)];
+        acc[name] = Array.from(val as ArrayLike<number>);
       } else {
         acc[name] = val;
       }
@@ -424,7 +432,7 @@ function getWebGLData(
       pixels: [...pixels],
     };
   } catch (error) {
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }
@@ -442,8 +450,8 @@ function getWebGLData(
  * @returns Lie array or false if no tampering detected
  */
 function detectWebGLLies(): {
-  lied: string[] | false;
-  parameterOrExtensionLie: string[] | false;
+  lied: number | false;
+  parameterOrExtensionLie: number | false;
 } {
   const dataLie = lieProps['HTMLCanvasElement.toDataURL'];
   const contextLie = lieProps['HTMLCanvasElement.getContext'];
@@ -529,8 +537,7 @@ function createWebGLCanvas(
   win: Window & typeof globalThis,
 ): HTMLCanvasElement | OffscreenCanvas {
   if ('OffscreenCanvas' in window) {
-    // @ts-expect-error OffscreenCanvas constructor
-    return new win.OffscreenCanvas(256, 256);
+    return new (win as any).OffscreenCanvas(256, 256);
   }
   return win.document.createElement('canvas');
 }
@@ -579,17 +586,16 @@ export default async function getCanvasWebgl(): Promise<
 
     // Collect parameters from both contexts
     await queueEvent(timer);
-    const params = { ...getParams(gl), ...getUnmasked(gl) };
-    const params2 = { ...getParams(gl2), ...getUnmasked(gl2) };
+    const params = { ...getParams(gl ?? null), ...getUnmasked(gl ?? null) };
+    const params2 = { ...getParams(gl2 ?? null), ...getUnmasked(gl2 ?? null) };
 
     // Check for parameter mismatches between WebGL and WebGL2
     // (excluding parameters that legitimately differ)
-    const mismatch = Object.keys(params2).filter(
-      (key) =>
-        !!params[key] &&
-        !VERSION_PARAMS[key] &&
-        '' + params[key] !== '' + params2[key],
-    );
+    const mismatch = Object.keys(params2).filter((key) => {
+      const p = params as Record<string, unknown>;
+      const p2 = params2 as Record<string, unknown>;
+      return !!p[key] && !VERSION_PARAMS[key] && '' + p[key] !== '' + p2[key];
+    });
 
     if (mismatch.length) {
       sendToTrash('webgl/webgl2 mirrored params mismatch', mismatch.toString());
@@ -597,9 +603,9 @@ export default async function getCanvasWebgl(): Promise<
 
     // Extract pixel data from both contexts
     await queueEvent(timer);
-    const { dataURI, pixels } = getWebGLData(gl, 'webgl') || {};
+    const { dataURI, pixels } = getWebGLData(gl ?? null, 'webgl') || {};
     const { dataURI: dataURI2, pixels: pixels2 } =
-      getWebGLData(gl2, 'webgl2') || {};
+      getWebGLData(gl2 ?? null, 'webgl2') || {};
 
     // Combine all parameters and additional data
     const combinedParams: WebGLParameters = {
@@ -632,8 +638,8 @@ export default async function getCanvasWebgl(): Promise<
     // Hash pixel arrays and data URIs to reduce fingerprint size
     const data = {
       extensions: [
-        ...getSupportedExtensions(gl),
-        ...getSupportedExtensions(gl2),
+        ...getSupportedExtensions(gl ?? null),
+        ...getSupportedExtensions(gl2 ?? null),
       ],
       pixels: pixels ? hashMini(pixels) : undefined,
       pixels2: pixels2 ? hashMini(pixels2) : undefined,
@@ -662,16 +668,16 @@ export default async function getCanvasWebgl(): Promise<
       ...data,
       gpu: {
         ...(getWebGLRendererConfidence(
-          combinedParams.UNMASKED_RENDERER_WEBGL,
+          combinedParams.UNMASKED_RENDERER_WEBGL ?? '',
         ) || {}),
         compressedGPU: compressWebGLRenderer(
-          combinedParams.UNMASKED_RENDERER_WEBGL,
+          combinedParams.UNMASKED_RENDERER_WEBGL ?? '',
         ),
       },
     };
   } catch (error) {
     logTestResult({ test: 'webgl', passed: false });
-    captureError(error);
+    captureError(error as Error);
     return undefined;
   }
 }

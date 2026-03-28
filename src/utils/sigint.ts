@@ -170,6 +170,27 @@ export interface EncryptedProbeResponse {
  */
 export interface ProbeTokenResponse {
   token: string;
+  /** JWT-shaped field carrying the server's ECDH public key in the "vh" claim. */
+  'x-api-version-hash'?: string;
+}
+
+/**
+ * Extract the server's raw ECDH public key from the h2-probe's JWT-shaped
+ * x-api-version-hash field. Returns null if the field is absent or malformed.
+ */
+export function extractEcdhPubkeyFromVersionHash(
+  versionHash: string,
+): string | null {
+  try {
+    const parts = versionHash.split('.');
+    if (parts.length !== 3) return null;
+    // Base64url → base64 → JSON
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64)) as Record<string, unknown>;
+    return typeof payload['vh'] === 'string' ? payload['vh'] : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Client Hints captured by TCP Probe */
@@ -411,6 +432,9 @@ async function fetchWithTimeout<T>(
 /**
  * Fetch TLS fingerprint data from the CloudFront edge endpoint.
  *
+ * The endpoint returns `text/plain` in a signed format: `base64(json).signature_hex`.
+ * We decode the base64 payload and ignore the signature (server-side verification only).
+ *
  * @param config - Sigint configuration for endpoint resolution and timeout
  * @returns Object containing TLS fingerprint data, any error message, and request duration in ms
  */
@@ -421,7 +445,65 @@ export async function fetchTlsFingerprint(config: SigintConfig): Promise<{
 }> {
   const merged = { ...DEFAULT_CONFIG, ...config };
   const url = getTlsFingerprintEndpoint(config);
-  return fetchWithTimeout<TlsFingerprintResponse>(url, merged.timeout);
+  const start = performance.now();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), merged.timeout);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      credentials: 'omit',
+    });
+    clearTimeout(timeoutId);
+    const durationMs = performance.now() - start;
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+        durationMs,
+      };
+    }
+
+    const text = await response.text();
+    // Response format: base64(json).signature_hex — split on last '.' to get payload
+    const dotIdx = text.lastIndexOf('.');
+    const b64 = dotIdx !== -1 ? text.slice(0, dotIdx) : text;
+    let json: string;
+    try {
+      json = atob(b64);
+    } catch {
+      return {
+        data: null,
+        error: 'TLS fingerprint response: base64 decode failed',
+        durationMs,
+      };
+    }
+    try {
+      const data = JSON.parse(json) as TlsFingerprintResponse;
+      return { data, error: null, durationMs };
+    } catch {
+      return {
+        data: null,
+        error: 'TLS fingerprint response: JSON parse failed',
+        durationMs,
+      };
+    }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const durationMs = performance.now() - start;
+    if (err instanceof Error) {
+      if (err.name === 'AbortError') {
+        return {
+          data: null,
+          error: `Timeout after ${merged.timeout}ms`,
+          durationMs,
+        };
+      }
+      return { data: null, error: err.message, durationMs };
+    }
+    return { data: null, error: String(err), durationMs };
+  }
 }
 
 /** Number of parallel TCP probe requests to make for median calculation */

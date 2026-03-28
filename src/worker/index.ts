@@ -189,7 +189,7 @@ function createWorkerBlobUrl(): string {
  * - shared: SharedWorker
  * - service: ServiceWorker
  */
-export type WorkerType = 'main' | 'web' | 'shared' | 'service';
+export type WorkerType = 'main' | 'web' | 'dedicated' | 'shared' | 'service';
 
 /**
  * Result from a single worker type.
@@ -221,7 +221,7 @@ export interface WorkerComparison {
  */
 export interface WorkerDifference {
   field: string;
-  values: Record<WorkerType, unknown>;
+  values: Partial<Record<WorkerType, unknown>>;
 }
 
 /**
@@ -252,6 +252,13 @@ export interface WorkerScopeData {
   webglRenderer?: string;
   webglVendor?: string;
   userAgentData?: Record<string, unknown>;
+  system?: string;
+  device?: string;
+  userAgentVersion?: string;
+  userAgentDataVersion?: string;
+  userAgentEngine?: string;
+  gpu?: Record<string, unknown>;
+  scopes?: Record<string, unknown>;
 }
 
 /**
@@ -298,7 +305,7 @@ export let WORKER_NAME = '';
  */
 export async function spawnWorker() {
   /** Safely executes a function, returning undefined on error. */
-  const ask = (fn) => {
+  const ask = (fn: () => any) => {
     try {
       return fn();
     } catch (e) {
@@ -345,7 +352,7 @@ export async function spawnWorker() {
    * Fetches high-entropy user agent data from NavigatorUAData API.
    * Returns sorted key-value object with brand and version info.
    */
-  const getUserAgentData = async (navigator) => {
+  const getUserAgentData = async (navigator: any) => {
     if (!('userAgentData' in navigator)) {
       return;
     }
@@ -359,14 +366,17 @@ export async function spawnWorker() {
     ]);
     const { brands, mobile } = navigator.userAgentData || {};
     /** Filters out "Not" brands and formats as name strings, optionally with version. */
-    const compressedBrands = (brands, captureVersion = false) =>
+    const compressedBrands = (brands: any[], captureVersion = false) =>
       brands
-        .filter((obj) => !/Not/.test(obj.brand))
-        .map((obj) => `${obj.brand}${captureVersion ? ` ${obj.version}` : ''}`);
+        .filter((obj: any) => !/Not/.test(obj.brand))
+        .map(
+          (obj: any) =>
+            `${obj.brand}${captureVersion ? ` ${obj.version}` : ''}`,
+        );
     /** Removes Chromium entries from brand list when multiple brands exist. */
-    const removeChromium = (brands) =>
+    const removeChromium = (brands: any[]) =>
       brands.length > 1
-        ? brands.filter((brand) => !/Chromium/.test(brand))
+        ? brands.filter((brand: any) => !/Chromium/.test(brand))
         : brands;
 
     // compress brands
@@ -383,8 +393,8 @@ export async function spawnWorker() {
     }
     const dataSorted = Object.keys(data)
       .sort()
-      .reduce((acc, key) => {
-        acc[key] = data[key];
+      .reduce((acc: Record<string, unknown>, key) => {
+        acc[key] = (data as any)[key];
         return acc;
       }, {});
     return dataSorted;
@@ -399,9 +409,11 @@ export async function spawnWorker() {
       // @ts-ignore
       const canvasOffscreenWebgl = new OffscreenCanvas(256, 256);
       const contextWebgl = canvasOffscreenWebgl.getContext('webgl');
+      if (!contextWebgl) return undefined;
       const rendererInfo = contextWebgl.getExtension(
         'WEBGL_debug_renderer_info',
       );
+      if (!rendererInfo) return undefined;
       return {
         webglVendor: contextWebgl.getParameter(
           rendererInfo.UNMASKED_VENDOR_WEBGL,
@@ -421,7 +433,7 @@ export async function spawnWorker() {
     // @ts-ignore
     const year = Date().split` `[3]; // current year
     /** Zero-pads single digit numbers to two characters. */
-    const format = (n) => (('' + n).length == 1 ? `0${n}` : n);
+    const format = (n: any) => (('' + n).length == 1 ? `0${n}` : n);
     const dateString = `${month + 1}/${format(date)}/${year}`;
     const dateStringUTC = `${year}-${format(month + 1)}-${format(date)}`;
     // @ts-ignore
@@ -444,10 +456,9 @@ export async function spawnWorker() {
       'PluralRules',
       'RelativeTimeFormat',
     ];
-    // @ts-ignore
-    const locale = constructors.reduce((acc, name) => {
+    const locale = constructors.reduce((acc: string[], name) => {
       try {
-        const obj = new Intl[name]();
+        const obj = new (Intl as any)[name]();
         if (!obj) {
           return acc;
         }
@@ -456,7 +467,7 @@ export async function spawnWorker() {
       } catch (error) {
         return acc;
       }
-    }, []);
+    }, [] as string[]);
 
     return [...new Set(locale)];
   };
@@ -562,15 +573,17 @@ export async function spawnWorker() {
 
   // Compute and communicate from worker scope
   /** Adds an event listener to the worker global scope. */
-  const onEvent = (eventType, fn) => addEventListener(eventType, fn);
+  const onEvent = (eventType: string, fn: (e: any) => any) =>
+    addEventListener(eventType, fn);
   /** Collects worker data and sends it via postMessage to the given source. */
-  const send = (source) => {
+  const send = (source: any) => {
     return getWorkerData().then((data) => source.postMessage(data));
   };
+  const gs = globalThis as any;
   if (IS_WORKER_SCOPE) {
-    globalThis.ServiceWorkerGlobalScope
+    gs.ServiceWorkerGlobalScope
       ? onEvent('message', (e) => send(e.source))
-      : globalThis.SharedWorkerGlobalScope
+      : gs.SharedWorkerGlobalScope
         ? onEvent('connect', (e) => send(e.ports[0]))
         : send(self); // DedicatedWorkerGlobalScope
   }
@@ -805,8 +818,8 @@ export default async function getBestWorkerScope() {
 
     // user agent engine lie
     const decryptedName = decryptUserAgent({
-      ua: userAgent,
-      os: system,
+      ua: userAgent ?? '',
+      os: system ?? '',
       isBrave: false, // default false since we are only looking for JS runtime and version
     });
     const userAgentEngine =
@@ -824,10 +837,10 @@ export default async function getBestWorkerScope() {
     }
     // user agent version lie
     /** Extracts the leading version number from a string. */
-    const getVersion = (x) => (/\d+/.exec(x) || [])[0];
+    const getVersion = (x: string) => (/\d+/.exec(x) || [])[0];
     const userAgentVersion = getVersion(decryptedName);
     const userAgentDataVersion = getVersion(
-      userAgentData ? userAgentData.uaFullVersion : '',
+      userAgentData ? (userAgentData.uaFullVersion as string) || '' : '',
     );
     const versionSupported = userAgentDataVersion && userAgentVersion;
     const versionMatch = userAgentDataVersion == userAgentVersion;
@@ -843,7 +856,7 @@ export default async function getBestWorkerScope() {
      * Checks for Windows/macOS platform version inconsistency between
      * userAgentData.platformVersion and the reported device string.
      */
-    const getPlatformVersionLie = (device, userAgentData) => {
+    const getPlatformVersionLie = (device: any, userAgentData: any) => {
       if (!/windows|mac/i.test(device) || !userAgentData?.platformVersion) {
         return false;
       }
@@ -892,8 +905,8 @@ export default async function getBestWorkerScope() {
     workerScope.userAgentEngine = userAgentEngine;
 
     const gpu = {
-      ...(getWebGLRendererConfidence(workerScope.webglRenderer) || {}),
-      compressedGPU: compressWebGLRenderer(workerScope.webglRenderer),
+      ...(getWebGLRendererConfidence(workerScope.webglRenderer ?? '') || {}),
+      compressedGPU: compressWebGLRenderer(workerScope.webglRenderer ?? ''),
     };
 
     logTestResult({
@@ -909,7 +922,7 @@ export default async function getBestWorkerScope() {
     };
   } catch (error) {
     logTestResult({ test: 'worker', passed: false });
-    captureError(error, 'workers failed or blocked by client');
+    captureError(error as Error, 'workers failed or blocked by client');
     // Return empty data gracefully instead of undefined
     const mainScope = {
       hardwareConcurrency: navigator.hardwareConcurrency,

@@ -71,5 +71,5 @@ export interface IntlFingerprint {
   locale: string;
 
   /** Whether tampering was detected in Intl APIs */
-  lied: string[] | false;
+  lied: number | false;
 }
